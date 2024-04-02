@@ -1,0 +1,441 @@
+---
+title: "Study 1 (k = 2) LTA Generated, LTA Analyzed; Three Timepoints"
+format: html
+editor: visual
+author: "Delwin Carter"
+page-layout: full
+fig-format: svg
+knitr:
+  opts_chunk:
+    out.width: "90%"
+    fig.align: center
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(MplusAutomation)
+library(here)
+library(gt)
+library(janitor)
+library(glue)
+library(ggtext)
+library(rlang)
+library(knitr)
+library(kableExtra)
+library(openxlsx)
+
+```
+
+# Study 1 (k = 2) LTA Generated, LTA Analyzed
+
+![](images/clipboard-2674798363.png){width="351"}
+
+# Model 1:
+
+# Conditions:
+
+Sample Size: N = 500, 1000, 2000, 4000
+
+Transition logit (Probability): TPs = 1.385 (.8), .85 (.7), .41 (.6), -.41 (.4), -.85 (.3), -1.385 (.2)
+
+![](images/clipboard-4066126347.png){width="544"}
+
+Class Definition: Well Defined
+
+```{r}
+
+p1 <- expand.grid(N = c(500, 1000, 2000, 4000),
+                  TPs = c(1.385, 0.85, 0.41, -0.41, -0.85, -1.385),
+                  TH = c(1))
+p1
+
+
+```
+
+```{r,message=FALSE, warning=FALSE, eval = FALSE}
+lta_lta_func <- function(N, TPs, TH) {
+  
+  LTA_LTA <- mplusObject(
+    TITLE = glue("Generate LTA_LTA_N = {N}_TP = {TPs}_{TH}"),
+
+    MONTECARLO =
+      glue("NAMES = u11-u15 u21-u25 u31-u35;
+      GENERATE = u11-u15 u21-u25 u31-u35(1);
+      CATEGORICAL = u11-u15 u21-u25 u31-u35;
+      GENCLASSES = c1(2) c2(2) c3(2);
+      CLASSES = c1(2) c2(2) c3(2);
+      NOBSERVATIONS = {N};
+      SEED = 07252005;
+      NREPS = 500;"),
+
+    ANALYSIS =
+      "TYPE = MIXTURE;
+      algorithm = integration;
+      processors = 8;
+      logcriterion=0.00001;
+      mconv=0.00001;",
+
+    MODELPOPULATION = glue("	
+        %OVERALL%
+
+        [c1#1-c3#1*0];
+        c2#1 on c1#1*{TPs};
+        c3#1 on c2#1*0;
+        
+      MODEL POPULATION-c1:
+        %c1#1%
+     [u11$1*{TH} u12$1*{TH} u13$1*{TH} u14$1*{TH} u15$1*{TH}] (p111-p115);
+
+        %c1#2%
+     [u11$1*-{TH} u12$1*-{TH} u13$1*-{TH} u14$1*-{TH} u15$1*-{TH}] (p121-p125);
+
+      MODEL POPULATION-c2:  
+        %c2#1%
+     [u21$1*{TH} u22$1*{TH} u23$1*{TH} u24$1*{TH} u25$1*{TH}] (p111-p115);
+
+        %c2#2%
+     [u21$1*-{TH} u22$1*-{TH} u23$1*-{TH} u24$1*-{TH} u25$1*-{TH}] (p121-p125);
+     
+      MODEL POPULATION-c3:  
+        %c3#1%
+     [u31$1*{TH} u32$1*{TH} u33$1*{TH} u34$1*{TH} u35$1*{TH}] (p111-p115);
+
+        %c3#2%
+     [u31$1*-{TH} u32$1*-{TH} u33$1*-{TH} u34$1*-{TH} u35$1*-{TH}] (p121-p125);
+       "),
+     
+
+    MODEL =
+      glue("	
+        %OVERALL%
+          [c1#1-c3#1*0](par1-par3);
+        	c2#1 on c1#1*{TPs} (par11);
+        	c3#1 on c2#1*0;
+        	
+     MODEL c1:
+        %c1#1%
+     [u11$1*{TH} u12$1*{TH} u13$1*{TH} u14$1*{TH} u15$1*{TH}] (p111-p115);
+
+        %c1#2%
+     [u11$1*-{TH} u12$1*-{TH} u13$1*-{TH} u14$1*-{TH} u15$1*-{TH}] (p121-p125);
+
+    MODEL c2: 	
+        %c2#1%
+     [u21$1*{TH} u22$1*{TH} u23$1*{TH} u24$1*{TH} u25$1*{TH}] (p111-p115);
+
+        %c2#2%
+     [u21$1*-{TH} u22$1*-{TH} u23$1*-{TH} u24$1*-{TH} u25$1*-{TH}] (p121-p125);
+     
+    MODEL c3:  
+        %c3#1%
+     [u31$1*{TH} u32$1*{TH} u33$1*{TH} u34$1*{TH} u35$1*{TH}] (p111-p115);
+
+        %c3#2%
+     [u31$1*-{TH} u32$1*-{TH} u33$1*-{TH} u34$1*-{TH} u35$1*-{TH}] (p121-p125);
+	      "),
+      
+
+    MODELCONSTRAINT =
+      if (TPs == 1.385) {
+        glue("
+        New(
+        trans11*.80 trans12*.20 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.65 prob22*.35);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+      } 
+             else if (TPs == .85) {
+        glue("
+        New(
+        trans11*.70 trans12*.30 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.60 prob22*.4);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+              } 
+            else  if (TPs == .41) {
+        glue("
+        New(
+        trans11*.60 trans12*.40 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.55 prob22*.45);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+              } 
+             else if (TPs == -.41) {
+        glue("
+        New(
+        trans11*.40 trans12*.60 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.45 prob22*.55);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+              } 
+             else if (TPs == -.85) {
+        glue("
+        New(
+        trans11*.30 trans12*.70 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.40 prob22*.60);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+              } 
+        
+        else if (TPs == -1.385) {
+        glue("
+         New(
+        trans11*.20 trans12*.80 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.35 prob22*.65);
+
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;")
+      }
+  )
+
+  # Run Mplus model
+  LTA_LTA_Model<- mplusModeler(LTA_LTA, 
+                                   dataout = here("5. 3T LTA GEN LTA ANALYZED", glue("LTA_LTA_N = {N}_TP = {TPs}_TH = {TH}_WD.dat")),
+                                   modelout = glue(here("5. 3T LTA GEN LTA ANALYZED", "LTA_LTA_N = {N}_TP = {TPs}_TH = {TH}_WD.inp")),
+                                   check = TRUE, run = TRUE, hashfilename = FALSE)
+return(LTA_LTA_Model)
+}
+
+result_list <- lapply(1:nrow(p1), function(i) {
+  lta_lta_func(p1$N[i], p1$TPs[i], p1$TH[i])
+               })
+
+
+
+```
+
+# 
+
+```{r}
+# Extract models
+lta_sim <- readModels(here("5. 3T LTA GEN LTA ANALYZED"), what = "parameters")
+
+# Create table of unstandardized values across outputs
+ltaNames <- names(lta_sim)
+unstandardizedLTA <- sapply(sapply(lta_sim, "[", "parameters"), "[", "unstandardized")
+names(unstandardizedLTA) <- ltaNames
+```
+
+```{r}
+# Wrangle
+apply_table_setup <- function(data) {
+  table_setup <- data %>%
+    slice(36) %>%  # Select only row 24
+    rename(Power = pct_sig_coef,
+           Parameter = param,
+           Coverage = cover_95)  %>% 
+               select(Parameter:Power)
+  
+  return(table_setup)
+}
+
+resultsLTA <- lapply(unstandardizedLTA, apply_table_setup)
+
+lta_combined <- do.call("rbind", resultsLTA)
+lta_combined <- as.data.frame(lta_combined)
+rownames(lta_combined) <- toupper(rownames(lta_combined))
+
+```
+
+```{r}
+# 1 = Mover, 2 = Stayer
+lta_combined$Transitions <- rep(c("1", "2"), each = 3)
+lta_combined$N <- rep(c("2", "3", "4", "1"), each = 6)
+
+lta_combined <- lta_combined %>%
+  arrange(N) %>%
+  mutate(Cond_Num = as.array(rep(1:24)))
+
+
+```
+
+```{r}
+# Calculate dichotomous variable for Power
+lta_combined <- lta_combined %>%
+  mutate(Power_Dic = ifelse(Power >= 0.8, 1, 0))
+
+# Calculate dichotomous variable for Coverage
+lta_combined <- lta_combined %>%
+  mutate(Coverage_Dic = ifelse(Coverage > 0.98 | Coverage < 0.91, 0, 1))
+```
+
+```{r}
+# Calculate Parameter Bias and SE Bias without %
+lta_combined <- lta_combined %>%
+  mutate(Parameter_Bias = ((as.numeric(as.character(average)) - as.numeric(as.character(population))) / as.numeric(as.character(population))) * 100,
+         SE_Bias = ((as.numeric(as.character(average_se)) - as.numeric(as.character(population_sd))) / as.numeric(as.character(population_sd))) * 100) %>%
+  mutate(across(c(Parameter_Bias, SE_Bias), ~ round(., 2)))
+
+lta_combined$Parameter_Bias <- as.numeric(lta_combined$Parameter_Bias)
+lta_combined$SE_Bias <- as.numeric(lta_combined$SE_Bias)
+```
+
+```{r}
+all_data <-lta_combined
+
+
+all_data$Population_Label <- factor(all_data$population, levels = c(.2, .3, .4, .6, .7, .8), labels = c(
+  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .200"),
+  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .300"),
+  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .400"),
+  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .600"),
+  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .700"),
+  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .800")
+  ))
+                            
+# Subset for Transitions movers
+subset_mover <- subset(all_data, Transitions == 1)
+
+# Subset for Transitions stayers
+subset_stayer <- subset(all_data, Transitions == 2)
+
+
+```
+
+```{r}
+common_theme <- theme_minimal() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    axis.text.x = element_text(size = 8),  # Increase the size of x-axis text
+    axis.ticks = element_line(color = "black", linewidth = 0.2),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    text = element_text(family = "Times New Roman"),
+    axis.title.x = element_text(margin = margin(t = 10, b = 10)),
+    legend.margin = margin(t = -10),
+    plot.caption = element_text(hjust = 0, margin = margin(t = 10))
+  )
+
+common_labels <- labs(
+  x = "Sample Size",  
+  y = "Bias (%)",
+  color = "",
+  title = "LTA Generated and LTA Analyzed with Mover Transition Probabilities"
+)
+
+# Plotting
+plot_mover <- ggplot(data = subset_mover, aes(x = factor(N))) +  
+  geom_line(aes(y = Parameter_Bias, color = "Parameter Bias", group = Population_Label), linewidth = 0.5, linetype = "solid") +  
+  geom_line(aes(y = SE_Bias, color = "Standard Error Bias", group = Population_Label), linewidth = 0.5, linetype = "solid") +  
+  geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 1.5, fill = "#4169E1", alpha = 0.8) +  
+  geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1.5, fill = "#E14169", alpha = 0.8) +  
+  geom_point(data = subset(subset_mover, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = NA, size = 1.5, fill = "#4169E1", alpha = 0.8) +  
+  geom_point(data = subset(subset_mover, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = NA, size = 1.5, fill = "black", alpha = 0.8) + 
+  geom_line(data = subset(subset_mover, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure", group = Population_Label), linewidth = 0.3, linetype = "solid") +
+  geom_line(data = subset(subset_mover, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure", group = Population_Label), linewidth = 0.3, linetype = "solid") +
+  scale_color_manual(
+    values = c("Parameter Bias" = "#4169E1", "Standard Error Bias" = "#E14169", "Coverage Failure" = "#4169E1", "Power Failure" = "black"), 
+    labels = c("Parameter Bias", "Standard Error Bias", "Coverage Failure", "Power Failure"), 
+    breaks = c("Parameter Bias", "Standard Error Bias", "Coverage Failure", "Power Failure")
+  ) +  
+  common_labels +
+  coord_cartesian(ylim = c(-40, 40)) +  
+  facet_wrap(~ as.character(Population_Label), scales = "free", labeller = label_parsed) +  # Facet by Population_Label
+  scale_x_discrete(labels = c(expression(italic("N") ~ " = 500"), expression(italic("N") ~ " = 1000"), expression(italic("N") ~ " = 2000"), expression(italic("N") ~ " = 4000"))) +  # Set X-axis labels
+  scale_y_continuous(breaks = seq(-40, 40, by = 10)) +  
+  common_theme +
+  geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#4169E1", linewidth = 0.3) +  
+  geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#E14169", linewidth = 0.3) +
+  theme(
+    legend.position = "bottom", 
+    strip.placement = "outside", 
+    strip.background = element_blank(),
+    panel.spacing = unit(0.5, "lines")
+  )
+
+# Print the plot
+print(plot_mover)
+
+```
+
+```{r}
+common_labels <- labs(
+  x = "Sample Size",  
+  y = "Bias (%)",
+  color = "",
+  title = "LTA Generated and LTA Analyzed with Stayer Transition Probabilities"
+)
+
+# Plotting
+plot_stayer <- ggplot(data = subset_stayer, aes(x = factor(N))) +  
+  geom_line(aes(y = Parameter_Bias, color = "Parameter Bias", group = Population_Label), linewidth = 0.5, linetype = "solid") +  
+  geom_line(aes(y = SE_Bias, color = "Standard Error Bias", group = Population_Label), linewidth = 0.5, linetype = "solid") +  
+  geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 1.5, fill = "#4169E1", alpha = 0.8) +  
+  geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1.5, fill = "#E14169", alpha = 0.8) +  
+  geom_point(data = subset(subset_stayer, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = NA, size = 1.5, fill = "#4169E1", alpha = 0.8) +  
+  geom_point(data = subset(subset_stayer, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = NA, size = 1.5, fill = "black", alpha = 0.8) + 
+  geom_line(data = subset(subset_stayer, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure", group = Population_Label), linewidth = 0.3, linetype = "solid") +
+  geom_line(data = subset(subset_stayer, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure", group = Population_Label), linewidth = 0.3, linetype = "solid") +
+  scale_color_manual(
+    values = c("Parameter Bias" = "#4169E1", "Standard Error Bias" = "#E14169", "Coverage Failure" = "#4169E1", "Power Failure" = "black"), 
+    labels = c("Parameter Bias", "Standard Error Bias", "Coverage Failure", "Power Failure"), 
+    breaks = c("Parameter Bias", "Standard Error Bias", "Coverage Failure", "Power Failure")
+  ) +  
+  common_labels +
+  coord_cartesian(ylim = c(-40, 40)) +  
+  facet_wrap(~ as.character(Population_Label), scales = "free", labeller = label_parsed) +  # Facet by Population_Label
+  scale_x_discrete(labels = c(expression(italic("N") ~ " = 500"), expression(italic("N") ~ " = 1000"), expression(italic("N") ~ " = 2000"), expression(italic("N") ~ " = 4000"))) +  # Set X-axis labels
+  scale_y_continuous(breaks = seq(-40, 40, by = 10)) +  
+  common_theme +
+  geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#4169E1", linewidth = 0.3) +  
+  geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#E14169", linewidth = 0.3) +
+  theme(
+    legend.position = "bottom", 
+    strip.placement = "outside", 
+    strip.background = element_blank(),
+    panel.spacing = unit(0.5, "lines")
+  )
+
+# Print the plot
+print(plot_stayer)
+
+```

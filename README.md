@@ -1,11 +1,15 @@
 # Project Directory Overview
 
 ## Main Folder Contents
+-  _RILTA 1 (k = 2) _ STARTS Project_Documentation.docx
+-  ~$ILTA 1 (k = 2) _ STARTS Project_Documentation.docx
 -  2 Time Points
 -  3 Time Points
+-  Child_Docs
 -  Mplus Run Models.log
 -  readme_script.R
 -  README.md
+-  RILTA 1 (k = 2) _ STARTS.Rproj
 -  Simulation Figures Only.xlsx
 -  zOLD STUDY FILES
 
@@ -18,7 +22,6 @@
 -  3_2T_RILTA_GEN_LTA_ANALYZED_REP
 -  4_2T_RILTA_GEN_RILTA_ANALYZED
 -  4_2T_RILTA_GEN_RILTA_ANALYZED_REP
--  Child_Docs
 -  images
 -  Study_1_2T_LTA_LTA_files
 -  Study_1_2T_LTA_LTA.html
@@ -73,7 +76,6 @@
 - ** 3_2T_RILTA_GEN_LTA_ANALYZED_REP **: Contains input, output, and CSV files for simulation runs.
 - ** 4_2T_RILTA_GEN_RILTA_ANALYZED **: Contains input, output, and CSV files for simulation runs.
 - ** 4_2T_RILTA_GEN_RILTA_ANALYZED_REP **: Contains input, output, and CSV files for simulation runs.
-- ** Child_Docs **: General folder for analysis.
 - ** images **: General folder for analysis.
 - ** Study_1_2T_LTA_LTA_files **: General folder for analysis.
 - ** Study_1_2T_LTA_LTA.html **: General folder for analysis.

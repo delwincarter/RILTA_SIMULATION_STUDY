@@ -30,11 +30,11 @@ generate_readme_and_doc <- function(root_dir = ".", readme_file = "README.md", d
     description <- if (grepl("^\\d_", folder)) {
       "Contains input, output, and CSV files for simulation runs."
     } else if (grepl("^zFigures", folder)) {
-      "Contains generated figures for analyses."
+      "Contains generated figures aggregated MC bias estimat4es."
     } else if (grepl("^zHeatmaps", folder)) {
       "Contains heatmaps visualizing simulation results."
     } else if (grepl("^zViolator", folder)) {
-      "Contains plots highlighting label switching or other violations."
+      "Contains plots highlighting label switching violations."
     } else {
       "General folder for analysis."
     }
@@ -107,7 +107,7 @@ generate_readme_and_doc <- function(root_dir = ".", readme_file = "README.md", d
     } else if (grepl("^zViolator", folder)) {
       "Contains plots highlighting label switching or other violations."
     } else {
-      "General folder for analysis."
+      ""
     }
     doc <- body_add_par(doc, paste("- ", folder, ":", description), style = "Normal")
   }

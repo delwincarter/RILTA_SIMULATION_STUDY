@@ -1,14 +1,14 @@
 # Project Directory Overview
 
 ## Main Folder Contents
--  _RILTA 1 (k = 2) _ STARTS Project_Documentation.docx
+-  _RILTA_STUDY_1_Project_Documentation.docx
 -  2 Time Points
 -  3 Time Points
 -  Child_Docs
 -  Mplus Run Models.log
 -  readme_script.R
 -  README.md
--  RILTA 1 (k = 2) _ STARTS.Rproj
+-  RILTA_STUDY_1.Rproj
 -  Simulation Figures Only.xlsx
 -  zOLD STUDY FILES
 

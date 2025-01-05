@@ -1,6 +1,6 @@
 library(officer)
 
-generate_readme_and_doc <- function(root_dir = ".", readme_file = "README.md", doc_file = "_RILTA 1 (k = 2) _ STARTS Project_Documentation.docx") {
+generate_readme_and_doc <- function(root_dir = ".", readme_file = "README.md", doc_file = "_RILTA_STUDY_1_Project_Documentation.docx") {
   # Step 1: List main folder contents
   main_contents <- list.files(root_dir, full.names = FALSE)
   

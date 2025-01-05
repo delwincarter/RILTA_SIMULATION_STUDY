@@ -739,7 +739,7 @@ final_data_with_actuals[trans_se_columns] <- lapply(final_data_with_actuals[tran
 Step 4.1 Initialize Columns
 
 ```{r}
-#| label: "complete-model-analysis"
+#| label: "flag-violators"
 #| echo: true
 #| message: false
 #| warning: false
@@ -791,28 +791,6 @@ final_data_with_actuals <- final_data_with_actuals %>%
   mutate(Any_Violation = if_else(is.na(Any_Violation), 0, Any_Violation))
 
 violators <- filter(final_data_with_actuals, Any_Violation == 1)
-```
-
-Step 4: Part 5 Post-processing
-
-```{r}
-#| label: "post-processing"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-# Ensure that all numeric columns are rounded and suppress scientific notation
-options(scipen = 999)
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
-
-# Replace NA values in Any_Violation with 0
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(Any_Violation = if_else(is.na(Any_Violation), 0, Any_Violation))
-
-# Filter rows where there are violations (Any_Violation == 1)
-violators <- final_data_with_actuals %>% filter(Any_Violation == 1)
 
 ```
 

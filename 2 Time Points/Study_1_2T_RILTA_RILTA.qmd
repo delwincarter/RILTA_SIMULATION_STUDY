@@ -307,6 +307,14 @@ stopCluster(cl)
 *Load all CSV files and combine them into a single data frame using a child document for all .qmd files.*
 
 ```{r, message=FALSE, warning=FALSE}
+
+#| label: "combine-csv-files-parallel"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+
 # Step 1: Set the correct CSV directory
 csv_directory <- here('2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED')
 
@@ -322,6 +330,12 @@ source(here('Child_Docs', 'data_scraping.R'))
 Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.
 
 ```{r}
+#| label: "scrape-rows-process-data-parallel"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
 # Step 2: Process the data using the child script
 source(here('Child_Docs', 'step2_2t_RILTA.R'))
 ```
@@ -333,13 +347,19 @@ source(here('Child_Docs', 'step2_2t_RILTA.R'))
 Convert the logits to probabilities and add the known actual values to each row.
 
 ```{r}
+#| label: "convert-logits-to-probabilities"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
 # Step 3 and 4: Process the data and return results
 source(here('Child_Docs', 'steps_3_and_4.R'))
 
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
-### **Step 5: Plot Random Sample of Violators for Visual Inspection**
+### **Step 4: Plot Random Sample of Violators for Visual Inspection**
 
 #### **Objective**
 
@@ -417,7 +437,7 @@ invisible(lapply(1:sample_size, plot_violator))
 
 ```
 
-### **Step 6: Summarize Violations**
+### **Step 5: Summarize Violations**
 
 #### **Objective**
 
@@ -565,78 +585,7 @@ if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications >
 
 ```
 
-SAVE THIS FOR LATER for error deletion
-
-```{r, eval=FALSE}
-library(dplyr)
-library(gt)
-
-# Normalize filenames
-normalize_filenames <- function(df) {
-  df %>%
-    mutate(FileName = tolower(gsub("\\.out$", "", FileName)))  # Normalize filename case and remove extension
-}
-
-# Normalize filenames in both datasets
-final_results <- normalize_filenames(final_results)
-final_data_with_actuals <- normalize_filenames(final_data_with_actuals)
-
-# Convert Rep columns to the same type for consistent comparison
-final_data_with_actuals$Rep <- as.character(final_data_with_actuals$Rep)
-final_results$Rep <- as.character(final_results$Rep)
-
-# Step 2: Remove rows from final_data_with_actuals that have errors
-clean_combined_data <- final_data_with_actuals %>%
-  anti_join(final_results %>% filter(ErrorFlag == 1), by = c("FileName", "Rep"))
-
-# Step 3: Calculate remaining replications for each condition
-remaining_replications <- clean_combined_data %>%
-  group_by(FileName) %>%
-  summarise(RemainingReplications = n(), .groups = "drop")
-
-# Step 4: Calculate error summary for each file
-error_summary <- final_results %>%
-  group_by(FileName) %>%
-  summarise(
-    Requested = first(Requested),
-    Completed = first(Completed),
-    ErrorReplications = sum(ErrorFlag == 1, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  left_join(remaining_replications, by = "FileName") %>%
-  mutate(
-    RemainingReplications = coalesce(RemainingReplications, 0),
-    ComputedAfterErrors = Completed - ErrorReplications,
-    ErrorRate = if_else(Completed > 0, (ErrorReplications / Completed) * 100, 0)
-  )
-
-# Step 5: Create the GT table for the combined data
-error_handling_summary_table <- error_summary %>%
-  gt() %>%
-  tab_header(
-    title = "Error Handling Summary",
-    subtitle = "Summary of file-based replication after handling errors"
-  ) %>%
-  cols_label(
-    FileName = "Output File",
-    Requested = "Requested Replications",
-    Completed = "Completed Replications",
-    ErrorReplications = "Replications with Errors",
-    RemainingReplications = "Remaining Replications After Errors",
-    ComputedAfterErrors = "Computed Replications After Errors",
-    ErrorRate = "Error Rate (%)"
-  ) %>%
-  fmt_number(
-    columns = c("Requested", "Completed", "ErrorReplications", "RemainingReplications", "ComputedAfterErrors", "ErrorRate"),
-    decimals = 2
-  )
-
-# Step 6: Display the GT table
-print(error_handling_summary_table)
-
-```
-
-#### Step 6: Part 1 Create Column Names from the Filename
+#### Step 5: Part 1 Create Column Names from the Filename
 
 ```{r}
 
@@ -688,7 +637,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-#### Step 6: Part 2 Calculate Violation Percentages per Condition
+#### Step 5: Part 2 Calculate Violation Percentages per Condition
 
 ```{r}
 
@@ -742,7 +691,7 @@ violation_summary <- violation_summary %>%
   )
 ```
 
-#### Step 6: Part 3 Summarize & Visualize Label Switching Percentage Results
+#### Step 5: Part 3 Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
 #| label: "summarize-violations"
@@ -812,11 +761,11 @@ final_table <- filtered_violation_summary %>%
 final_table
 ```
 
-# STEP 7: PART 2: SIMULATION
+# STEP 6: PART 2: SIMULATION
 
 #### Objective
 
-Rerun Analysis *with the NUmber of replications needed to deal with the Error rates*
+Rerun Analysis *with the Number of replications needed to deal with the Error rates*
 
 ```{r}
 #| label: "rilta-rilta2-simulation"
@@ -1048,7 +997,7 @@ stopCluster(cl)
 
 # CHECK FOR LABEL SWITCHING PART 2
 
-### Step 8: Combine All CSV Files into One Data Frame From the new data
+### Step 7: Combine All CSV Files into One Data Frame From the new data
 
 **Objective:** 
 
@@ -1070,7 +1019,7 @@ source(here('Child_Docs', 'data_scraping.R'))
 
 ```
 
-### Step 9: Scrape Rows and Process Data
+### Step 8: Scrape Rows and Process Data
 
 **Objective:** 
 
@@ -1087,7 +1036,7 @@ Extract data from the appropriate rows from each 9-row chunk and prepare the dat
 source(here('Child_Docs', 'step2_2t_RILTA.R'))
 ```
 
-### Step 10: Convert Logits to Probabilities and Add Actual (Population) Values and flag violations
+### Step 9: Convert Logits to Probabilities and Add Actual (Population) Values and flag violations
 
 **Objective:** 
 
@@ -1100,7 +1049,7 @@ source(here('Child_Docs', 'steps_3_and_4.R'))
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
-### **Step 12: Summarize Violations**
+### **Step 10: Summarize Violations**
 
 #### **Objective**
 
@@ -1248,7 +1197,7 @@ if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications >
 
 ```
 
-## STEP 13: DELETE CASES WITH ERRORS
+SAVE THIS FOR LATER for error deletion
 
 ```{r, eval=FALSE}
 library(dplyr)
@@ -1319,7 +1268,78 @@ print(error_handling_summary_table)
 
 ```
 
-#### Step 14: Part 1 Create Column Names from the Filename
+## STEP 11: DELETE CASES WITH ERRORS
+
+```{r, eval=FALSE}
+library(dplyr)
+library(gt)
+
+# Normalize filenames
+normalize_filenames <- function(df) {
+  df %>%
+    mutate(FileName = tolower(gsub("\\.out$", "", FileName)))  # Normalize filename case and remove extension
+}
+
+# Normalize filenames in both datasets
+final_results <- normalize_filenames(final_results)
+final_data_with_actuals <- normalize_filenames(final_data_with_actuals)
+
+# Convert Rep columns to the same type for consistent comparison
+final_data_with_actuals$Rep <- as.character(final_data_with_actuals$Rep)
+final_results$Rep <- as.character(final_results$Rep)
+
+# Step 2: Remove rows from final_data_with_actuals that have errors
+clean_combined_data <- final_data_with_actuals %>%
+  anti_join(final_results %>% filter(ErrorFlag == 1), by = c("FileName", "Rep"))
+
+# Step 3: Calculate remaining replications for each condition
+remaining_replications <- clean_combined_data %>%
+  group_by(FileName) %>%
+  summarise(RemainingReplications = n(), .groups = "drop")
+
+# Step 4: Calculate error summary for each file
+error_summary <- final_results %>%
+  group_by(FileName) %>%
+  summarise(
+    Requested = first(Requested),
+    Completed = first(Completed),
+    ErrorReplications = sum(ErrorFlag == 1, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  left_join(remaining_replications, by = "FileName") %>%
+  mutate(
+    RemainingReplications = coalesce(RemainingReplications, 0),
+    ComputedAfterErrors = Completed - ErrorReplications,
+    ErrorRate = if_else(Completed > 0, (ErrorReplications / Completed) * 100, 0)
+  )
+
+# Step 5: Create the GT table for the combined data
+error_handling_summary_table <- error_summary %>%
+  gt() %>%
+  tab_header(
+    title = "Error Handling Summary",
+    subtitle = "Summary of file-based replication after handling errors"
+  ) %>%
+  cols_label(
+    FileName = "Output File",
+    Requested = "Requested Replications",
+    Completed = "Completed Replications",
+    ErrorReplications = "Replications with Errors",
+    RemainingReplications = "Remaining Replications After Errors",
+    ComputedAfterErrors = "Computed Replications After Errors",
+    ErrorRate = "Error Rate (%)"
+  ) %>%
+  fmt_number(
+    columns = c("Requested", "Completed", "ErrorReplications", "RemainingReplications", "ComputedAfterErrors", "ErrorRate"),
+    decimals = 2
+  )
+
+# Step 6: Display the GT table
+print(error_handling_summary_table)
+
+```
+
+#### Step 11: Part 1 Create Column Names from the Filename
 
 ```{r}
 
@@ -1371,7 +1391,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-#### Step 14: Part 2 Calculate Violation Percentages per Condition
+#### Step 11: Part 2 Calculate Violation Percentages per Condition
 
 ```{r}
 
@@ -1428,7 +1448,7 @@ violation_summary <- violation_summary %>%
 
 ```
 
-#### Step 14: Part 3 Summarize & Visualize Label Switching Percentage Results
+#### Step 11: Part 3 Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
 #| label: "summarize-violations"
@@ -1501,9 +1521,7 @@ final_table
 
 ```
 
-# 
-
-# \*\* Step 15: Delete Cases that Violate\*\*
+#### \*\* Step 12: Delete Cases that Violate\*\*
 
 #### **Objective**
 
@@ -1520,7 +1538,7 @@ final_table
 filtered_data_with_no_violations <- final_data_with_actuals[final_data_with_actuals$Any_Violation == 0, ]
 ```
 
-### STEP 15.1
+### STEP 12.1
 
 Randomly select 500 replications per condition
 
@@ -1554,7 +1572,7 @@ if (nrow(sanity_check) > 0) {
 
 ```
 
-### **Step 16: Compute Monte Carlo (MC) Values**
+### **Step 13: Compute Monte Carlo (MC) Values**
 
 #### **Objective**
 
@@ -1598,7 +1616,7 @@ mc_values <- mc_values %>%
 
 ```
 
-### **Step 17: Calculate Dichotomous Variables and Bias**
+### **Step 14: Calculate Dichotomous Variables and Bias**
 
 #### **Objective**
 
@@ -1648,7 +1666,7 @@ mc_values <- mc_values %>%
 
 ```
 
-### **Step 18: Subset Data for Movers and Stayers**
+### **Step 15: Subset Data for Movers and Stayers**
 
 #### **Objective**
 
@@ -1714,7 +1732,7 @@ subset_stayer <- subset_stayer %>%
 
 ```
 
-### **Step 19: Combined Plot for Mover and Stayer**
+### **Step 16: Combined Plot for Mover and Stayer**
 
 #### **Objective**
 
@@ -1844,7 +1862,7 @@ plot_stayer_no_title <- plot_stayer + labs(title = NULL)
 ggsave(here("2 Time Points", "zFIGURES", "x2t_rilta_rilta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
 ```
 
-### **Step 20: Prepare Data for Heatmaps**
+### **Step 17: Prepare Data for Heatmaps**
 
 #### **Objective**
 
@@ -1926,7 +1944,7 @@ subset_08 <- subset_list[[6]]  # Subset for population value .800
 
 ```
 
-### **Step 21: Heatmap Creation and Rendering**
+### **Step 18: Heatmap Creation and Rendering**
 
 #### **Objective**
 

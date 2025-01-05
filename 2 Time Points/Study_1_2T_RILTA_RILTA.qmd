@@ -304,41 +304,14 @@ stopCluster(cl)
 
 **Objective:** 
 
-*Load all CSV files and combine them into a single data frame.*
+*Load all CSV files and combine them into a single data frame using a child document for all .qmd files.*
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
+# Step 1: Set the correct CSV directory
+csv_directory <- here('2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED')
 
-library(parallel)
-
-#| label: "combine-csv-files-parallel"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-# Step 1: Define the directory where your CSV files are stored
-csv_directory <- here("4_2T_RILTA_GEN_RILTA_ANALYZED")
-
-# Step 2: List all CSV files in the directory
-csv_files <- list.files(path = csv_directory, pattern = "*.csv", full.names = TRUE)
-
-# Step 3: Define a function to read and process each CSV file
-read_csv_file <- function(file) {
-  data <- read.csv(file, sep = " ", header = FALSE)  # Read the CSV file
-  data$FileName <- gsub("\\.[^.]*$", "", basename(file))  # Remove the file extension
-  return(data)
-}
-
-# Step 4: Set up for parallel processing
-num_cores <- detectCores() - 1  
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK") 
-
-# Step 5: Create and run the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-clusterExport(cl, c("read_csv_file", "gsub"))
-combined_data <- do.call(rbind, parLapply(cl, csv_files, read_csv_file))
-stopCluster(cl)  # Stop the cluster after processing
-
+# Step 2: Source the child document
+source(here('Child_Docs', 'data_scraping.R'))
 
 ```
 
@@ -349,222 +322,21 @@ stopCluster(cl)  # Stop the cluster after processing
 Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.
 
 ```{r}
-#| label: "scrape-rows-process-data-parallel"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-# Step 1: Define the function to process each 9-row chunk
-process_chunk <- function(chunk_start, data) {
-  if (chunk_start + 8 <= nrow(data)) {
-    row1 <- data[chunk_start, ]        # Row 1
-    row2 <- data[chunk_start + 1, ]    # Row 2
-    row3 <- data[chunk_start + 2, ]    # Row 3 (TRANS11)
-    row6 <- data[chunk_start + 5, ]    # Row 6 (SE_11)
-
-    # Step 5.1: Extract relevant data
-    rep_variable <- row1[1]         # Rep number from row 1, column 1
-    columns_6_to_10 <- row2[6:10]   # Columns 6-10 from row 2
-    columns_1_to_5 <- row3[1:5]     # Columns 1-5 from row 3 
-    trans11 <- row3[9]              # Column 9 from row 3 (TRANS11)
-    se11 <- row6[9]                 # Column 9 from row 6 (SE_11)
-    
-    # Step 5.2: Combine extracted columns into a single row
-    combined_data_chunk <- c(as.character(row1$FileName), 
-                             as.character(rep_variable), 
-                             as.numeric(columns_6_to_10), 
-                             as.numeric(columns_1_to_5),  # Fixed typo columnms_1_to_5
-                             as.numeric(trans11), 
-                             as.numeric(se11))
-    
-    # Step 5.3: Convert the combined row into a data frame
-    single_row_df <- as.data.frame(t(combined_data_chunk), stringsAsFactors = FALSE)
-    
-    # Step 5.4: Rename columns, ensuring TRANS11 and SE_11 are included
-    colnames(single_row_df) <- c("FileName", "Rep", 
-                                 "Ec1u1", "Ec1u2", "Ec1u3", "Ec1u4", "Ec1u5", 
-                                 "Ec2u1", "Ec2u2", "Ec2u3", "Ec2u4", "Ec2u5",
-                                 "TRANS11", "SE_11")
-    return(single_row_df)
-  } else {
-    return(NULL)
-  }
-}
-
-# Step 2: Set up the number of cores to use (leave one core free for the system)
-num_cores <- detectCores() - 1  
-
-# Step 3: Select the cluster type based on the system (PSOCK for Windows, FORK for macOS/Linux)
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-
-# Step 4: Create the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Step 5: Export necessary variables and the process_chunk function to each worker in the cluster
-clusterExport(cl, c("combined_data", "process_chunk"))
-
-# Step 6: Set up the sequence of chunk starts (every 9 rows)
-chunk_starts <- seq(1, nrow(combined_data), by = 9)
-
-# Step 7: Process chunks in parallel using parLapply
-final_data <- tryCatch(
-  parLapply(cl, chunk_starts, process_chunk, data = combined_data),
-  error = function(e) {
-    stopCluster(cl)
-    stop(e)  # Stop cluster and throw the error
-  }
-)
-
-# Step 8: Stop the cluster after processing
-stopCluster(cl)
-
-# Step 9: Remove NULL elements (if any chunks are skipped)
-final_data <- Filter(Negate(is.null), final_data)
-
-# Step 10: Combine all processed chunks into a single data frame
-final_combined_data <- do.call(rbind, final_data)
-
-
+# Step 2: Process the data using the child script
+source(here('Child_Docs', 'step2_2t_RILTA.R'))
 ```
 
-### Step 3: Convert Logits to Probabilities and Add Actual (Population) Values
+### Step 3: Convert Logits to Probabilities and Add Actual (Population) Values and flag violations
 
 **Objective:** 
 
 Convert the logits to probabilities and add the known actual values to each row.
 
 ```{r}
-#| label: "convert-logits-to-probabilities"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
+# Step 3 and 4: Process the data and return results
+source(here('Child_Docs', 'steps_3_and_4.R'))
 
-# Step 1: Define the corrected actual values for M1 (5 for Ac1u and 5 for Ac2u)
-M1Ac1u <- c(0.73, 0.73, 0.73, 0.73, 0.73)
-M1Ac2u <- c(0.27, 0.27, 0.27, 0.27, 0.27)
-
-# Step 2: Define the function to get actual values (only for M1)
-get_actual_values <- function(model) {
-  return(c(M1Ac1u, M1Ac2u))
-}
-
-# Step 3: Set up the number of cores to use (leave one core free for the system)
-num_cores <- detectCores() - 1  
-
-# Step 4: Select the cluster type based on the system (PSOCK for Windows, FORK for macOS/Linux)
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-
-# Step 5: Create the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Step 6: Export the necessary variables and functions to the cluster workers
-clusterExport(cl, c("final_combined_data", "get_actual_values", "M1Ac1u", "M1Ac2u"))
-
-# Step 7: Define the parallelized function to process each row and add actual values
-process_row_parallel <- function(i, data) {
-  actual_values <- get_actual_values("M1")  # Get the actual values (only M1 is used)
-  combined_row <- cbind(data[i, ], as.data.frame(t(actual_values)))
-  return(combined_row)
-}
-
-# Step 8: Convert logits to probabilities for columns 3 to 12 (Ec1u1 to Ac2u5, 10 values)
-logit_columns <- final_combined_data[, 3:12]  # Adjust to columns 3 to 12 for 10 values
-probabilities <- apply(logit_columns, 2, function(x) round(1 / (1 + exp(-as.numeric(x))), 2))
-
-# Step 9: Combine probabilities with the FileName, Rep columns, and the TRANS11 and SE_11 columns
-final_combined_data_with_trans_se <- final_combined_data %>%
-  select(FileName, Rep, TRANS11, SE_11) %>%
-  bind_cols(as.data.frame(probabilities))
-
-# Step 10: Apply the function to add actual values in parallel using parLapply
-final_data_with_actuals <- parLapply(cl, 1:nrow(final_combined_data_with_trans_se), process_row_parallel, data = final_combined_data_with_trans_se)
-
-# Step 11: Stop the cluster after processing
-stopCluster(cl)
-
-# Step 12: Combine the results into a data frame
-final_data_with_actuals <- do.call(rbind, final_data_with_actuals)
-
-# Step 13: Set column names for the actual values (from Ac1u1 to Ac2u5)
-colnames(final_data_with_actuals)[(ncol(final_combined_data_with_trans_se) + 1):ncol(final_data_with_actuals)] <- c(
-  "Ac1u1", "Ac1u2", "Ac1u3", "Ac1u4", "Ac1u5",
-  "Ac2u1", "Ac2u2", "Ac2u3", "Ac2u4", "Ac2u5"
-)
-
-# Step 14: Round all numeric columns to 3 decimal places
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
-
-# Step 15: Ensure that TRANS11 and SE_11 columns are numeric and rounded to 3 decimal places
-trans_se_columns <- c("TRANS11", "SE_11")
-
-final_data_with_actuals[trans_se_columns] <- lapply(final_data_with_actuals[trans_se_columns], function(x) round(as.numeric(x), 3))
-
-```
-
-### Step 4: Calculate Comparisons and Flag Violations
-
-**Objective:** 
-
-*Calculate the differences between the estimate and actual sums and flag any violations.*
-
-```{r}
-
-#| label: "flag-violators"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-library(parallel)
-library(dplyr)
-
-# Initialize columns for comparisons and flags
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(
-    X1v2_item1 = NA,  # Comparison for Item 1 (Ec1u1 vs Ec2u1)
-    X1v2_item2 = NA,  # Comparison for Item 2 (Ec1u2 vs Ac2u2)
-    X1v2_item3 = NA   # Comparison for Item 3 (Ec1u3 vs Ac2u3)
-  )
-
-# Set up parallel processing
-num_cores <- detectCores() - 1  # leave one core free for the system
-cl <- makeCluster(num_cores)
-clusterExport(cl, varlist = c("final_data_with_actuals"), envir = environment())
-
-# Define the function to compute differences
-compute_diffs <- function(data) {
-  data <- transform(data,
-    X1v2_item1 = Ec1u1 - Ec2u1,
-    X1v2_item2 = Ec1u2 - Ec2u2,
-    X1v2_item3 = Ec1u3 - Ec2u3
-  )
-  return(data)
-}
-
-# Divide data into chunks and apply the function
-data_chunks <- split(final_data_with_actuals, cut(seq(nrow(final_data_with_actuals)), num_cores, labels = FALSE))
-processed_chunks <- clusterApply(cl, data_chunks, compute_diffs)
-final_data_with_actuals <- do.call(rbind, processed_chunks)
-stopCluster(cl)
-
-# Flagging logic for violations
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(
-    Flag_M1 = if_else(rowSums(select(., starts_with("X1v2_item")) < 0) >= 1, 1, 0),
-    Any_Violation = if_else(Flag_M1 == 1, 1, 0)
-  )
-
-# Post-processing for numeric formatting and filtering violators
-options(scipen = 999)
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(across(where(is.numeric), round, 3)) %>%
-  mutate(Any_Violation = if_else(is.na(Any_Violation), 0, Any_Violation))
-
-violators <- filter(final_data_with_actuals, Any_Violation == 1)
-
+# The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
 ### **Step 5: Plot Random Sample of Violators for Visual Inspection**
@@ -968,9 +740,6 @@ violation_summary <- violation_summary %>%
     Adjusted_Replications_Needed = ceiling(Replications_Needed / (1 - ErrorRate)),
     Adjusted_Replications_Needed = if_else(Adjusted_Replications_Needed < 500, 500, Adjusted_Replications_Needed)
   )
-
-
-
 ```
 
 #### Step 6: Part 3 Summarize & Visualize Label Switching Percentage Results
@@ -1041,9 +810,6 @@ final_table <- filtered_violation_summary %>%
 
 # Display the table
 final_table
-
-
-
 ```
 
 # STEP 7: PART 2: SIMULATION
@@ -1276,56 +1042,31 @@ result_list <- parLapply(cl, 1:nrow(violation_summary), function(i) {
   )
 })
 
-
-
 # Stop the cluster after the simulation
 stopCluster(cl)
-
-
-
 ```
 
-# CHECK FOR LABEL SWITCHING
+# CHECK FOR LABEL SWITCHING PART 2
 
 ### Step 8: Combine All CSV Files into One Data Frame From the new data
 
 **Objective:** 
 
-*Load all CSV files and combine them into a single data frame.*
+*Load all new CSV files and combine them into a single data frame using a child document for all .qmd files.*
 
 ```{r}
-
-library(parallel)
-
-#| label: "combine-csv-files-parallel"
+#| label: "scrape-csv-files-part 2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
 
-# Step 1: Define the directory where your CSV files are stored
-csv_directory <- here("4_2T_RILTA_GEN_RILTA_ANALYZED_REP")
 
-# Step 2: List all CSV files in the directory
-csv_files <- list.files(path = csv_directory, pattern = "*.csv", full.names = TRUE)
+# Step 1: Set the correct CSV directory
+csv_directory <- here('2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED')
 
-# Step 3: Define a function to read and process each CSV file
-read_csv_file <- function(file) {
-  data <- read.csv(file, sep = " ", header = FALSE)  # Read the CSV file
-  data$FileName <- gsub("\\.[^.]*$", "", basename(file))  # Remove the file extension
-  return(data)
-}
-
-# Step 4: Set up for parallel processing
-num_cores <- detectCores() - 1  
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK") 
-
-# Step 5: Create and run the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-clusterExport(cl, c("read_csv_file", "gsub"))
-combined_data <- do.call(rbind, parLapply(cl, csv_files, read_csv_file))
-stopCluster(cl)  # Stop the cluster after processing
-
+# Step 2: Source the child document
+source(here('Child_Docs', 'data_scraping.R'))
 
 ```
 
@@ -1342,216 +1083,21 @@ Extract data from the appropriate rows from each 9-row chunk and prepare the dat
 #| warning: false
 #| code-fold: true
 
-# Step 1: Define the function to process each 9-row chunk
-process_chunk <- function(chunk_start, data) {
-  if (chunk_start + 8 <= nrow(data)) {
-    row1 <- data[chunk_start, ]        # Row 1
-    row2 <- data[chunk_start + 1, ]    # Row 2
-    row3 <- data[chunk_start + 2, ]    # Row 3 (TRANS11)
-    row6 <- data[chunk_start + 5, ]    # Row 6 (SE_11)
-
-    # Step 5.1: Extract relevant data
-    rep_variable <- row1[1]         # Rep number from row 1, column 1
-    columns_6_to_10 <- row2[6:10]   # Columns 6-10 from row 2
-    columns_1_to_5 <- row3[1:5]     # Columns 1-5 from row 3 
-    trans11 <- row3[9]              # Column 9 from row 3 (TRANS11)
-    se11 <- row6[9]                 # Column 9 from row 6 (SE_11)
-    
-    # Step 5.2: Combine extracted columns into a single row
-    combined_data_chunk <- c(as.character(row1$FileName), 
-                             as.character(rep_variable), 
-                             as.numeric(columns_6_to_10), 
-                             as.numeric(columns_1_to_5),  # Fixed typo columnms_1_to_5
-                             as.numeric(trans11), 
-                             as.numeric(se11))
-    
-    # Step 5.3: Convert the combined row into a data frame
-    single_row_df <- as.data.frame(t(combined_data_chunk), stringsAsFactors = FALSE)
-    
-    # Step 5.4: Rename columns, ensuring TRANS11 and SE_11 are included
-    colnames(single_row_df) <- c("FileName", "Rep", 
-                                 "Ec1u1", "Ec1u2", "Ec1u3", "Ec1u4", "Ec1u5", 
-                                 "Ec2u1", "Ec2u2", "Ec2u3", "Ec2u4", "Ec2u5",
-                                 "TRANS11", "SE_11")
-    return(single_row_df)
-  } else {
-    return(NULL)
-  }
-}
-
-# Step 2: Set up the number of cores to use (leave one core free for the system)
-num_cores <- detectCores() - 1  
-
-# Step 3: Select the cluster type based on the system (PSOCK for Windows, FORK for macOS/Linux)
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-
-# Step 4: Create the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Step 5: Export necessary variables and the process_chunk function to each worker in the cluster
-clusterExport(cl, c("combined_data", "process_chunk"))
-
-# Step 6: Set up the sequence of chunk starts (every 9 rows)
-chunk_starts <- seq(1, nrow(combined_data), by = 9)
-
-# Step 7: Process chunks in parallel using parLapply
-final_data <- tryCatch(
-  parLapply(cl, chunk_starts, process_chunk, data = combined_data),
-  error = function(e) {
-    stopCluster(cl)
-    stop(e)  # Stop cluster and throw the error
-  }
-)
-
-# Step 8: Stop the cluster after processing
-stopCluster(cl)
-
-# Step 9: Remove NULL elements (if any chunks are skipped)
-final_data <- Filter(Negate(is.null), final_data)
-
-# Step 10: Combine all processed chunks into a single data frame
-final_combined_data <- do.call(rbind, final_data)
-
-
+# Step 2: Process the data using the child script
+source(here('Child_Docs', 'step2_2t_RILTA.R'))
 ```
 
-### Step 10: Convert Logits to Probabilities and Add Actual (Population) Values
+### Step 10: Convert Logits to Probabilities and Add Actual (Population) Values and flag violations
 
 **Objective:** 
 
 Convert the logits to probabilities and add the known actual values to each row.
 
 ```{r}
-#| label: "convert-logits-to-probabilities"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
+# Step 3 and 4: Process the data and return results
+source(here('Child_Docs', 'steps_3_and_4.R'))
 
-# Step 1: Define the corrected actual values for M1 (5 for Ac1u and 5 for Ac2u)
-M1Ac1u <- c(0.73, 0.73, 0.73, 0.73, 0.73)
-M1Ac2u <- c(0.27, 0.27, 0.27, 0.27, 0.27)
-
-# Step 2: Define the function to get actual values (only for M1)
-get_actual_values <- function(model) {
-  return(c(M1Ac1u, M1Ac2u))
-}
-
-# Step 3: Set up the number of cores to use (leave one core free for the system)
-num_cores <- detectCores() - 1  
-
-# Step 4: Select the cluster type based on the system (PSOCK for Windows, FORK for macOS/Linux)
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-
-# Step 5: Create the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Step 6: Export the necessary variables and functions to the cluster workers
-clusterExport(cl, c("final_combined_data", "get_actual_values", "M1Ac1u", "M1Ac2u"))
-
-# Step 7: Define the parallelized function to process each row and add actual values
-process_row_parallel <- function(i, data) {
-  actual_values <- get_actual_values("M1")  # Get the actual values (only M1 is used)
-  combined_row <- cbind(data[i, ], as.data.frame(t(actual_values)))
-  return(combined_row)
-}
-
-# Step 8: Convert logits to probabilities for columns 3 to 12 (Ec1u1 to Ac2u5, 10 values)
-logit_columns <- final_combined_data[, 3:12]  # Adjust to columns 3 to 12 for 10 values
-probabilities <- apply(logit_columns, 2, function(x) round(1 / (1 + exp(-as.numeric(x))), 2))
-
-# Step 9: Combine probabilities with the FileName, Rep columns, and the TRANS11 and SE_11 columns
-final_combined_data_with_trans_se <- final_combined_data %>%
-  select(FileName, Rep, TRANS11, SE_11) %>%
-  bind_cols(as.data.frame(probabilities))
-
-# Step 10: Apply the function to add actual values in parallel using parLapply
-final_data_with_actuals <- parLapply(cl, 1:nrow(final_combined_data_with_trans_se), process_row_parallel, data = final_combined_data_with_trans_se)
-
-# Step 11: Stop the cluster after processing
-stopCluster(cl)
-
-# Step 12: Combine the results into a data frame
-final_data_with_actuals <- do.call(rbind, final_data_with_actuals)
-
-# Step 13: Set column names for the actual values (from Ac1u1 to Ac2u5)
-colnames(final_data_with_actuals)[(ncol(final_combined_data_with_trans_se) + 1):ncol(final_data_with_actuals)] <- c(
-  "Ac1u1", "Ac1u2", "Ac1u3", "Ac1u4", "Ac1u5",
-  "Ac2u1", "Ac2u2", "Ac2u3", "Ac2u4", "Ac2u5"
-)
-
-# Step 14: Round all numeric columns to 3 decimal places
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
-
-# Step 15: Ensure that TRANS11 and SE_11 columns are numeric and rounded to 3 decimal places
-trans_se_columns <- c("TRANS11", "SE_11")
-
-final_data_with_actuals[trans_se_columns] <- lapply(final_data_with_actuals[trans_se_columns], function(x) round(as.numeric(x), 3))
-
-```
-
-### Step 11: Calculate Comparisons and Flag Violations
-
-**Objective:** 
-
-*Calculate the differences between the estimate and actual sums and flag any violations.*
-
-```{r}
-
-#| label: "complete-model-analysis"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-library(parallel)
-library(dplyr)
-
-# Initialize columns for comparisons and flags
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(
-    X1v2_item1 = NA,  # Comparison for Item 1 (Ec1u1 vs Ec2u1)
-    X1v2_item2 = NA,  # Comparison for Item 2 (Ec1u2 vs Ac2u2)
-    X1v2_item3 = NA   # Comparison for Item 3 (Ec1u3 vs Ac2u3)
-  )
-
-# Set up parallel processing
-num_cores <- detectCores() - 1  # leave one core free for the system
-cl <- makeCluster(num_cores)
-clusterExport(cl, varlist = c("final_data_with_actuals"), envir = environment())
-
-# Define the function to compute differences
-compute_diffs <- function(data) {
-  data <- transform(data,
-    X1v2_item1 = Ec1u1 - Ec2u1,
-    X1v2_item2 = Ec1u2 - Ec2u2,
-    X1v2_item3 = Ec1u3 - Ec2u3
-  )
-  return(data)
-}
-
-# Divide data into chunks and apply the function
-data_chunks <- split(final_data_with_actuals, cut(seq(nrow(final_data_with_actuals)), num_cores, labels = FALSE))
-processed_chunks <- clusterApply(cl, data_chunks, compute_diffs)
-final_data_with_actuals <- do.call(rbind, processed_chunks)
-stopCluster(cl)
-
-# Flagging logic for violations
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(
-    Flag_M1 = if_else(rowSums(select(., starts_with("X1v2_item")) < 0) >= 1, 1, 0),
-    Any_Violation = if_else(Flag_M1 == 1, 1, 0)
-  )
-
-# Post-processing for numeric formatting and filtering violators
-options(scipen = 999)
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(across(where(is.numeric), round, 3)) %>%
-  mutate(Any_Violation = if_else(is.na(Any_Violation), 0, Any_Violation))
-
-violators <- filter(final_data_with_actuals, Any_Violation == 1)
-
+# The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
 ### **Step 12: Summarize Violations**

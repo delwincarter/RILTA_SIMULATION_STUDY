@@ -1,54 +1,61 @@
 library(officer)
 
-generate_readme_and_doc <- function(
-    root_dir = ".", 
-    readme_file = "README.md", 
-    doc_file = "_RILTA_STUDY_1_Project_Documentation.docx", 
-    subfolders = c("2 Time Points", "3 Time Points")
-) {
+generate_readme_and_doc <- function(root_dir = ".", readme_file = "README.md", doc_file = "_RILTA_STUDY_1_Project_Documentation.docx") {
   # Step 1: List main folder contents
   main_contents <- list.files(root_dir, full.names = FALSE)
   
-  # Step 2: Prepare README.md content
+  # Step 2: List subfolders in "2 Time Points" and "3 Time Points"
+  two_time_points <- list.files(file.path(root_dir, "2 Time Points"), full.names = FALSE)
+  three_time_points <- list.files(file.path(root_dir, "3 Time Points"), full.names = FALSE)
+  
+  # Step 3: Prepare README.md content
   readme_lines <- c(
     "# Project Directory Overview",
     "",
     "## Main Folder Contents",
     paste("- ", main_contents),
-    ""
+    "",
+    "## 2 Time Points Folder Contents",
+    paste("- ", two_time_points),
+    "",
+    "## 3 Time Points Folder Contents",
+    paste("- ", three_time_points),
+    "",
+    "## Descriptions of Subfolders",
+    "### 2 Time Points Subfolders"
   )
   
-  # Step 3: Add subfolder contents to README.md
-  for (subfolder in subfolders) {
-    subfolder_contents <- list.files(file.path(root_dir, subfolder), full.names = FALSE)
-    readme_lines <- c(
-      readme_lines,
-      paste0("## ", subfolder, " Folder Contents"),
-      paste("- ", subfolder_contents),
+  # Add descriptions for subfolders in "2 Time Points"
+  for (folder in two_time_points) {
+    description <- if (grepl("^\\d_", folder)) {
+      "Contains input, output, and CSV files for simulation runs."
+    } else if (grepl("^zFigures", folder)) {
+      "Contains generated figures aggregated MC bias estimat4es."
+    } else if (grepl("^zHeatmaps", folder)) {
+      "Contains heatmaps visualizing simulation results."
+    } else if (grepl("^zViolator", folder)) {
+      "Contains plots highlighting label switching violations."
+    } else {
       ""
-    )
-    
-    # Add descriptions for subfolders
-    readme_lines <- c(
-      readme_lines,
-      paste0("### Descriptions of Subfolders: ", subfolder)
-    )
-    for (folder in subfolder_contents) {
-      description <- if (grepl("^\\d_", folder)) {
-        "Contains input, output, and CSV files for simulation runs."
-      } else if (grepl("^zFigures", folder)) {
-        "Contains generated figures for analyses."
-      } else if (grepl("^zHeatmaps", folder)) {
-        "Contains heatmaps visualizing simulation results."
-      } else if (grepl("^zViolator", folder)) {
-        "Contains plots highlighting label switching or other violations."
-      } else {
-        ""  # Leave blank for other items
-      }
-      if (description != "") {
-        readme_lines <- c(readme_lines, paste("- **", folder, "**:", description))
-      }
     }
+    readme_lines <- c(readme_lines, paste("- **", folder, "**:", description))
+  }
+  
+  # Add descriptions for subfolders in "3 Time Points"
+  readme_lines <- c(readme_lines, "### 3 Time Points Subfolders")
+  for (folder in three_time_points) {
+    description <- if (grepl("^\\d_", folder)) {
+      "Contains input, output, and CSV files for simulation runs."
+    } else if (grepl("^zFigures", folder)) {
+      "Contains generated figures for analyses."
+    } else if (grepl("^zHeatmaps", folder)) {
+      "Contains heatmaps visualizing simulation results."
+    } else if (grepl("^zViolator", folder)) {
+      "Contains plots highlighting label switching or other violations."
+    } else {
+      ""
+    }
+    readme_lines <- c(readme_lines, paste("- **", folder, "**:", description))
   }
   
   # Write README.md
@@ -63,29 +70,46 @@ generate_readme_and_doc <- function(
   doc <- body_add_par(doc, "Main Folder Contents", style = "heading 2")
   doc <- body_add_par(doc, paste("- ", main_contents, collapse = "\n"), style = "Normal")
   
-  # Subfolder contents and descriptions
-  for (subfolder in subfolders) {
-    subfolder_contents <- list.files(file.path(root_dir, subfolder), full.names = FALSE)
-    doc <- body_add_par(doc, paste(subfolder, "Folder Contents"), style = "heading 2")
-    doc <- body_add_par(doc, paste("- ", subfolder_contents, collapse = "\n"), style = "Normal")
-    
-    doc <- body_add_par(doc, paste("Descriptions of Subfolders:", subfolder), style = "heading 2")
-    for (folder in subfolder_contents) {
-      description <- if (grepl("^\\d_", folder)) {
-        "Contains input, output, and CSV files for simulation runs."
-      } else if (grepl("^zFigures", folder)) {
-        "Contains generated figures for analyses."
-      } else if (grepl("^zHeatmaps", folder)) {
-        "Contains heatmaps visualizing simulation results."
-      } else if (grepl("^zViolator", folder)) {
-        "Contains plots highlighting label switching or other violations."
-      } else {
-        ""  # Leave blank for other items
-      }
-      if (description != "") {
-        doc <- body_add_par(doc, paste("- ", folder, ":", description), style = "Normal")
-      }
+  # 2 Time Points folder
+  doc <- body_add_par(doc, "2 Time Points Folder Contents", style = "heading 2")
+  doc <- body_add_par(doc, paste("- ", two_time_points, collapse = "\n"), style = "Normal")
+  
+  # 3 Time Points folder
+  doc <- body_add_par(doc, "3 Time Points Folder Contents", style = "heading 2")
+  doc <- body_add_par(doc, paste("- ", three_time_points, collapse = "\n"), style = "Normal")
+  
+  # Descriptions for "2 Time Points" subfolders
+  doc <- body_add_par(doc, "Descriptions of Subfolders: 2 Time Points", style = "heading 2")
+  for (folder in two_time_points) {
+    description <- if (grepl("^\\d_", folder)) {
+      "Contains input, output, and CSV files for simulation runs."
+    } else if (grepl("^zFigures", folder)) {
+      "Contains generated figures for analyses."
+    } else if (grepl("^zHeatmaps", folder)) {
+      "Contains heatmaps visualizing simulation results."
+    } else if (grepl("^zViolator", folder)) {
+      "Contains plots highlighting label switching or other violations."
+    } else {
+      ""
     }
+    doc <- body_add_par(doc, paste("- ", folder, ":", description), style = "Normal")
+  }
+  
+  # Descriptions for "3 Time Points" subfolders
+  doc <- body_add_par(doc, "Descriptions of Subfolders: 3 Time Points", style = "heading 2")
+  for (folder in three_time_points) {
+    description <- if (grepl("^\\d_", folder)) {
+      "Contains input, output, and CSV files for simulation runs."
+    } else if (grepl("^zFigures", folder)) {
+      "Contains generated figures for analyses."
+    } else if (grepl("^zHeatmaps", folder)) {
+      "Contains heatmaps visualizing simulation results."
+    } else if (grepl("^zViolator", folder)) {
+      "Contains plots highlighting label switching or other violations."
+    } else {
+      ""
+    }
+    doc <- body_add_par(doc, paste("- ", folder, ":", description), style = "Normal")
   }
   
   # Save the Word document
@@ -93,6 +117,5 @@ generate_readme_and_doc <- function(
   message("Documentation created successfully at: ", file.path(root_dir, doc_file))
 }
 
-# Run the function
+# Run the script
 generate_readme_and_doc()
-

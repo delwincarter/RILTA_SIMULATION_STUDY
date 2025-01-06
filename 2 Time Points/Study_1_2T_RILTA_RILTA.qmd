@@ -1302,7 +1302,13 @@ if (nrow(validation_error_results) > 0) {
   message("Validation successful: All error flags are correctly assigned.")
 }
 
-# Step 3: Merge and compute remaining values
+# Step 3: Calculate RemainingReplications
+remaining_replications <- error_results %>%
+  filter(ErrorFlag == 0) %>%
+  group_by(FileName) %>%
+  summarise(RemainingReplications = n_distinct(Rep), .groups = "drop")
+
+# Step 4: Merge and compute remaining values
 error_summary <- error_summary %>%
   # Merge CompletedReplications into error_summary
   left_join(completed_replications, by = "FileName") %>%
@@ -1332,7 +1338,7 @@ error_summary <- error_summary %>%
 
 \
 
-#### Step 10 Part 5: Remove Error Rows and Calculate Remaining Replications
+#### Step 10 Part 5: Visualize the data post errors
 
 ```{r, eval=FALSE}
 #| label: "visualize_data_post_errors"

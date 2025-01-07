@@ -428,112 +428,134 @@ invisible(lapply(1:sample_size, plot_violator))
 
 library(parallel)
 
-extract_errors_and_replications <- function(filepath) {
+e# Step 1: Extract Errors
+extract_errors_from_file <- function(filepath) {
   lines <- readLines(filepath)
+  results <- list()
+  current_replication <- NULL
+  error_keywords <- c("NON-POSITIVE DEFINITE", "C2#2 ON C1#1 (equality/label)", "C2#2 ON C1#2 (equality/label)","C2#1 ON C1#2 (equality/label)", "C2#1 ON C1#1 (equality/label)")
   
-  # Check for empty or malformed files
-  if (length(lines) == 0 || !any(grepl("Number of replications", lines))) {
-    message("File flagged as empty or malformed: ", basename(filepath))
+  for (line in lines) {
+    replication_match <- str_match(line, "REPLICATION (\\d+):")
+    if (!is.na(replication_match[1])) {
+      current_replication <- as.integer(replication_match[2])
+      results <- append(results, list(
+        tibble(
+          FileName = basename(filepath),
+          Replication = current_replication,
+          Message = "None",
+          MessageType = "None"
+        )
+      ))
+    } else if (!is.null(current_replication) && any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
+      results <- append(results, list(
+        tibble(
+          FileName = basename(filepath),
+          Replication = current_replication,
+          Message = str_trim(line),
+          MessageType = "Error"
+        )
+      ))
+    }
+  }
+
+  if (length(results) == 0) {
     return(tibble(
       FileName = basename(filepath),
       Replication = NA,
-      ErrorFlag = 1  # Mark as error since the file is malformed
+      Message = "No Errors or Warnings",
+      MessageType = "None"
     ))
   }
-  
-  # Extract replication numbers
-  replication_info_line <- grep("Number of replications", lines)
-  requested_replications <- as.integer(str_extract(lines[replication_info_line + 1], "\\d+"))
-  completed_replications <- as.integer(str_extract(lines[replication_info_line + 2], "\\d+"))
-  
-  results <- vector("list", completed_replications)  # Pre-allocate list to store tibbles for each replication
-
-  # Initialize results list with no error flag
-  for (i in seq_len(completed_replications)) {
-    results[[i]] <- tibble(
-      FileName = basename(filepath),
-      Replication = i,
-      ErrorFlag = 0
-    )
-  }
-  
-  # Check for errors in each replication
-  error_keywords <- c("SINGULARITY", "NON-POSITIVE DEFINITE")
-  current_replication <- NA
-  for (line in lines) {
-    # Detect replication start
-    if (grepl("REPLICATION", line)) {
-      current_replication <- as.integer(str_extract(line, "\\d+"))
-    }
-    
-    # Check for errors and update the flag
-    if (!is.na(current_replication) && current_replication <= completed_replications &&
-        any(sapply(error_keywords, grepl, x=line))) {
-      results[[current_replication]]$ErrorFlag <- 1
-    }
-  }
-
-  # Combine all results into a single tibble
-  bind_rows(results) %>%
-    mutate(
-      Requested = requested_replications,
-      Completed = completed_replications
-    )
+  bind_rows(results)
 }
 
-# Step 2: Parallelized Processing
-output_folder <- "6_3T_LTA_GEN_RILTA_ANALYZED"
+# Step 2: Extract Completed Replications
+extract_completed_replications <- function(filepath) {
+  lines <- readLines(filepath)
+  completed_line <- lines[grepl("Completed", lines, ignore.case = TRUE)]
+  completed <- as.integer(str_match(completed_line, "Completed\\s+(\\d+)")[, 2])
+  if (length(completed) == 0) completed <- 0
+  tibble(FileName = basename(filepath), CompletedReplications = completed)
+}
+
+# Step 3: Extract Requested Replications
+extract_requested_replications <- function(filepath) {
+  lines <- readLines(filepath)
+  requested_line <- lines[grepl("Requested", lines, ignore.case = TRUE)]
+  requested <- as.integer(str_match(requested_line, "Requested\\s+(\\d+)")[, 2])
+  if (length(requested) == 0) requested <- 0
+  tibble(FileName = basename(filepath), RequestedReplications = requested)
+}
+
+# Step 4: Calculate Replication Summary
+calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
+  summary <- error_summary %>%
+    group_by(FileName) %>%
+    summarise(ErrorReplications = n_distinct(Replication[MessageType == "Error"]), .groups = "drop") %>%
+    mutate(ErrorReplications = coalesce(ErrorReplications, 0))
+
+  full_summary <- requested_replications %>%
+    left_join(completed_replications, by = "FileName") %>%
+    left_join(summary, by = "FileName") %>%
+    mutate(
+      GoodReplications = CompletedReplications - ErrorReplications,
+      ErrorRate = if_else(RequestedReplications > 0, (ErrorReplications / RequestedReplications) * 100, 0)
+    ) %>%
+    select(FileName, CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate)
+
+  return(full_summary)
+}
+
+# Steps 5-9: Setup and execute parallel processing, calculate summaries, and display results
+
+
+output_folder <- here("3 Time Points", "6_3T_LTA_GEN_RILTA_ANALYZED")
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
+
+
+cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
 num_cores <- detectCores() - 1
-cl <- makeCluster(num_cores, type = ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK"))
-clusterExport(cl, c("extract_errors_and_replications", "str_extract", "readLines", "grepl", "str_trim", "basename", "tibble", "bind_rows", "mutate"))
-clusterEvalQ(cl, library(tidyverse))
+cl <- makeCluster(num_cores, type = cluster_type)
 
-# Execute parallel processing
-all_errors <- parLapply(cl, file_list, extract_errors_and_replications)
-stopCluster(cl)
+# Suppress output when exporting functions and setting up the cluster environment
+invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
+invisible(clusterEvalQ(cl, library(tidyverse)))
 
-# Step 3: Combine results and create a summary table
-final_results <- bind_rows(all_errors)
+error_summary <- bind_rows(parLapply(cl, file_list, extract_errors_from_file))
+completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
+requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
 
-# Rename Replication to Rep in final_results to match final_data_with_actuals
-final_results <- final_results %>%
-  rename(Rep = Replication)
+invisible(stopCluster(cl))
 
-# Step 4: Create the summary table
-error_summary <- final_results %>%
-  group_by(FileName) %>%
-  summarise(
-    Requested = first(Requested),
-    Completed = first(Completed),
-    Errors = sum(ErrorFlag == 1),  # Sum up errors per file
-    GoodReplications = Completed - Errors,
-    ErrorRate = (Errors / Completed) * 100
-  )
+replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
 
-# Step 5: Create and display the GT table
-error_summary_table <- error_summary %>%
-  gt() %>%
-  tab_header(
-    title = "Error and Replication Summary",
-    subtitle = "Comprehensive analysis for each output file"
-  ) %>%
-  cols_label(
-    Requested = "Requested Replications",
-    Completed = "Completed Replications",
-    Errors = "Error Count",
-    GoodReplications = "Good Replications",
-    ErrorRate = "Error Rate (%)"
-  ) %>%
-  fmt_number(columns = vars(Requested, Completed, Errors, GoodReplications, ErrorRate), decimals = 2)
+if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications > 0)) {
+  replication_summary_table <- replication_summary %>%
+    gt() %>%
+    tab_header(
+      title = "Replication Summary",
+      subtitle = paste0("Folder: ", output_folder)
+    ) %>%
+    fmt_number(columns = vars(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
+    cols_label(
+      FileName = "File Name",
+      CompletedReplications = "Completed Replications",
+      RequestedReplications = "Requested Replications",
+      ErrorReplications = "Replications with Errors",
+      GoodReplications = "Good Replications",
+      ErrorRate = "Error Rate (%)"
+    ) %>%
+    tab_options(
+      table.font.size = "small",
+      heading.title.font.size = "medium",
+      heading.subtitle.font.size = "small"
+    )
 
-# Step 6: Display the Table or Notify
-if (any(error_summary$Errors > 0)) {
-  print(error_summary_table)  # This is where your print function is now properly placed
+  print(replication_summary_table)
 } else {
   message("No errors or warnings detected. No table to display.")
 }
-
 ```
 
 #### Step 5: Part 1 Create Column Names from the Filename
@@ -1026,112 +1048,132 @@ source(here('Child_Docs', 'step_3.R'))
 
 library(parallel)
 
-extract_errors_and_replications <- function(filepath) {
+# Step 1: Extract Errors
+extract_errors_from_file <- function(filepath) {
   lines <- readLines(filepath)
+  results <- list()
+  current_replication <- NULL
+  error_keywords <- c("NON-POSITIVE DEFINITE", "C2#2 ON C1#1 (equality/label)", "C2#2 ON C1#2 (equality/label)","C2#1 ON C1#2 (equality/label)", "C2#1 ON C1#1 (equality/label)")
   
-  # Check for empty or malformed files
-  if (length(lines) == 0 || !any(grepl("Number of replications", lines))) {
-    message("File flagged as empty or malformed: ", basename(filepath))
+
+  for (line in lines) {
+    replication_match <- str_match(line, "REPLICATION (\\d+):")
+    if (!is.na(replication_match[1])) {
+      current_replication <- as.integer(replication_match[2])
+      results <- append(results, list(
+        tibble(
+          FileName = basename(filepath),
+          Replication = current_replication,
+          Message = "None",
+          MessageType = "None"
+        )
+      ))
+    } else if (!is.null(current_replication) && any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
+      results <- append(results, list(
+        tibble(
+          FileName = basename(filepath),
+          Replication = current_replication,
+          Message = str_trim(line),
+          MessageType = "Error"
+        )
+      ))
+    }
+  }
+
+  if (length(results) == 0) {
     return(tibble(
       FileName = basename(filepath),
       Replication = NA,
-      ErrorFlag = 1  # Mark as error since the file is malformed
+      Message = "No Errors or Warnings",
+      MessageType = "None"
     ))
   }
-  
-  # Extract replication numbers
-  replication_info_line <- grep("Number of replications", lines)
-  requested_replications <- as.integer(str_extract(lines[replication_info_line + 1], "\\d+"))
-  completed_replications <- as.integer(str_extract(lines[replication_info_line + 2], "\\d+"))
-  
-  results <- vector("list", completed_replications)  # Pre-allocate list to store tibbles for each replication
-
-  # Initialize results list with no error flag
-  for (i in seq_len(completed_replications)) {
-    results[[i]] <- tibble(
-      FileName = basename(filepath),
-      Replication = i,
-      ErrorFlag = 0
-    )
-  }
-  
-  # Check for errors in each replication
-  error_keywords <- c("SINGULARITY", "NON-POSITIVE DEFINITE")
-  current_replication <- NA
-  for (line in lines) {
-    # Detect replication start
-    if (grepl("REPLICATION", line)) {
-      current_replication <- as.integer(str_extract(line, "\\d+"))
-    }
-    
-    # Check for errors and update the flag
-    if (!is.na(current_replication) && current_replication <= completed_replications &&
-        any(sapply(error_keywords, grepl, x=line))) {
-      results[[current_replication]]$ErrorFlag <- 1
-    }
-  }
-
-  # Combine all results into a single tibble
-  bind_rows(results) %>%
-    mutate(
-      Requested = requested_replications,
-      Completed = completed_replications
-    )
+  bind_rows(results)
 }
 
-# Step 2: Parallelized Processing
-output_folder <- "6_3T_LTA_GEN_RILTA_ANALYZED_REP"
-file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
-num_cores <- detectCores() - 1
-cl <- makeCluster(num_cores, type = ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK"))
-clusterExport(cl, c("extract_errors_and_replications", "str_extract", "readLines", "grepl", "str_trim", "basename", "tibble", "bind_rows", "mutate"))
-clusterEvalQ(cl, library(tidyverse))
+# Step 2: Extract Completed Replications
+extract_completed_replications <- function(filepath) {
+  lines <- readLines(filepath)
+  completed_line <- lines[grepl("Completed", lines, ignore.case = TRUE)]
+  completed <- as.integer(str_match(completed_line, "Completed\\s+(\\d+)")[, 2])
+  if (length(completed) == 0) completed <- 0
+  tibble(FileName = basename(filepath), CompletedReplications = completed)
+}
 
-# Execute parallel processing
-all_errors <- parLapply(cl, file_list, extract_errors_and_replications)
+# Step 3: Extract Requested Replications
+extract_requested_replications <- function(filepath) {
+  lines <- readLines(filepath)
+  requested_line <- lines[grepl("Requested", lines, ignore.case = TRUE)]
+  requested <- as.integer(str_match(requested_line, "Requested\\s+(\\d+)")[, 2])
+  if (length(requested) == 0) requested <- 0
+  tibble(FileName = basename(filepath), RequestedReplications = requested)
+}
+
+# Step 4: Calculate Replication Summary
+calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
+  summary <- error_summary %>%
+    group_by(FileName) %>%
+    summarise(ErrorReplications = n_distinct(Replication[MessageType == "Error"]), .groups = "drop") %>%
+    mutate(ErrorReplications = coalesce(ErrorReplications, 0))
+
+  full_summary <- requested_replications %>%
+    left_join(completed_replications, by = "FileName") %>%
+    left_join(summary, by = "FileName") %>%
+    mutate(
+      GoodReplications = CompletedReplications - ErrorReplications,
+      ErrorRate = if_else(RequestedReplications > 0, (ErrorReplications / RequestedReplications) * 100, 0)
+    ) %>%
+    select(FileName, CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate)
+
+  return(full_summary)
+}
+
+# Steps 5-9: Setup and execute parallel processing, calculate summaries, and display results
+
+output_folder <- here("3 Time Points", "7_3T_RILTA_GEN_LTA_ANALYZED_REP")
+file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
+
+cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
+num_cores <- detectCores() - 1
+cl <- makeCluster(num_cores, type = cluster_type)
+
+invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
+invisible(clusterEvalQ(cl, library(tidyverse)))
+
+error_summary <- bind_rows(parLapply(cl, file_list, extract_errors_from_file))
+completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
+requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
+
 stopCluster(cl)
 
-# Step 3: Combine results and create a summary table
-final_results <- bind_rows(all_errors)
+replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
 
-# Rename Replication to Rep in final_results to match final_data_with_actuals
-final_results <- final_results %>%
-  rename(Rep = Replication)
+if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications > 0)) {
+  replication_summary_table <- replication_summary %>%
+    gt() %>%
+    tab_header(
+      title = "Replication Summary",
+      subtitle = paste0("Folder: ", output_folder)
+    ) %>%
+    fmt_number(columns = vars(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
+    cols_label(
+      FileName = "File Name",
+      CompletedReplications = "Completed Replications",
+      RequestedReplications = "Requested Replications",
+      ErrorReplications = "Replications with Errors",
+      GoodReplications = "Good Replications",
+      ErrorRate = "Error Rate (%)"
+    ) %>%
+    tab_options(
+      table.font.size = "small",
+      heading.title.font.size = "medium",
+      heading.subtitle.font.size = "small"
+    )
 
-# Step 4: Create the summary table
-error_summary <- final_results %>%
-  group_by(FileName) %>%
-  summarise(
-    Requested = first(Requested),
-    Completed = first(Completed),
-    Errors = sum(ErrorFlag == 1),  # Sum up errors per file
-    GoodReplications = Completed - Errors,
-    ErrorRate = (Errors / Completed) * 100
-  )
-
-# Step 5: Create and display the GT table
-error_summary_table <- error_summary %>%
-  gt() %>%
-  tab_header(
-    title = "Error and Replication Summary",
-    subtitle = "Comprehensive analysis for each output file"
-  ) %>%
-  cols_label(
-    Requested = "Requested Replications",
-    Completed = "Completed Replications",
-    Errors = "Error Count",
-    GoodReplications = "Good Replications",
-    ErrorRate = "Error Rate (%)"
-  ) %>%
-  fmt_number(columns = vars(Requested, Completed, Errors, GoodReplications, ErrorRate), decimals = 2)
-
-# Step 6: Display the Table or Notify
-if (any(error_summary$Errors > 0)) {
-  print(error_summary_table)  # This is where your print function is now properly placed
+  print(replication_summary_table)
 } else {
   message("No errors or warnings detected. No table to display.")
 }
-
 ```
 
 #### Step 9: Part 1 Create Column Names from the Filename

@@ -461,13 +461,13 @@ invisible(lapply(1:sample_size, plot_violator))
 library(parallel)
 
 
-# Step 1: Extract Errors and Warnings
+# Step 1: Extract Errors
 extract_errors_from_file <- function(filepath) {
   lines <- readLines(filepath)
   results <- list()
   current_replication <- NULL
-  error_keywords <- c("SINGULARITY", "NON-POSITIVE DEFINITE")
-
+  error_keywords <- c("NON-POSITIVE DEFINITE", "C2#2 ON C1#1 (equality/label)", "C2#2 ON C1#2 (equality/label)","C2#1 ON C1#2 (equality/label)", "C2#1 ON C1#1 (equality/label)")
+  
   for (line in lines) {
     replication_match <- str_match(line, "REPLICATION (\\d+):")
     if (!is.na(replication_match[1])) {
@@ -504,7 +504,7 @@ extract_errors_from_file <- function(filepath) {
 }
 
 # Step 2: Extract Completed Replications
-extract_all_reps <- function(filepath) {
+extract_completed_replications <- function(filepath) {
   lines <- readLines(filepath)
   completed_line <- lines[grepl("Completed", lines, ignore.case = TRUE)]
   completed <- as.integer(str_match(completed_line, "Completed\\s+(\\d+)")[, 2])
@@ -513,7 +513,7 @@ extract_all_reps <- function(filepath) {
 }
 
 # Step 3: Extract Requested Replications
-extract_all_reps <- function(filepath) {
+extract_requested_replications <- function(filepath) {
   lines <- readLines(filepath)
   requested_line <- lines[grepl("Requested", lines, ignore.case = TRUE)]
   requested <- as.integer(str_match(requested_line, "Requested\\s+(\\d+)")[, 2])
@@ -522,14 +522,14 @@ extract_all_reps <- function(filepath) {
 }
 
 # Step 4: Calculate Replication Summary
-calculate_replication_summary <- function(all_reps) {
-  summary <- all_reps %>%
+calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
+  summary <- error_summary %>%
     group_by(FileName) %>%
     summarise(ErrorReplications = n_distinct(Replication[MessageType == "Error"]), .groups = "drop") %>%
     mutate(ErrorReplications = coalesce(ErrorReplications, 0))
 
   full_summary <- requested_replications %>%
-    left_join(all_reps, by = "FileName") %>%
+    left_join(completed_replications, by = "FileName") %>%
     left_join(summary, by = "FileName") %>%
     mutate(
       GoodReplications = CompletedReplications - ErrorReplications,
@@ -542,23 +542,26 @@ calculate_replication_summary <- function(all_reps) {
 
 # Steps 5-9: Setup and execute parallel processing, calculate summaries, and display results
 
-output_folder <- "4_2T_RILTA_GEN_RILTA_ANALYZED"
+
+output_folder <- here("2 Time Points", "4_2T_RILTA_GEN_RILTA_ANALYZED")
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
+
 
 cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
 num_cores <- detectCores() - 1
 cl <- makeCluster(num_cores, type = cluster_type)
 
-clusterExport(cl, c("extract_errors_from_file", "extract_all_reps", "extract_requested_replications"))
-clusterEvalQ(cl, library(tidyverse))
+# Suppress output when exporting functions and setting up the cluster environment
+invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
+invisible(clusterEvalQ(cl, library(tidyverse)))
 
 error_summary <- bind_rows(parLapply(cl, file_list, extract_errors_from_file))
-all_reps <- bind_rows(parLapply(cl, file_list, extract_all_reps))
+completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
 requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
 
-stopCluster(cl)
+invisible(stopCluster(cl))
 
-replication_summary <- calculate_replication_summary(all_reps, all_reps)
+replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
 
 if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications > 0)) {
   replication_summary_table <- replication_summary %>%
@@ -586,7 +589,6 @@ if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications >
 } else {
   message("No errors or warnings detected. No table to display.")
 }
-
 ```
 
 #### Step 5: Part 1 Create Column Names from the Filename
@@ -1088,11 +1090,13 @@ The purposes of this chunk are as follows:
 #| code-fold: true
 
 library(parallel)
-library(tidyverse)
 
-# Define helper functions
+
+# Step 1: Extract Errors
 extract_errors_from_file <- function(filepath) {
   lines <- readLines(filepath)
+  results <- list()
+  current_replication <- NULL
   error_keywords <- c("NON-POSITIVE DEFINITE", "C2#2 ON C1#1 (equality/label)", "C2#2 ON C1#2 (equality/label)","C2#1 ON C1#2 (equality/label)", "C2#1 ON C1#1 (equality/label)")
   
   completed_line <- lines[grepl("Completed", lines, ignore.case = TRUE)]
@@ -1166,8 +1170,7 @@ calculate_replication_summary <- function(all_reps) {
   return(full_summary)
 }
 
-# Parallel processing
-output_folder <- "4_2T_RILTA_GEN_RILTA_ANALYZED_REP"
+output_folder <- here("2 Time Points", "4_2T_RILTA_GEN_RILTA_ANALYZED_REP")
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
@@ -1175,9 +1178,9 @@ num_cores <- detectCores() - 1
 cl <- makeCluster(num_cores, type = cluster_type)
 
 # Export functions to cluster
-clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications", "str_match"))
+invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications", "str_match")))
 
-clusterEvalQ(cl, library(tidyverse))
+invisible(clusterEvalQ(cl, library(tidyverse)))
 
 error_summary <- bind_rows(parLapply(cl, file_list, extract_errors_from_file)) %>%
   mutate(FileName = tolower(gsub("\\.out$", "", FileName)))  # Normalize FileName

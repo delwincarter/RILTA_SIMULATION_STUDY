@@ -443,14 +443,13 @@ invisible(lapply(1:sample_size, plot_violator))
 
 library(parallel)
 
-
-# Step 1: Extract Errors and Warnings
+# Step 1: Extract Errors
 extract_errors_from_file <- function(filepath) {
   lines <- readLines(filepath)
   results <- list()
   current_replication <- NULL
-  error_keywords <- c("SINGULARITY", "NON-POSITIVE DEFINITE")
-
+  error_keywords <- c("NON-POSITIVE DEFINITE", "C2#2 ON C1#1 (equality/label)", "C2#2 ON C1#2 (equality/label)","C2#1 ON C1#2 (equality/label)", "C2#1 ON C1#1 (equality/label)")
+  
   for (line in lines) {
     replication_match <- str_match(line, "REPLICATION (\\d+):")
     if (!is.na(replication_match[1])) {
@@ -525,21 +524,24 @@ calculate_replication_summary <- function(error_summary, completed_replications,
 
 # Steps 5-9: Setup and execute parallel processing, calculate summaries, and display results
 
-output_folder <- "2_2T_LTA_GEN_RILTA_ANALYZED"
+
+output_folder <- here("2 Time Points", "2_2T_LTA_GEN_RILTA_ANALYZED")
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
+
 
 cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
 num_cores <- detectCores() - 1
 cl <- makeCluster(num_cores, type = cluster_type)
 
-clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications"))
-clusterEvalQ(cl, library(tidyverse))
+# Suppress output when exporting functions and setting up the cluster environment
+invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
+invisible(clusterEvalQ(cl, library(tidyverse)))
 
 error_summary <- bind_rows(parLapply(cl, file_list, extract_errors_from_file))
 completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
 requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
 
-stopCluster(cl)
+invisible(stopCluster(cl))
 
 replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
 
@@ -619,7 +621,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-### Step 5: Part 2
+##### Step 5: Part 2
 
 #### Objective
 
@@ -653,9 +655,9 @@ violation_summary <- violation_summary %>%
 
 ```
 
-### Step 5: Part 3
+#### Step 5: Part 3
 
-#### Objective
+##### Objective
 
 Summarize & Visualize Label Switching Percentage Results
 
@@ -1045,12 +1047,12 @@ source(here('Child_Docs', 'step_3.R'))
 library(parallel)
 
 
-# Step 1: Extract Errors and Warnings
+# Step 1: Extract Errors
 extract_errors_from_file <- function(filepath) {
   lines <- readLines(filepath)
   results <- list()
   current_replication <- NULL
-  error_keywords <- c("SINGULARITY", "NON-POSITIVE DEFINITE")
+  error_keywords <- c("NON-POSITIVE DEFINITE", "C2#2 ON C1#1 (equality/label)", "C2#2 ON C1#2 (equality/label)","C2#1 ON C1#2 (equality/label)", "C2#1 ON C1#1 (equality/label)")
 
   for (line in lines) {
     replication_match <- str_match(line, "REPLICATION (\\d+):")
@@ -1126,15 +1128,15 @@ calculate_replication_summary <- function(error_summary, completed_replications,
 
 # Steps 5-9: Setup and execute parallel processing, calculate summaries, and display results
 
-output_folder <- "2_2T_LTA_GEN_RILTA_ANALYZED_REP"
+output_folder <- here("2 Time Points", "2_2T_LTA_GEN_RILTA_ANALYZED_REP")
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
 num_cores <- detectCores() - 1
 cl <- makeCluster(num_cores, type = cluster_type)
 
-clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications"))
-clusterEvalQ(cl, library(tidyverse))
+invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
+invisible(clusterEvalQ(cl, library(tidyverse)))
 
 error_summary <- bind_rows(parLapply(cl, file_list, extract_errors_from_file))
 completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
@@ -1172,7 +1174,7 @@ if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications >
 }
 ```
 
-### Step 10: Part 1 Create Column Names from the Filename
+#### Step 10: Part 1 Create Column Names from the Filename
 
 ```{r}
 
@@ -1220,9 +1222,9 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-### Step 10: Part 2
+#### Step 10: Part 2
 
-#### Objective
+##### Objective
 
 Calculate Violation Percentages per Condition
 
@@ -1254,9 +1256,9 @@ violation_summary <- violation_summary %>%
 
 ```
 
-### Step 10: Part 3
+#### Step 10: Part 3
 
-#### Objective
+##### Objective
 
 Summarize & Visualize Label Switching Percentage Results
 

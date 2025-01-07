@@ -537,7 +537,7 @@ if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications >
       title = "Replication Summary",
       subtitle = paste0("Folder: ", output_folder)
     ) %>%
-    fmt_number(columns = vars(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
+    fmt_number(columns = c(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
     cols_label(
       FileName = "File Name",
       CompletedReplications = "Completed Replications",
@@ -1148,32 +1148,37 @@ stopCluster(cl)
 
 replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
 
-if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications > 0)) {
-  replication_summary_table <- replication_summary %>%
+# Create the summary table
+replication_summary_table <- replication_summary %>%
     gt() %>%
     tab_header(
-      title = "Replication Summary",
-      subtitle = paste0("Folder: ", output_folder)
+        title = "Replication Summary",
+        subtitle = paste0("Folder: ", output_folder)
     ) %>%
-    fmt_number(columns = vars(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
+    fmt_number(columns = c(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
     cols_label(
-      FileName = "File Name",
-      CompletedReplications = "Completed Replications",
-      RequestedReplications = "Requested Replications",
-      ErrorReplications = "Replications with Errors",
-      GoodReplications = "Good Replications",
-      ErrorRate = "Error Rate (%)"
+        FileName = "File Name",
+        CompletedReplications = "Completed Replications",
+        RequestedReplications = "Requested Replications",
+        ErrorReplications = "Replications with Errors",
+        GoodReplications = "Good Replications",
+        ErrorRate = "Error Rate (%)"
     ) %>%
     tab_options(
-      table.font.size = "small",
-      heading.title.font.size = "medium",
-      heading.subtitle.font.size = "small"
+        table.font.size = "small",
+        heading.title.font.size = "medium",
+        heading.subtitle.font.size = "small"
     )
 
-  print(replication_summary_table)
+# Print table or throw message depending on errors
+if (all(replication_summary$ErrorRate == 0)) {
+    # Only show message if no errors
+    cat("No errors detected across all replications.\n")
 } else {
-  message("No errors or warnings detected. No table to display.")
+    # Only print the table if there are errors
+    print(replication_summary_table)
 }
+
 ```
 
 #### Step 9: Part 1 Create Column Names from the Filename

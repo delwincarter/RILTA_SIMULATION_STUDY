@@ -283,258 +283,6 @@ stopCluster(cl)
 
 ```
 
-# PART 2:
-
-#### Objective
-
-Rerun Analysis *with VARIED NUMBER OF REPLICATIONS to meet the 500 number threshold*
-
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
-#| label: "rilta-lta-simulation2"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-
-
-  # Define the Mplus object with the dynamic replications
-rilta_lta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
-  
-  RILTA_LTA <- mplusObject(
-    TITLE = glue("Generate RILTA_LTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}"),
-
-    MONTECARLO =
-      glue("NAMES = u11-u15 u21-u25 u31-u35;
-      GENERATE = u11-u15 u21-u25 u31-u35(1);
-      CATEGORICAL = u11-u15 u21-u25 u31-u35;
-      GENCLASSES = c1(2) c2(2) c3(2);
-      CLASSES = c1(2) c2(2) c3(2);
-      NOBSERVATIONS = {N_numeric};
-      SEED = 07252005;
-      NREPS = {Replications_Needed};
-      !!SAVE = repM1*.dat;
-      RESULTS = RILTA_LTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.csv;"),
-    ANALYSIS =
-      "TYPE = MIXTURE;
-      algorithm = integration;
-      processors = 24;
-      starts=50 10;
-      logcriterion=0.00001;
-      mconv=0.00001;",
-
-    MODELPOPULATION = glue("	
-        %OVERALL%
-
-        [c1#1-c3#1*0];
-        c2#1 on c1#1*{TPs};
-        c3#1 on c2#1*0;
-      	
-     f by  u11-u15*{Lambda} (p1-p5)
-               u21-u25*{Lambda} (p1-p5)
-               u31-u35*{Lambda} (p1-p5);
-          
-        f@1;
-        [f@0];
-        
-      MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
-
-        %c1#2%
-     [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
-
-        %c2#2%
-     [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
-     
-     MODEL POPULATION-c3:  
-        %c3#1%
-     [u31$1*1 u32$1*1 u33$1*1 u34$1*1 u35$1*1] (p111-p115);
-
-        %c3#2%
-     [u31$1*-1 u32$1*-1 u33$1*-1 u34$1*-1 u35$1*-1] (p121-p125);
-       "),
-     
-
-    MODEL =
-      glue("	
-        %OVERALL%
-          [c1#1-c3#1*0](par1-par3);
-        	c2#1 on c1#1*{TPs} (par11);
-        	c3#1 on c2#1*0;
-
-     MODEL c1:
-        %c1#1%
-     [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
-
-        %c1#2%
-     [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
-
-    MODEL c2: 	
-        %c2#1%
-     [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
-
-        %c2#2%
-     [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
-     
-    MODEL c3:  
-        %c3#1%
-     [u31$1*1 u32$1*1 u33$1*1 u34$1*1 u35$1*1] (p111-p115);
-
-        %c3#2%
-     [u31$1*-1 u32$1*-1 u33$1*-1 u34$1*-1 u35$1*-1] (p121-p125);
-	      "),
-      
-
-    MODELCONSTRAINT =
-      if (TPs == 1.385) {
-        glue("
-        New(
-        trans11*.80 trans12*.20 trans21*.5 trans22*.5
-        prob11*.5 prob12*.5 prob21*.65 prob22*.35);
-        trans11 = 1/(1+exp(-(par2+par11)));
-        trans12 = 1-trans11;
-        trans21 = 1/(1+exp(-par2));
-        trans22 = 1- trans21;
-        !marginal probabilities at T1 and T2:
-        prob11 = 1/(1+exp(-par1));
-        prob12 = 1 - prob11;
-        prob21 = prob11*trans11+prob12*trans21;
-        prob22 = 1- prob21;
-        ")
-      } 
-             else if (TPs == .85) {
-        glue("
-        New(
-        trans11*.70 trans12*.30 trans21*.5 trans22*.5
-        prob11*.5 prob12*.5 prob21*.60 prob22*.4);
-        trans11 = 1/(1+exp(-(par2+par11)));
-        trans12 = 1-trans11;
-        trans21 = 1/(1+exp(-par2));
-        trans22 = 1- trans21;
-        !marginal probabilities at T1 and T2:
-        prob11 = 1/(1+exp(-par1));
-        prob12 = 1 - prob11;
-        prob21 = prob11*trans11+prob12*trans21;
-        prob22 = 1- prob21;
-        ")
-              } 
-            else  if (TPs == .41) {
-        glue("
-        New(
-        trans11*.60 trans12*.40 trans21*.5 trans22*.5
-        prob11*.5 prob12*.5 prob21*.55 prob22*.45);
-        trans11 = 1/(1+exp(-(par2+par11)));
-        trans12 = 1-trans11;
-        trans21 = 1/(1+exp(-par2));
-        trans22 = 1- trans21;
-        !marginal probabilities at T1 and T2:
-        prob11 = 1/(1+exp(-par1));
-        prob12 = 1 - prob11;
-        prob21 = prob11*trans11+prob12*trans21;
-        prob22 = 1- prob21;
-        ")
-              } 
-             else if (TPs == -.41) {
-        glue("
-        New(
-        trans11*.40 trans12*.60 trans21*.5 trans22*.5
-        prob11*.5 prob12*.5 prob21*.45 prob22*.55);
-        trans11 = 1/(1+exp(-(par2+par11)));
-        trans12 = 1-trans11;
-        trans21 = 1/(1+exp(-par2));
-        trans22 = 1- trans21;
-        !marginal probabilities at T1 and T2:
-        prob11 = 1/(1+exp(-par1));
-        prob12 = 1 - prob11;
-        prob21 = prob11*trans11+prob12*trans21;
-        prob22 = 1- prob21;
-        ")
-              } 
-             else if (TPs == -.85) {
-        glue("
-        New(
-        trans11*.30 trans12*.70 trans21*.5 trans22*.5
-        prob11*.5 prob12*.5 prob21*.40 prob22*.60);
-        trans11 = 1/(1+exp(-(par2+par11)));
-        trans12 = 1-trans11;
-        trans21 = 1/(1+exp(-par2));
-        trans22 = 1- trans21;
-        !marginal probabilities at T1 and T2:
-        prob11 = 1/(1+exp(-par1));
-        prob12 = 1 - prob11;
-        prob21 = prob11*trans11+prob12*trans21;
-        prob22 = 1- prob21;
-        ")
-              } 
-        
-        else if (TPs == -1.385) {
-        glue("
-         New(
-        trans11*.20 trans12*.80 trans21*.5 trans22*.5
-        prob11*.5 prob12*.5 prob21*.35 prob22*.65);
-
-        trans11 = 1/(1+exp(-(par2+par11)));
-        trans12 = 1-trans11;
-        trans21 = 1/(1+exp(-par2));
-        trans22 = 1- trans21;
-        !marginal probabilities at T1 and T2:
-        prob11 = 1/(1+exp(-par1));
-        prob12 = 1 - prob11;
-        prob21 = prob11*trans11+prob12*trans21;
-        prob22 = 1- prob21;")
-      }
-  )
-
-  # Run Mplus model
-  RILTA_LTA_Model<- mplusModeler(RILTA_LTA, 
-                                   dataout = here("8. 3T RILTA GEN LTA ANALYZED_REP", glue("RILTA_LTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.dat")),
-                                   modelout = glue(here("8. 3T RILTA GEN LTA ANALYZED_REP", "RILTA_LTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
-                                   check = TRUE, run = TRUE, hashfilename = FALSE)
-return(RILTA_LTA_Model)
-}
-
-library(parallel)
-# Start the cluster
-num_cores <- detectCores() - 1
-
-# Step 2: Select the cluster type based on the system (PSOCK for Windows, FORK for macOS/Linux)
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-
-
-cl <- makeCluster(num_cores, type = cluster_type)
-# Export necessary objects to the cluster
-clusterExport(cl, c("rilta_lta_func", "violation_summary", "here", "glue", "mplusModeler", "mplusObject"))
-
-# Ensure required libraries are loaded on each node
-clusterEvalQ(cl, {
-  library(MplusAutomation)
-  library(glue)
-  library(here)
-})
-
-result_list <- parLapply(cl, 1:nrow(violation_summary), function(i) {
-  rilta_lta_func(
-    violation_summary$N_numeric[i], 
-    violation_summary$TPs[i],  
-    violation_summary$Lambda[i], 
-    violation_summary$Replications_Needed[i]
-  )
-})
-
-
-
-# Stop the cluster after the simulation
-stopCluster(cl)
-
-
-```
-
 # CHECK FOR LABEL SWITCHING
 
 ### Step 1: Combine All CSV Files into One Data Frame
@@ -544,39 +292,17 @@ stopCluster(cl)
 *Load all CSV files and combine them into a single data frame.*
 
 ```{r}
-
-library(parallel)
-
 #| label: "combine-csv-files-parallel"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
 
-# Step 1: Define the directory where your CSV files are stored
-csv_directory <- here("8. 3T RILTA GEN LTA ANALYZED")
+# Step 1: Set the correct CSV directory
+csv_directory <- here('3 Time Points', '7_3T_RILTA_GEN_LTA_ANALYZED')
 
-# Step 2: List all CSV files in the directory
-csv_files <- list.files(path = csv_directory, pattern = "*.csv", full.names = TRUE)
-
-# Step 3: Define a function to read and process each CSV file
-read_csv_file <- function(file) {
-  data <- read.csv(file, sep = " ", header = FALSE)  # Read the CSV file
-  data$FileName <- gsub("\\.[^.]*$", "", basename(file))  # Remove the file extension
-  return(data)
-}
-
-# Step 4: Set up for parallel processing
-num_cores <- detectCores() - 1  
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK") 
-
-# Step 5: Create and run the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-clusterExport(cl, c("read_csv_file", "gsub"))
-combined_data <- do.call(rbind, parLapply(cl, csv_files, read_csv_file))
-stopCluster(cl)  # Stop the cluster after processing
-
-
+# Step 2: Source the child document
+source(here('Child_Docs', 'data_scraping.R'))
 ```
 
 ### Step 2: Scrape Rows and Process Data
@@ -592,70 +318,8 @@ Extract data from the appropriate rows from each 9-row chunk and prepare the dat
 #| warning: false
 #| code-fold: true
 
-# Step 1: Set up the number of cores to use (leave one core free for the system)
-num_cores <- detectCores() - 1  
-
-# Step 2: Select the cluster type based on the system (PSOCK for Windows, FORK for macOS/Linux)
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-
-# Step 3: Create the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Step 4: Export necessary variables to each worker in the cluster
-clusterExport(cl, c("combined_data"))
-
-# Step 5: Define the function to process each 9-row chunk
-process_chunk <- function(chunk_start, data) {
-  if (chunk_start + 8 <= nrow(data)) {
-    row1 <- data[chunk_start, ]        # Row 1
-    row2 <- data[chunk_start + 1, ]    # Row 2
-    row3 <- data[chunk_start + 2, ]    # Row 3 (TRANS11)
-    row6 <- data[chunk_start + 5, ]    # Row 6 (SE_11)
-
-    
-    # Step 5.1: Extract relevant data
-    rep_variable <- row1[1]                      # Replication number from row 1, column 1
-    columns_1_to_10 <- row2[1:10]                # Columns 1-10 from row 2
-    trans11 <- row3[6]                           # Column 6 from row 3 (TRANS11)
-    se11 <- row6[6]                              # Column 6 from row 5 (SE_11)
-    
-    # Step 5.2: Combine extracted columns into a single row
-    combined_data_chunk <- c(as.character(row1$FileName), 
-                             as.character(rep_variable), 
-                             as.numeric(columns_1_to_10), 
-                             as.numeric(trans11), 
-                             as.numeric(se11))
-    
-    # Step 5.3: Convert the combined row into a data frame
-    single_row_df <- as.data.frame(t(combined_data_chunk), stringsAsFactors = FALSE)
-    
-    # Step 5.4: Rename columns, ensuring TRANS11 and SE_11 are included
-    colnames(single_row_df) <- c("FileName", "Rep", 
-                                 "Ec1u1", "Ec1u2", "Ec1u3", "Ec1u4", "Ec1u5", 
-                                 "Ec2u1", "Ec2u2", "Ec2u3", "Ec2u4", "Ec2u5",
-                                 "TRANS11", "SE_11")
-    return(single_row_df)
-  } else {
-    return(NULL)
-  }
-}
-
-# Step 6: Set up the sequence of chunk starts (every 9 rows)
-chunk_starts <- seq(1, nrow(combined_data), by = 9)
-
-# Step 7: Process chunks in parallel using parLapply
-final_data <- parLapply(cl, chunk_starts, process_chunk, data = combined_data)
-
-# Step 8: Stop the cluster after processing
-stopCluster(cl)
-
-# Step 9: Remove NULL elements (if any chunks are skipped)
-final_data <- Filter(Negate(is.null), final_data)
-
-# Step 10: Combine all processed chunks into a single data frame
-final_combined_data <- do.call(rbind, final_data)
-
-
+# Step 2: Process the data using the child script
+source(here('Child_Docs', 'step2_3t_LTA.R'))
 ```
 
 ### Step 3: Convert Logits to Probabilities and Add Actual (Population) Values
@@ -671,190 +335,10 @@ Convert the logits to probabilities and add the known actual values to each row.
 #| warning: false
 #| code-fold: true
 
-# Step 1: Define the corrected actual values for M1 (5 for Ac1u and 5 for Ac2u)
-M1Ac1u <- c(0.73, 0.73, 0.73, 0.73, 0.73)
-M1Ac2u <- c(0.27, 0.27, 0.27, 0.27, 0.27)
+# Step 3 and 4: Process the data and return results
+source(here('Child_Docs', 'step_3.R'))
 
-# Step 2: Define the function to get actual values (only for M1)
-get_actual_values <- function(model) {
-  return(c(M1Ac1u, M1Ac2u))
-}
-
-# Step 3: Set up the number of cores to use (leave one core free for the system)
-num_cores <- detectCores() - 1  
-
-# Step 4: Select the cluster type based on the system (PSOCK for Windows, FORK for macOS/Linux)
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-
-# Step 5: Create the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Step 6: Export the necessary variables and functions to the cluster workers
-clusterExport(cl, c("final_combined_data", "get_actual_values", "M1Ac1u", "M1Ac2u"))
-
-# Step 7: Define the parallelized function to process each row and add actual values
-process_row_parallel <- function(i, data) {
-  actual_values <- get_actual_values("M1")  # Get the actual values (only M1 is used)
-  combined_row <- cbind(data[i, ], as.data.frame(t(actual_values)))
-  return(combined_row)
-}
-
-# Step 8: Convert logits to probabilities for columns 3 to 12 (Ec1u1 to Ac2u5, 10 values)
-logit_columns <- final_combined_data[, 3:12]  # Adjust to columns 3 to 12 for 10 values
-probabilities <- apply(logit_columns, 2, function(x) round(1 / (1 + exp(-as.numeric(x))), 2))
-
-# Step 9: Combine probabilities with the FileName, Rep columns, and the TRANS11 and SE_11 columns
-final_combined_data_with_trans_se <- final_combined_data %>%
-  select(FileName, Rep, TRANS11, SE_11) %>%
-  bind_cols(as.data.frame(probabilities))
-
-# Step 10: Apply the function to add actual values in parallel using parLapply
-final_data_with_actuals <- parLapply(cl, 1:nrow(final_combined_data_with_trans_se), process_row_parallel, data = final_combined_data_with_trans_se)
-
-# Step 11: Stop the cluster after processing
-stopCluster(cl)
-
-# Step 12: Combine the results into a data frame
-final_data_with_actuals <- do.call(rbind, final_data_with_actuals)
-
-# Step 13: Set column names for the actual values (from Ac1u1 to Ac2u5)
-colnames(final_data_with_actuals)[(ncol(final_combined_data_with_trans_se) + 1):ncol(final_data_with_actuals)] <- c(
-  "Ac1u1", "Ac1u2", "Ac1u3", "Ac1u4", "Ac1u5",
-  "Ac2u1", "Ac2u2", "Ac2u3", "Ac2u4", "Ac2u5"
-)
-
-# Step 14: Round all numeric columns to 3 decimal places
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
-
-# Step 15: Ensure that TRANS11 and SE_11 columns are numeric and rounded to 3 decimal places
-trans_se_columns <- c("TRANS11", "SE_11")
-
-final_data_with_actuals[trans_se_columns] <- lapply(final_data_with_actuals[trans_se_columns], function(x) round(as.numeric(x), 3))
-
-```
-
-### Step 4: Calculate Comparisons and Flag Violations
-
-**Objective:** 
-
-*Calculate the differences between the estimate and actual sums and flag any violations.*
-
-#### Step 4.1 Initialize Columns
-
-```{r}
-#| label: "initialize-comparison-columns"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-
-# Step 1: Initialize columns for comparisons and flags
-
-# Initialize for Model 1 comparison and flags (only relevant columns for 10 values)
-final_data_with_actuals$X1v2_item1 <- NA  # Comparison for Item 1 (Ac1u1 vs Ac2u1)
-final_data_with_actuals$X1v2_item2 <- NA  # Comparison for Item 2 (Ac1u2 vs Ac2u2)
-final_data_with_actuals$X1v2_item3 <- NA  # Comparison for Item 3 (Ac1u3 vs Ac2u3)
-
-
-```
-
-#### Step 4 Part 2: Add Parallel Processing Setup
-
-```{r}
-#| label: "parallel-processing-setup"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-# Step 1: Set up the number of cores to use (leave one core free for the system)
-num_cores <- detectCores() - 1  
-
-# Step 2: Select the cluster type based on the system (PSOCK for Windows, FORK for macOS/Linux)
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-
-# Step 3: Create the cluster
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Step 4: Export necessary variables to each worker
-clusterExport(cl, c("final_data_with_actuals"))
-
-
-```
-
-#### Step 4: Part 3 Parallelized Row Processing
-
-```{r}
-#| label: "parallelized-row-processing"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-
-# Iterate through the data and apply comparisons for Model 1 based on the estimated values
-for (i in 1:nrow(final_data_with_actuals)) {
-  
-  # Class 1 vs. Class 2 on Item 1 (Ec1u1 vs Ec2u1 - estimated values)
-  final_data_with_actuals$X1v2_item1[i] <- final_data_with_actuals$Ec1u1[i] - final_data_with_actuals$Ec2u1[i]
-  
-  # Class 1 vs. Class 2 on Item 2 (Ec1u2 vs Ec2u2 - estimated values)
-  final_data_with_actuals$X1v2_item2[i] <- final_data_with_actuals$Ec1u2[i] - final_data_with_actuals$Ec2u2[i]
-  
-  # Class 1 vs. Class 2 on Item 3 (Ec1u3 vs Ec2u3 - estimated values)
-  final_data_with_actuals$X1v2_item3[i] <- final_data_with_actuals$Ec1u3[i] - final_data_with_actuals$Ec2u3[i]
-}
-
-```
-
-#### Step 4: Part 4 Flagging Logic
-
-```{r}
-#| label: "flagging-logic"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-# Step 1: Flagging process based on at least 1 negative value (violators) for Model 1
-final_data_with_actuals$Flag_M1 <- ifelse(
-  rowSums(cbind(
-    final_data_with_actuals$X1v2_item1 < 0,  # Comparison for Item 1 (Ac1u1 vs Ac2u1)
-    final_data_with_actuals$X1v2_item2 < 0,  # Comparison for Item 2 (Ac1u2 vs Ac2u2)
-    final_data_with_actuals$X1v2_item3 < 0   # Comparison for Item 3 (Ac1u3 vs Ac2u3)
-  )) >= 1, 
-  1, 0
-)
-
-# Step 2: Final flagging for any violation across models (since only Model 1 is relevant)
-final_data_with_actuals$Any_Violation <- ifelse(final_data_with_actuals$Flag_M1 == 1, 1, 0)
-
-```
-
-#### Step 4: Part 5 Post-processing
-
-```{r}
-#| label: "post-processing"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: true
-
-# Ensure that all numeric columns are rounded and suppress scientific notation
-options(scipen = 999)
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
-
-# Replace NA values in Any_Violation with 0
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(Any_Violation = if_else(is.na(Any_Violation), 0, Any_Violation))
-
-# Filter rows where there are violations (Any_Violation == 1)
-violators <- final_data_with_actuals %>% filter(Any_Violation == 1)
-
-stopCluster(cl)  # Stop the cluster after processin
+# The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
 ### **Step 5: Plot Random Sample of Violators for Visual Inspection**
@@ -1264,6 +748,652 @@ final_table <- create_model_table(violation_summary)
 final_table
 
 ```
+
+# PART 2:
+
+#### Objective
+
+Rerun Analysis *with VARIED NUMBER OF REPLICATIONS to meet the 500 number threshold*
+
+```{r,message=FALSE, warning=FALSE, eval = FALSE}
+
+#| label: "rilta-lta-simulation2"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+
+
+  # Define the Mplus object with the dynamic replications
+rilta_lta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
+  
+  RILTA_LTA <- mplusObject(
+    TITLE = glue("Generate RILTA_LTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}"),
+
+    MONTECARLO =
+      glue("NAMES = u11-u15 u21-u25 u31-u35;
+      GENERATE = u11-u15 u21-u25 u31-u35(1);
+      CATEGORICAL = u11-u15 u21-u25 u31-u35;
+      GENCLASSES = c1(2) c2(2) c3(2);
+      CLASSES = c1(2) c2(2) c3(2);
+      NOBSERVATIONS = {N_numeric};
+      SEED = 07252005;
+      NREPS = {Replications_Needed};
+      !!SAVE = repM1*.dat;
+      RESULTS = RILTA_LTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.csv;"),
+    ANALYSIS =
+      "TYPE = MIXTURE;
+      algorithm = integration;
+      processors = 24;
+      starts=50 10;
+      logcriterion=0.00001;
+      mconv=0.00001;",
+
+    MODELPOPULATION = glue("	
+        %OVERALL%
+
+        [c1#1-c3#1*0];
+        c2#1 on c1#1*{TPs};
+        c3#1 on c2#1*0;
+      	
+     f by  u11-u15*{Lambda} (p1-p5)
+               u21-u25*{Lambda} (p1-p5)
+               u31-u35*{Lambda} (p1-p5);
+          
+        f@1;
+        [f@0];
+        
+      MODEL POPULATION-c1:
+        %c1#1%
+     [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+
+        %c1#2%
+     [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+
+      MODEL POPULATION-c2:  
+        %c2#1%
+     [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+
+        %c2#2%
+     [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+     
+     MODEL POPULATION-c3:  
+        %c3#1%
+     [u31$1*1 u32$1*1 u33$1*1 u34$1*1 u35$1*1] (p111-p115);
+
+        %c3#2%
+     [u31$1*-1 u32$1*-1 u33$1*-1 u34$1*-1 u35$1*-1] (p121-p125);
+       "),
+     
+
+    MODEL =
+      glue("	
+        %OVERALL%
+          [c1#1-c3#1*0](par1-par3);
+        	c2#1 on c1#1*{TPs} (par11);
+        	c3#1 on c2#1*0;
+
+     MODEL c1:
+        %c1#1%
+     [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+
+        %c1#2%
+     [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+
+    MODEL c2: 	
+        %c2#1%
+     [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+
+        %c2#2%
+     [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+     
+    MODEL c3:  
+        %c3#1%
+     [u31$1*1 u32$1*1 u33$1*1 u34$1*1 u35$1*1] (p111-p115);
+
+        %c3#2%
+     [u31$1*-1 u32$1*-1 u33$1*-1 u34$1*-1 u35$1*-1] (p121-p125);
+	      "),
+      
+
+    MODELCONSTRAINT =
+      if (TPs == 1.385) {
+        glue("
+        New(
+        trans11*.80 trans12*.20 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.65 prob22*.35);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+      } 
+             else if (TPs == .85) {
+        glue("
+        New(
+        trans11*.70 trans12*.30 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.60 prob22*.4);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+              } 
+            else  if (TPs == .41) {
+        glue("
+        New(
+        trans11*.60 trans12*.40 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.55 prob22*.45);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+              } 
+             else if (TPs == -.41) {
+        glue("
+        New(
+        trans11*.40 trans12*.60 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.45 prob22*.55);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+              } 
+             else if (TPs == -.85) {
+        glue("
+        New(
+        trans11*.30 trans12*.70 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.40 prob22*.60);
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;
+        ")
+              } 
+        
+        else if (TPs == -1.385) {
+        glue("
+         New(
+        trans11*.20 trans12*.80 trans21*.5 trans22*.5
+        prob11*.5 prob12*.5 prob21*.35 prob22*.65);
+
+        trans11 = 1/(1+exp(-(par2+par11)));
+        trans12 = 1-trans11;
+        trans21 = 1/(1+exp(-par2));
+        trans22 = 1- trans21;
+        !marginal probabilities at T1 and T2:
+        prob11 = 1/(1+exp(-par1));
+        prob12 = 1 - prob11;
+        prob21 = prob11*trans11+prob12*trans21;
+        prob22 = 1- prob21;")
+      }
+  )
+
+  # Run Mplus model
+  RILTA_LTA_Model<- mplusModeler(RILTA_LTA, 
+                                   dataout = here("8. 3T RILTA GEN LTA ANALYZED_REP", glue("RILTA_LTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.dat")),
+                                   modelout = glue(here("8. 3T RILTA GEN LTA ANALYZED_REP", "RILTA_LTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
+                                   check = TRUE, run = TRUE, hashfilename = FALSE)
+return(RILTA_LTA_Model)
+}
+
+library(parallel)
+# Start the cluster
+num_cores <- detectCores() - 1
+
+# Step 2: Select the cluster type based on the system (PSOCK for Windows, FORK for macOS/Linux)
+cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
+
+
+cl <- makeCluster(num_cores, type = cluster_type)
+# Export necessary objects to the cluster
+clusterExport(cl, c("rilta_lta_func", "violation_summary", "here", "glue", "mplusModeler", "mplusObject"))
+
+# Ensure required libraries are loaded on each node
+clusterEvalQ(cl, {
+  library(MplusAutomation)
+  library(glue)
+  library(here)
+})
+
+result_list <- parLapply(cl, 1:nrow(violation_summary), function(i) {
+  rilta_lta_func(
+    violation_summary$N_numeric[i], 
+    violation_summary$TPs[i],  
+    violation_summary$Lambda[i], 
+    violation_summary$Replications_Needed[i]
+  )
+})
+
+
+
+# Stop the cluster after the simulation
+stopCluster(cl)
+
+
+```
+
+# CHECK FOR LABEL SWITCHING
+
+### Step 1: Combine All CSV Files into One Data Frame
+
+**Objective:** 
+
+*Load all CSV files and combine them into a single data frame.*
+
+```{r}
+#| label: "combine-csv-files-parallel2"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+# Step 1: Set the correct CSV directory
+csv_directory <- here('3 Time Points', '7_3T_RILTA_GEN_LTA_ANALYZED_REP')
+
+# Step 2: Source the child document
+source(here('Child_Docs', 'data_scraping.R'))
+```
+
+### Step 2: Scrape Rows and Process Data
+
+**Objective:** 
+
+Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.
+
+```{r}
+#| label: "scrape-rows-process-data-parallel2"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+# Step 2: Process the data using the child script
+source(here('Child_Docs', 'step2_3t_LTA.R'))
+```
+
+### Step 3: Convert Logits to Probabilities and Add Actual (Population) Values
+
+**Objective:** 
+
+Convert the logits to probabilities and add the known actual values to each row.
+
+```{r}
+#| label: "convert-logits-to-probabilities2"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+# Step 3 and 4: Process the data and return results
+source(here('Child_Docs', 'step_3.R'))
+
+# The objects `final_data_with_actuals` and `violators` should now be in the global environment
+```
+
+### **Step 6: Summarize Violations**
+
+#### **Objective**
+
+*Calculate the percentage of violations for each file, handling missing values appropriately.*
+
+```{r}
+#| label: "summarize-errors-and-violations2"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+library(tidyverse)
+library(gt)
+library(parallel)
+
+# Step 1: Extract Errors and Warnings
+extract_errors_from_file <- function(filepath) {
+  lines <- readLines(filepath)
+  results <- list()
+  current_replication <- NULL
+
+  for (line in lines) {
+    replication_match <- str_match(line, "REPLICATION (\\d+):")
+    if (!is.na(replication_match[1])) {
+      current_replication <- as.integer(replication_match[2])
+      results <- append(results, list(
+        tibble(
+          FileName = basename(filepath),
+          Replication = current_replication,
+          Message = "None",
+          MessageType = "None"
+        )
+      ))
+    } else if (!is.null(current_replication)) {
+      if (grepl("ERROR", line, ignore.case = TRUE)) {
+        results <- append(results, list(
+          tibble(
+            FileName = basename(filepath),
+            Replication = current_replication,
+            Message = str_trim(line),
+            MessageType = "Error"
+          )
+        ))
+      } else if (grepl("WARNING", line, ignore.case = TRUE)) {
+        results <- append(results, list(
+          tibble(
+            FileName = basename(filepath),
+            Replication = current_replication,
+            Message = str_trim(line),
+            MessageType = "Warning"
+          )
+        ))
+      }
+    }
+  }
+
+  # Return a default result if no errors/warnings are found
+  if (length(results) == 0) {
+    return(tibble(
+      FileName = basename(filepath),
+      Replication = NA,
+      Message = "No Errors or Warnings",
+      MessageType = "None"
+    ))
+  }
+  bind_rows(results)
+}
+
+# Step 2: Extract Completed Replications
+extract_completed_replications <- function(filepath) {
+  lines <- readLines(filepath)
+  completed_line <- lines[grepl("Completed", lines)]
+  completed <- as.integer(str_match(completed_line, "\\bCompleted\\s+(\\d+)")[, 2])
+  tibble(FileName = basename(filepath), CompletedReplications = completed)
+}
+
+# Step 3: Calculate Replication Summary with Error Rate
+calculate_replication_summary <- function(error_summary, completed_replications, requested_reps = 500) {
+  summary <- error_summary %>%
+    group_by(FileName) %>%
+    summarise(
+      ErrorReplications = n_distinct(Replication[MessageType == "Error"]),
+      WarningReplications = n_distinct(Replication[MessageType == "Warning"]),
+      .groups = "drop"
+    )
+  
+  full_summary <- completed_replications %>%
+    left_join(summary, by = "FileName") %>%
+    mutate(
+      TotalReplications = requested_reps,
+      ErrorReplications = coalesce(ErrorReplications, 0),
+      WarningReplications = coalesce(WarningReplications, 0),
+      GoodReplications = CompletedReplications - ErrorReplications - WarningReplications,
+      ErrorRate = if_else(TotalReplications > 0, (ErrorReplications / TotalReplications) * 100, 0)
+    ) %>%
+    select(FileName, CompletedReplications, TotalReplications, ErrorReplications, WarningReplications, GoodReplications, ErrorRate)
+  
+  # Filter for files with errors
+  filtered_summary <- full_summary %>%
+    filter(ErrorReplications > 0 | WarningReplications > 0)
+
+  return(filtered_summary)
+}
+
+# Step 4: Parallelized Processing
+output_folder <- "8. 3T RILTA GEN LTA ANALYZED"  # Adjust to your folder path
+file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
+
+# Step 5: Detect OS and Set Up Cluster
+cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
+num_cores <- detectCores() - 1  # Use all but one core
+cl <- makeCluster(num_cores, type = cluster_type)
+
+# Export necessary libraries and functions to the cluster
+clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications"))
+clusterEvalQ(cl, library(tidyverse))
+
+# Step 6: Parallel Processing
+error_summary <- bind_rows(parLapply(cl, file_list, extract_errors_from_file))
+completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
+
+# Stop the cluster
+stopCluster(cl)
+
+# Step 7: Calculate Replication Summary
+replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_reps = 500)
+
+# Step 8: Display the Table or Notify
+if (nrow(replication_summary) > 0) {
+  replication_summary_table <- replication_summary %>%
+    gt() %>%
+    tab_header(
+      title = "Replication Summary",
+      subtitle = paste0("Folder: ", output_folder)
+    ) %>%
+    fmt_number(columns = c(CompletedReplications, TotalReplications, ErrorReplications, WarningReplications, GoodReplications, ErrorRate), decimals = 2) %>%
+    cols_label(
+      FileName = "File Name",
+      CompletedReplications = "Completed Replications",
+      TotalReplications = "Requested Replications",
+      ErrorReplications = "Replications with Errors",
+      WarningReplications = "Replications with Warnings",
+      GoodReplications = "Good Replications",
+      ErrorRate = "Error Rate (%)"
+    ) %>%
+    tab_options(
+      table.font.size = "small",
+      heading.title.font.size = "medium",
+      heading.subtitle.font.size = "small"
+    )
+
+  # Display the table
+  print(replication_summary_table)
+} else {
+  message("No errors or warnings detected. No table to display.")
+}
+
+
+```
+
+#### Step 6: Part 1 Create Column Names from the Filename
+
+```{r}
+
+#| label: "create-column-names-from-filename2"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+# Add new columns based on the information in the FileName and set factors
+final_data_with_actuals <- final_data_with_actuals %>%
+  mutate(
+    # Extract the sample size (N) from the FileName with the correct values
+    N = case_when(
+      grepl("N_4000", FileName) ~ 4,  # Correct value for N_4000
+      grepl("N_500", FileName) ~ 1,   
+      grepl("N_1000", FileName) ~ 2,  
+      grepl("N_2000", FileName) ~ 3,  
+      TRUE ~ NA_integer_
+    ),
+    # Map the TPs from the FileName to the appropriate Population labels
+    Population = case_when(
+      grepl("TP_1.385", FileName) ~ ".800",   # Use ".800" instead of "0.800"
+      grepl("TP_0.85", FileName) ~ ".700",    # Use ".700" instead of "0.700"
+      grepl("TP_0.41", FileName) ~ ".600",    # Use ".600" instead of "0.600"
+      grepl("TP_-0.41", FileName) ~ ".400",   # Use ".400" instead of "0.400"
+      grepl("TP_-0.85", FileName) ~ ".300",   # Use ".300" instead of "0.300"
+      grepl("TP_-1.385", FileName) ~ ".200",  # Use ".200" instead of "0.200"
+      TRUE ~ NA_character_
+    ),
+Lambda = case_when(
+  grepl("lambda_0\\.2", FileName) ~ "0.2",       # Match 'Lambda_0.2'
+  grepl("lambda_0\\.4", FileName) ~ "0.4",       # Match 'Lambda_0.4'
+  grepl("lambda_0\\.6", FileName) ~ "0.6",       # Match 'Lambda_0.6'
+  grepl("lambda_0\\.8", FileName) ~ "0.8",       # Match 'Lambda_0.8',
+  grepl("lambda_1(\\.|$)", FileName) ~ "1",      # Match 'Lambda_1' followed by a dot or end of string
+  grepl("lambda_0(\\.|$)", FileName) ~ "0",      # Match 'Lambda_0' followed by a dot or end of string
+  TRUE ~ NA_character_
+),
+
+    # Create the Transitions variable based on Population values before Population is a factor
+    Transitions = case_when(
+      Population %in% c(".200", ".300", ".400") ~ 1,  # Assign 1 for Population .200, .300, .400
+      Population %in% c(".600", ".700", ".800") ~ 2,  # Assign 2 for Population .600, .700, .800
+      TRUE ~ NA_integer_
+    )
+  ) %>%
+  # Convert columns to factors, ordering N_4000 first in the factor levels
+  mutate(
+    N = factor(N, levels = c(4, 1, 2, 3), labels = c("N = 4000", "N = 500", "N = 1000", "N = 2000")),
+    Population = factor(Population, levels = c(".800", ".700", ".600", ".400", ".300", ".200")),
+    Transitions = factor(Transitions, levels = c(1, 2), labels = c("Mover", "Stayer"))
+  )
+
+```
+
+#### Step 6: Part 2 Calculate Violation Percentages per Condition
+
+```{r}
+
+#| label: "calculate-violation-percentages2"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+
+# Ensure no missing values in Any_Violation and create violation summary, including Population and Lambda
+violation_summary <- final_data_with_actuals %>%
+  mutate(Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation)) %>%
+  group_by(FileName, Population, N, Lambda) %>%  # Include Lambda in group_by
+  summarize(
+    Total_Rows = n(),  # Total rows per group
+    Total_Violations = sum(Any_Violation, na.rm = TRUE),  # Total violations
+    Percentage_Violations = (Total_Violations / Total_Rows) * 100  # Percentage of violations
+  ) %>%
+  ungroup() %>%
+  select(-FileName)  # Remove FileName after ungrouping
+
+# Ensure that all numeric columns are rounded and suppress scientific notation
+options(scipen = 999)
+violation_summary <- violation_summary %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
+
+```
+
+#### Step 6: Part 3 Summarize & Visualize Label Switching Percentage Results
+
+```{r}
+#| label: "summarize-violations2"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+
+# Function to calculate the number of replications needed a priori, handling N and Population appropriately
+calculate_needed_reps <- function(data) {
+  data %>%
+    # Convert N from character to numeric if it contains "N =" format
+    mutate(
+      N_numeric = as.numeric(gsub("N = ", "", N)),  # Remove "N = " prefix and convert to numeric
+      Additional_Runs = (500 + Total_Violations) * (Percentage_Violations / 100),  # Correct calculation for additional runs
+      Replications_Needed = ceiling(500 + Total_Violations + Additional_Runs + 20),  # Total replications needed + buffer of 20
+      Replications_Needed = if_else(Replications_Needed < 500, 500, Replications_Needed)  # Ensure a minimum of 500 replications
+    )
+}
+
+# Apply the updated function to calculate replications
+violation_summary <- calculate_needed_reps(violation_summary)
+
+# Ensure correct column names and assign TPs (logits) based on Population (for display and MplusAutomation)
+violation_summary <- violation_summary %>%
+  mutate(
+    TPs = case_when(
+      Population == ".800" ~ 1.385,
+      Population == ".700" ~ 0.85,
+      Population == ".600" ~ 0.41,
+      Population == ".400" ~ -0.41,
+      Population == ".300" ~ -0.85,
+      Population == ".200" ~ -1.385,
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  rename(
+    `Transition Probability` = Population  # Rename Population to Transition Probability for display purposes
+  )
+
+# Now, create the table with formatted output
+create_model_table <- function(data) {
+  data %>%
+    select(
+      `Transition Probability`,  # Display transition probabilities
+      TPs,  # Logit values for MplusAutomation
+      `Sample Size` = N_numeric,  # Use the numeric version of N for clarity
+      Lambda,  # Lambda column
+      `Total Mplus Runs` = Total_Rows,  # Rename Total_Rows to Total Mplus Runs
+      `Total Violations` = Total_Violations,  # Rename Total Violations to Total Violations
+      `% of Violations` = Percentage_Violations,  # Rename Percentage Violations to % of Violations
+      `Replications Needed` = Replications_Needed  # Add the column for replications needed
+    ) %>%
+    gt() %>%
+    tab_header(
+      title = "Monte Carlo Results:",
+      subtitle = "Percentage of Cases with Label Switching and Replications Needed"
+    ) %>%
+    cols_align(
+      align = "center",  # Center all columns
+      columns = everything()
+    ) %>%
+    tab_options(
+      data_row.padding = px(4)  # Set padding between rows
+    ) %>%
+    tab_style(
+      style = cell_text(align = "center"),  # Center align the headers only
+      locations = cells_column_labels(everything())  # Apply to headers only
+    )
+}
+
+# Arrange the data by Transition Probability and Sample Size (numeric N)
+violation_summary <- violation_summary %>%
+  arrange(`Transition Probability`, N_numeric)
+
+# Create and display the table
+final_table <- create_model_table(violation_summary)
+
+# Display the final table
+final_table
+
+```
+
+# 
 
 ### **Step 7: Delete Cases that Violate**
 

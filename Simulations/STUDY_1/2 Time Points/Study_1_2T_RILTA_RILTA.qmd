@@ -314,7 +314,7 @@ stopCluster(cl)
 #| code-fold: true
 
 # Step 1: Set the correct CSV directory
-csv_directory <- here('2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED')
+csv_directory <- here('Simulations', 'STUDY_1', '2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED')
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
@@ -434,7 +434,7 @@ invisible(lapply(1:sample_size, plot_violator))
 
 ```
 
-### **Step 6: Summarize Violations**
+### **Step 5: Summarize Violations**
 
 #### **Objective**
 
@@ -442,54 +442,47 @@ invisible(lapply(1:sample_size, plot_violator))
 
 ```{r chunk-name, message=FALSE, warning=FALSE}
 
-library(parallel)
-
 #| label: "summarize-errors"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
 
-# Step 1: Extract Errors
-extract_errors_from_file <- function(filepath) {
+library(parallel)
+
+extract_errors_from_file <- function(filepath, total_replications) {
   lines <- readLines(filepath)
-  results <- list()
+  results <- vector("list", total_replications)
+  error_keywords <- c("NON-POSITIVE DEFINITE", "SADDLE")
+
+  # Initialize results for every replication
+  for (rep in 1:total_replications) {
+    results[[rep]] <- tibble(
+      FileName = basename(filepath),
+      Replication = rep,
+      Message = "None",
+      MessageType = "None"
+    )
+  }
+
   current_replication <- NULL
-  error_keywords <- c("NON-POSITIVE DEFINITE", "C2#2 ON C1#1 (equality/label)", "C2#2 ON C1#2 (equality/label)","C2#1 ON C1#2 (equality/label)", "C2#1 ON C1#1 (equality/label)")
-  
   for (line in lines) {
-    replication_match <- str_match(line, "REPLICATION (\\d+):")
-    if (!is.na(replication_match[1])) {
-      current_replication <- as.integer(replication_match[2])
-      results <- append(results, list(
-        tibble(
-          FileName = basename(filepath),
-          Replication = current_replication,
-          Message = "None",
-          MessageType = "None"
-        )
-      ))
-    } else if (!is.null(current_replication) && any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
-      results <- append(results, list(
-        tibble(
-          FileName = basename(filepath),
-          Replication = current_replication,
-          Message = str_trim(line),
-          MessageType = "Error"
-        )
-      ))
+    if (str_detect(line, "REPLICATION")) {
+      current_replication <- as.integer(str_extract(line, "\\d+"))
+    }
+
+    if (!is.null(current_replication) && current_replication <= total_replications &&
+        any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
+      results[[current_replication]] <- tibble(
+        FileName = basename(filepath),
+        Replication = current_replication,
+        Message = str_trim(line),
+        MessageType = "Error"
+      )
     }
   }
 
-  if (length(results) == 0) {
-    return(tibble(
-      FileName = basename(filepath),
-      Replication = NA,
-      Message = "No Errors or Warnings",
-      MessageType = "None"
-    ))
-  }
-  bind_rows(results)
+  return(bind_rows(results))
 }
 
 # Step 2: Extract Completed Replications
@@ -501,6 +494,7 @@ extract_completed_replications <- function(filepath) {
   tibble(FileName = basename(filepath), CompletedReplications = completed)
 }
 
+
 # Step 3: Extract Requested Replications
 extract_requested_replications <- function(filepath) {
   lines <- readLines(filepath)
@@ -510,172 +504,168 @@ extract_requested_replications <- function(filepath) {
   tibble(FileName = basename(filepath), RequestedReplications = requested)
 }
 
-# Step 4: Calculate Replication Summary
 calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
   summary <- error_summary %>%
     group_by(FileName) %>%
-    summarise(ErrorReplications = n_distinct(Replication[MessageType == "Error"]), .groups = "drop") %>%
-    mutate(ErrorReplications = coalesce(ErrorReplications, 0))
+    summarise(
+      ErrorReplications = n_distinct(Replication[MessageType == "Error"]),
+      .groups = "drop"
+    )
 
   full_summary <- requested_replications %>%
     left_join(completed_replications, by = "FileName") %>%
     left_join(summary, by = "FileName") %>%
     mutate(
+      ErrorReplications = coalesce(ErrorReplications, 0),
       GoodReplications = CompletedReplications - ErrorReplications,
-      ErrorRate = if_else(RequestedReplications > 0, (ErrorReplications / RequestedReplications) * 100, 0)
+      ErrorRate = if_else(CompletedReplications > 0, (ErrorReplications / CompletedReplications) * 100, 0)
     ) %>%
-    select(FileName, CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate)
+    select(FileName, RequestedReplications, CompletedReplications, ErrorReplications, GoodReplications, ErrorRate)
 
-  return(full_summary)
+  full_summary
 }
 
-# Steps 5-9: Setup and execute parallel processing, calculate summaries, and display results
-
-output_folder <- here("2 Time Points", "4_2T_RILTA_GEN_RILTA_ANALYZED")
+# Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
+output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '4_RILTA_GEN_RILTA_ANALYZED')  # Adjust to your folder path
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
-
+# Step 5: Detect OS and Set Up Cluster
 cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-num_cores <- detectCores() - 1
+num_cores <- detectCores() - 1  # Use all but one core
 cl <- makeCluster(num_cores, type = cluster_type)
 
-# Suppress output when exporting functions and setting up the cluster environment
+# Export necessary libraries and functions to the cluster
 invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
 invisible(clusterEvalQ(cl, library(tidyverse)))
 
-error_summary <- bind_rows(parLapply(cl, file_list, extract_errors_from_file))
+# Step 6: Parallel Processing
+# Calculate completed replications first
+completed_rep_list <- parLapply(cl, file_list, extract_completed_replications)
+
+# Extract errors while passing the total number of completed replications to the function
+error_summary <- bind_rows(mapply(function(filepath, completed_data) {
+  extract_errors_from_file(filepath, completed_data$CompletedReplications)
+}, file_list, completed_rep_list, SIMPLIFY = FALSE))
+
 completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
 requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
 
-invisible(stopCluster(cl))
+# Stop the cluster
+stopCluster(cl)
 
+# Step 7: Calculate Replication Summary
 replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
 
-if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications > 0)) {
-  replication_summary_table <- replication_summary %>%
-    gt() %>%
-    tab_header(
-      title = "Replication Summary",
-      subtitle = paste0("Folder: ", output_folder)
-    ) %>%
-    fmt_number(columns = vars(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
-    cols_label(
-      FileName = "File Name",
-      CompletedReplications = "Completed Replications",
-      RequestedReplications = "Requested Replications",
-      ErrorReplications = "Replications with Errors",
-      GoodReplications = "Good Replications",
-      ErrorRate = "Error Rate (%)"
-    ) %>%
-    tab_options(
-      table.font.size = "small",
-      heading.title.font.size = "medium",
-      heading.subtitle.font.size = "small"
-    )
-
-  print(replication_summary_table)
-} else {
-  message("No errors or warnings detected. No table to display.")
-}
-```
-
-SAVE THIS FOR LATER for error deletion
-
-```{r, eval=FALSE}
-library(dplyr)
-library(gt)
-
-# Normalize filenames
-normalize_filenames <- function(df) {
-  df %>%
-    mutate(FileName = tolower(gsub("\\.out$", "", FileName)))  # Normalize filename case and remove extension
-}
-
-# Normalize filenames in both datasets
-final_results <- normalize_filenames(final_results)
-final_data_with_actuals <- normalize_filenames(final_data_with_actuals)
-
-# Convert Rep columns to the same type for consistent comparison
-final_data_with_actuals$Rep <- as.character(final_data_with_actuals$Rep)
-final_results$Rep <- as.character(final_results$Rep)
-
-# Step 2: Remove rows from final_data_with_actuals that have errors
-clean_combined_data <- final_data_with_actuals %>%
-  anti_join(final_results %>% filter(ErrorFlag == 1), by = c("FileName", "Rep"))
-
-# Step 3: Calculate remaining replications for each condition
-remaining_replications <- clean_combined_data %>%
-  group_by(FileName) %>%
-  summarise(RemainingReplications = n(), .groups = "drop")
-
-# Step 4: Calculate error summary for each file
-error_summary <- final_results %>%
-  group_by(FileName) %>%
-  summarise(
-    Requested = first(Requested),
-    Completed = first(Completed),
-    ErrorReplications = sum(ErrorFlag == 1, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  left_join(remaining_replications, by = "FileName") %>%
-  mutate(
-    RemainingReplications = coalesce(RemainingReplications, 0),
-    ComputedAfterErrors = Completed - ErrorReplications,
-    ErrorRate = if_else(Completed > 0, (ErrorReplications / Completed) * 100, 0)
-  )
-
-# Step 5: Create the GT table for the combined data
-error_handling_summary_table <- error_summary %>%
+# Step 8: Create and Display the Table with Error Rate
+replication_summary_table <- replication_summary %>%
   gt() %>%
   tab_header(
-    title = "Error Handling Summary",
-    subtitle = "Summary of file-based replication after handling errors"
+    title = "Replication Summary",
+    subtitle = paste0("Folder: ", output_folder)
   ) %>%
+  fmt_number(columns = c(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
   cols_label(
-    FileName = "Output File",
-    Requested = "Requested Replications",
-    Completed = "Completed Replications",
+    FileName = "File Name",
+    CompletedReplications = "Completed Replications",
+    RequestedReplications = "Requested Replications",
     ErrorReplications = "Replications with Errors",
-    RemainingReplications = "Remaining Replications After Errors",
-    ComputedAfterErrors = "Computed Replications After Errors",
+    GoodReplications = "Good Replications",
     ErrorRate = "Error Rate (%)"
   ) %>%
-  fmt_number(
-    columns = c("Requested", "Completed", "ErrorReplications", "RemainingReplications", "ComputedAfterErrors", "ErrorRate"),
-    decimals = 2
+  tab_options(
+    table.font.size = "small",
+    heading.title.font.size = "medium",
+    heading.subtitle.font.size = "small"
   )
 
-# Step 6: Display the GT table
-print(error_handling_summary_table)
+# Display the table
+replication_summary_table
+
+completed_replications <- completed_replications %>%
+  mutate(FileName = str_replace(FileName, "\\.out$", ""),
+         FileName = tolower(FileName),
+         FileName = str_trim(FileName))
+
+error_summary <- error_summary %>%
+  mutate(FileName = str_replace(FileName, "\\.out$", ""),
+         FileName = tolower(FileName),
+         FileName = str_trim(FileName))
+
+final_data_with_actuals <- final_data_with_actuals %>%
+  mutate(FileName = tolower(FileName),
+         FileName = str_trim(FileName))
+
+replication_summary <- replication_summary %>%
+  mutate(FileName = str_replace(FileName, "\\.out$", ""),
+         FileName = tolower(FileName),
+         FileName = str_trim(FileName))
+
+cat("Rows in final_data_with_actuals:", nrow(final_data_with_actuals), "\n")
+# Output the final number of rows to confirm data handling
+cat("Number of rows in error_summary: ", nrow(error_summary), "\n")
+cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 
 ```
 
-#### Step 6: Part 1 Create Column Names from the Filename
+#### Step 5: Part 1 Merge errors with main file
 
 ```{r}
+#| label: "merge-errors"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
 
+# Ensure consistent column formats and remove .out and .csv extensions
+error_summary <- error_summary %>%
+  mutate(
+    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
+    Replication = as.character(Replication) # Convert Replication to character
+  )
+
+final_data_with_actuals <- final_data_with_actuals %>%
+  mutate(
+    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
+    Replication = as.character(Replication) # Convert Replication to character
+  )
+
+# Add a new column to flag errors
+error_summary <- error_summary %>%
+  mutate(ErrorFlag = if_else(Message == "None", 0, 1))
+
+# Merge ErrorFlag into final_data_with_actuals
+final_data_with_actuals <- final_data_with_actuals %>%
+  left_join(error_summary %>% select(FileName, Replication, ErrorFlag),
+            by = c("FileName" = "FileName", "Replication" = "Replication"))
+```
+
+#### Step 5: Part 2 Create Column Names from the Filename
+
+```{r}
 #| label: "create-column-names-from-filename"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
+
+
 # Add new columns based on the information in the FileName
 final_data_with_actuals <- final_data_with_actuals %>%
   mutate(
     N = case_when(
-      grepl("N_4000", FileName) ~ 4000,
-      grepl("N_500", FileName) ~ 500,
-      grepl("N_1000", FileName) ~ 1000,
-      grepl("N_2000", FileName) ~ 2000,
+      grepl("n_4000", FileName) ~ 4000,
+      grepl("n_500", FileName) ~ 500,
+      grepl("n_1000", FileName) ~ 1000,
+      grepl("n_2000", FileName) ~ 2000,
       TRUE ~ NA_integer_
     ),
     Population = case_when(
-      grepl("TP_1.385", FileName) ~ ".800",
-      grepl("TP_0.85", FileName) ~ ".700",
-      grepl("TP_0.41", FileName) ~ ".600",
-      grepl("TP_-0.41", FileName) ~ ".400",
-      grepl("TP_-0.85", FileName) ~ ".300",
-      grepl("TP_-1.385", FileName) ~ ".200",
+      grepl("tp_1.385", FileName) ~ ".800",
+      grepl("tp_0.85", FileName) ~ ".700",
+      grepl("tp_0.41", FileName) ~ ".600",
+      grepl("tp_-0.41", FileName) ~ ".400",
+      grepl("tp_-0.85", FileName) ~ ".300",
+      grepl("tp_-1.385", FileName) ~ ".200",
       TRUE ~ NA_character_
     ),
     Lambda = case_when(
@@ -699,29 +689,31 @@ final_data_with_actuals <- final_data_with_actuals %>%
     Transitions = factor(Transitions, levels = c(1, 2), labels = c("Mover", "Stayer"))
   )
 
-
 ```
 
-#### Step 6: Part 2 Calculate Violation Percentages per Condition
+#### Step 5: Part 3 Calculate Violation Percentages per Condition
 
 ```{r}
 
-#| label: "calculate-violation-percentages"
+#| label: "calculate-violations"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
 
-
+# Step 6 Part 2: Summarize Violations and Adjust for Errors
 
 # 1. Summarize violations per condition
 violation_summary <- final_data_with_actuals %>%
-  mutate(FileName = trimws(tolower(FileName))) %>%  # Remove spaces and ensure lowercase
-  mutate(Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation)) %>%
-  group_by(FileName, Population, N, Lambda) %>%
+  mutate(
+    Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation),
+    ErrorFlag = ifelse(is.na(ErrorFlag), 0, ErrorFlag)  # Ensure no missing values for ErrorFlag
+  ) %>%
+  group_by(FileName, Model, Population, N, Mixing_proportion, Lambda_values) %>%
   summarize(
     Total_Rows = n(),                                # Total runs
     Total_Violations = sum(Any_Violation, na.rm = TRUE), # Total violations
+    Total_Errors = sum(ErrorFlag, na.rm = TRUE),         # Total errors from ErrorFlag
     Percentage_Violations = (Total_Violations / Total_Rows) * 100, # % violations
     .groups = "drop"
   ) %>%
@@ -730,36 +722,21 @@ violation_summary <- final_data_with_actuals %>%
     N_numeric = as.numeric(gsub("N = ", "", as.character(N))), 
     Additional_Runs = (500 + Total_Violations) * (Percentage_Violations / 100), 
     Replications_Needed = ceiling(500 + Total_Violations + Additional_Runs + 20),
-    Replications_Needed = if_else(Replications_Needed < 500, 500, Replications_Needed)
-  )
-# Standardize FileName in both datasets
-violation_summary <- violation_summary %>%
-  mutate(FileName = gsub("\\.out$", "", tolower(trimws(FileName))))  # Remove `.out` and ensure lowercase
-
-replication_summary <- replication_summary %>%
-  mutate(FileName = gsub("\\.out$", "", tolower(trimws(FileName))))  # Remove `.out` and ensure lowercase
-
-# 3. Merge Error Rate from replication_summary
-violation_summary <- violation_summary %>%
-  left_join(
-    replication_summary %>%
-      mutate(ErrorRate = if_else(CompletedReplications > 0, ErrorReplications / CompletedReplications, 0)) %>%
-      select(FileName, ErrorRate), # Add Error Rate column
-    by = "FileName"
-  )
-
-# 4. Adjust Replications Needed for Errors
-violation_summary <- violation_summary %>%
-  mutate(
+    Replications_Needed = if_else(Replications_Needed < 500, 500, Replications_Needed),
+    ErrorRate = Total_Errors / Total_Rows,  # Calculate ErrorRate directly
     Adjusted_Replications_Needed = ceiling(Replications_Needed / (1 - ErrorRate)),
     Adjusted_Replications_Needed = if_else(Adjusted_Replications_Needed < 500, 500, Adjusted_Replications_Needed)
+  ) %>%
+  select(
+    FileName, Model, Population, N, N_numeric, Mixing_proportion,
+    Lambda_values, Total_Rows, Total_Violations, Total_Errors,
+    ErrorRate, Percentage_Violations, Replications_Needed,
+    Adjusted_Replications_Needed
   )
-
-
 
 ```
 
-#### Step 6: Part 3 Summarize & Visualize Label Switching Percentage Results
+#### Step 5: Part 3 Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
 #| label: "summarize-violations"
@@ -832,7 +809,7 @@ final_table
 
 ```
 
-# STEP 7: PART 2: SIMULATION
+# PART 2: SIMULATION
 
 #### Objective
 
@@ -1028,8 +1005,8 @@ rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
 
   # Run Mplus model
   RILTA_RILTA_Model<- mplusModeler(RILTA_RILTA, 
-                                   dataout = here("3. 2T RILTA GEN RILTA ANALYZED_REP", glue("RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.dat")),
-                                   modelout = glue(here("3. 2T RILTA GEN RILTA ANALYZED_REP", "RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
+                                   dataout = here('Simulations', 'STUDY_1', '2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED_REP', glue("RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.dat")),
+                                   modelout = glue(here('Simulations', 'STUDY_1', '2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED', "RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
                                    check = TRUE, run = TRUE, hashfilename = FALSE)
 return(RILTA_RILTA_Model)
 }
@@ -1062,18 +1039,13 @@ result_list <- parLapply(cl, 1:nrow(violation_summary), function(i) {
   )
 })
 
-
-
 # Stop the cluster after the simulation
 stopCluster(cl)
-
-
-
 ```
 
 # CHECK FOR LABEL SWITCHING
 
-### Step 8: Combine All CSV Files into One Data Frame From the new data
+### Step 6: Combine All CSV Files into One Data Frame From the new data
 
 **Objective:** 
 
@@ -1087,13 +1059,13 @@ stopCluster(cl)
 #| code-fold: true
 
 # Step 1: Set the correct CSV directory
-csv_directory <- here('2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED_REP')
+csv_directory <- here('Simulations', 'STUDY_1', '2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED_REP')
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
 ```
 
-### Step 9: Scrape Rows and Process Data
+### Step 7: Scrape Rows and Process Data
 
 **Objective:** 
 
@@ -1110,7 +1082,7 @@ Extract data from the appropriate rows from each 9-row chunk and prepare the dat
 source(here('Child_Docs', 'step2_2t_LTA.R'))
 ```
 
-### Step 3: Convert Logits to Probabilities and Add Actual (Population) Values
+### Step 8: Convert Logits to Probabilities and Add Actual (Population) Values
 
 **Objective:** 
 
@@ -1129,62 +1101,54 @@ source(here('Child_Docs', 'step_3.R'))
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
-### **Step 12: Summarize Violations**
+### **Step 9: Summarize Violations**
 
 #### **Objective**
 
 *Calculate the percentage of violations for each file, handling missing values appropriately.*
 
 ```{r chunk-name, message=FALSE, warning=FALSE}
-
-library(parallel)
-
 #| label: "summarize-errors2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
 
-# Step 1: Extract Errors
-extract_errors_from_file <- function(filepath) {
+library(parallel)
+
+extract_errors_from_file <- function(filepath, total_replications) {
   lines <- readLines(filepath)
-  results <- list()
+  results <- vector("list", total_replications)
+  error_keywords <- c("NON-POSITIVE DEFINITE", "SADDLE")
+
+  # Initialize results for every replication
+  for (rep in 1:total_replications) {
+    results[[rep]] <- tibble(
+      FileName = basename(filepath),
+      Replication = rep,
+      Message = "None",
+      MessageType = "None"
+    )
+  }
+
   current_replication <- NULL
-  error_keywords <- c("NON-POSITIVE DEFINITE", "C2#2 ON C1#1 (equality/label)", "C2#2 ON C1#2 (equality/label)","C2#1 ON C1#2 (equality/label)", "C2#1 ON C1#1 (equality/label)")
-  
   for (line in lines) {
-    replication_match <- str_match(line, "REPLICATION (\\d+):")
-    if (!is.na(replication_match[1])) {
-      current_replication <- as.integer(replication_match[2])
-      results <- append(results, list(
-        tibble(
-          FileName = basename(filepath),
-          Replication = current_replication,
-          Message = "None",
-          MessageType = "None"
-        )
-      ))
-    } else if (!is.null(current_replication) && any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
-      results <- append(results, list(
-        tibble(
-          FileName = basename(filepath),
-          Replication = current_replication,
-          Message = str_trim(line),
-          MessageType = "Error"
-        )
-      ))
+    if (str_detect(line, "REPLICATION")) {
+      current_replication <- as.integer(str_extract(line, "\\d+"))
+    }
+
+    if (!is.null(current_replication) && current_replication <= total_replications &&
+        any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
+      results[[current_replication]] <- tibble(
+        FileName = basename(filepath),
+        Replication = current_replication,
+        Message = str_trim(line),
+        MessageType = "Error"
+      )
     }
   }
 
-  if (length(results) == 0) {
-    return(tibble(
-      FileName = basename(filepath),
-      Replication = NA,
-      Message = "No Errors or Warnings",
-      MessageType = "None"
-    ))
-  }
-  bind_rows(results)
+  return(bind_rows(results))
 }
 
 # Step 2: Extract Completed Replications
@@ -1196,6 +1160,7 @@ extract_completed_replications <- function(filepath) {
   tibble(FileName = basename(filepath), CompletedReplications = completed)
 }
 
+
 # Step 3: Extract Requested Replications
 extract_requested_replications <- function(filepath) {
   lines <- readLines(filepath)
@@ -1205,151 +1170,146 @@ extract_requested_replications <- function(filepath) {
   tibble(FileName = basename(filepath), RequestedReplications = requested)
 }
 
-# Step 4: Calculate Replication Summary
 calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
   summary <- error_summary %>%
     group_by(FileName) %>%
-    summarise(ErrorReplications = n_distinct(Replication[MessageType == "Error"]), .groups = "drop") %>%
-    mutate(ErrorReplications = coalesce(ErrorReplications, 0))
+    summarise(
+      ErrorReplications = n_distinct(Replication[MessageType == "Error"]),
+      .groups = "drop"
+    )
 
   full_summary <- requested_replications %>%
     left_join(completed_replications, by = "FileName") %>%
     left_join(summary, by = "FileName") %>%
     mutate(
+      ErrorReplications = coalesce(ErrorReplications, 0),
       GoodReplications = CompletedReplications - ErrorReplications,
-      ErrorRate = if_else(RequestedReplications > 0, (ErrorReplications / RequestedReplications) * 100, 0)
+      ErrorRate = if_else(CompletedReplications > 0, (ErrorReplications / CompletedReplications) * 100, 0)
     ) %>%
-    select(FileName, CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate)
+    select(FileName, RequestedReplications, CompletedReplications, ErrorReplications, GoodReplications, ErrorRate)
 
-  return(full_summary)
+  full_summary
 }
 
-# Steps 5-9: Setup and execute parallel processing, calculate summaries, and display results
-
-output_folder <- here("2 Time Points", "4_2T_RILTA_GEN_RILTA_ANALYZED_REP")
+# Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
+output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '4_RILTA_GEN_RILTA_ANALYZED_REP')  # Adjust to your folder path
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
-
+# Step 5: Detect OS and Set Up Cluster
 cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-num_cores <- detectCores() - 1
+num_cores <- detectCores() - 1  # Use all but one core
 cl <- makeCluster(num_cores, type = cluster_type)
 
-# Suppress output when exporting functions and setting up the cluster environment
+# Export necessary libraries and functions to the cluster
 invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
 invisible(clusterEvalQ(cl, library(tidyverse)))
 
-error_summary <- bind_rows(parLapply(cl, file_list, extract_errors_from_file))
+# Step 6: Parallel Processing
+# Calculate completed replications first
+completed_rep_list <- parLapply(cl, file_list, extract_completed_replications)
+
+# Extract errors while passing the total number of completed replications to the function
+error_summary <- bind_rows(mapply(function(filepath, completed_data) {
+  extract_errors_from_file(filepath, completed_data$CompletedReplications)
+}, file_list, completed_rep_list, SIMPLIFY = FALSE))
+
 completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
 requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
 
-invisible(stopCluster(cl))
+# Stop the cluster
+stopCluster(cl)
 
+# Step 7: Calculate Replication Summary
 replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
 
-if (nrow(replication_summary) > 0 && any(replication_summary$ErrorReplications > 0)) {
-  replication_summary_table <- replication_summary %>%
-    gt() %>%
-    tab_header(
-      title = "Replication Summary",
-      subtitle = paste0("Folder: ", output_folder)
-    ) %>%
-    fmt_number(columns = vars(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
-    cols_label(
-      FileName = "File Name",
-      CompletedReplications = "Completed Replications",
-      RequestedReplications = "Requested Replications",
-      ErrorReplications = "Replications with Errors",
-      GoodReplications = "Good Replications",
-      ErrorRate = "Error Rate (%)"
-    ) %>%
-    tab_options(
-      table.font.size = "small",
-      heading.title.font.size = "medium",
-      heading.subtitle.font.size = "small"
-    )
-
-  print(replication_summary_table)
-} else {
-  message("No errors or warnings detected. No table to display.")
-}
-```
-
-## STEP 13: DELETE CASES WITH ERRORS
-
-```{r, eval=FALSE}
-library(dplyr)
-library(gt)
-
-# Normalize filenames
-normalize_filenames <- function(df) {
-  df %>%
-    mutate(FileName = tolower(gsub("\\.out$", "", FileName)))  # Normalize filename case and remove extension
-}
-
-# Normalize filenames in both datasets
-final_results <- normalize_filenames(final_results)
-final_data_with_actuals <- normalize_filenames(final_data_with_actuals)
-
-# Convert Rep columns to the same type for consistent comparison
-final_data_with_actuals$Rep <- as.character(final_data_with_actuals$Rep)
-final_results$Rep <- as.character(final_results$Rep)
-
-# Step 2: Remove rows from final_data_with_actuals that have errors
-clean_combined_data <- final_data_with_actuals %>%
-  anti_join(final_results %>% filter(ErrorFlag == 1), by = c("FileName", "Rep"))
-
-# Step 3: Calculate remaining replications for each condition
-remaining_replications <- clean_combined_data %>%
-  group_by(FileName) %>%
-  summarise(RemainingReplications = n(), .groups = "drop")
-
-# Step 4: Calculate error summary for each file
-error_summary <- final_results %>%
-  group_by(FileName) %>%
-  summarise(
-    Requested = first(Requested),
-    Completed = first(Completed),
-    ErrorReplications = sum(ErrorFlag == 1, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  left_join(remaining_replications, by = "FileName") %>%
-  mutate(
-    RemainingReplications = coalesce(RemainingReplications, 0),
-    ComputedAfterErrors = Completed - ErrorReplications,
-    ErrorRate = if_else(Completed > 0, (ErrorReplications / Completed) * 100, 0)
-  )
-
-# Step 5: Create the GT table for the combined data
-error_handling_summary_table <- error_summary %>%
+# Step 8: Create and Display the Table with Error Rate
+replication_summary_table <- replication_summary %>%
   gt() %>%
   tab_header(
-    title = "Error Handling Summary",
-    subtitle = "Summary of file-based replication after handling errors"
+    title = "Replication Summary",
+    subtitle = paste0("Folder: ", output_folder)
   ) %>%
+  fmt_number(columns = c(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
   cols_label(
-    FileName = "Output File",
-    Requested = "Requested Replications",
-    Completed = "Completed Replications",
+    FileName = "File Name",
+    CompletedReplications = "Completed Replications",
+    RequestedReplications = "Requested Replications",
     ErrorReplications = "Replications with Errors",
-    RemainingReplications = "Remaining Replications After Errors",
-    ComputedAfterErrors = "Computed Replications After Errors",
+    GoodReplications = "Good Replications",
     ErrorRate = "Error Rate (%)"
   ) %>%
-  fmt_number(
-    columns = c("Requested", "Completed", "ErrorReplications", "RemainingReplications", "ComputedAfterErrors", "ErrorRate"),
-    decimals = 2
+  tab_options(
+    table.font.size = "small",
+    heading.title.font.size = "medium",
+    heading.subtitle.font.size = "small"
   )
 
-# Step 6: Display the GT table
-print(error_handling_summary_table)
+# Display the table
+replication_summary_table
+
+completed_replications <- completed_replications %>%
+  mutate(FileName = str_replace(FileName, "\\.out$", ""),
+         FileName = tolower(FileName),
+         FileName = str_trim(FileName))
+
+error_summary <- error_summary %>%
+  mutate(FileName = str_replace(FileName, "\\.out$", ""),
+         FileName = tolower(FileName),
+         FileName = str_trim(FileName))
+
+final_data_with_actuals <- final_data_with_actuals %>%
+  mutate(FileName = tolower(FileName),
+         FileName = str_trim(FileName))
+
+replication_summary <- replication_summary %>%
+  mutate(FileName = str_replace(FileName, "\\.out$", ""),
+         FileName = tolower(FileName),
+         FileName = str_trim(FileName))
+
+cat("Rows in final_data_with_actuals:", nrow(final_data_with_actuals), "\n")
+# Output the final number of rows to confirm data handling
+cat("Number of rows in error_summary: ", nrow(error_summary), "\n")
+cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 
 ```
 
-#### Step 14: Part 1 Create Column Names from the Filename
+#### STEP 9: Part 1 Merge ERRORS with main data
+
+```{r}
+#| label: "merge-errors2"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+# Ensure consistent column formats and remove .out and .csv extensions
+error_summary <- error_summary %>%
+  mutate(
+    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
+    Replication = as.character(Replication) # Convert Replication to character
+  )
+
+final_data_with_actuals <- final_data_with_actuals %>%
+  mutate(
+    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
+    Replication = as.character(Replication) # Convert Replication to character
+  )
+
+# Add a new column to flag errors
+error_summary <- error_summary %>%
+  mutate(ErrorFlag = if_else(Message == "None", 0, 1))
+
+# Merge ErrorFlag into final_data_with_actuals
+final_data_with_actuals <- final_data_with_actuals %>%
+  left_join(error_summary %>% select(FileName, Replication, ErrorFlag),
+            by = c("FileName" = "FileName", "Replication" = "Replication"))
+```
+
+#### Step 9: Part 2 Create Column Names from the Filename
 
 ```{r}
 
-#| label: "create-column-names-from-filename"
+#| label: "create-column-names-from-filename2"
 #| echo: true
 #| message: false
 #| warning: false
@@ -1358,19 +1318,19 @@ print(error_handling_summary_table)
 final_data_with_actuals <- final_data_with_actuals %>%
   mutate(
     N = case_when(
-      grepl("N_4000", FileName) ~ 4000,
-      grepl("N_500", FileName) ~ 500,
-      grepl("N_1000", FileName) ~ 1000,
-      grepl("N_2000", FileName) ~ 2000,
+      grepl("n_4000", FileName) ~ 4000,
+      grepl("n_500", FileName) ~ 500,
+      grepl("n_1000", FileName) ~ 1000,
+      grepl("n_2000", FileName) ~ 2000,
       TRUE ~ NA_integer_
     ),
     Population = case_when(
-      grepl("TP_1.385", FileName) ~ ".800",
-      grepl("TP_0.85", FileName) ~ ".700",
-      grepl("TP_0.41", FileName) ~ ".600",
-      grepl("TP_-0.41", FileName) ~ ".400",
-      grepl("TP_-0.85", FileName) ~ ".300",
-      grepl("TP_-1.385", FileName) ~ ".200",
+      grepl("tp_1.385", FileName) ~ ".800",
+      grepl("tp_0.85", FileName) ~ ".700",
+      grepl("tp_0.41", FileName) ~ ".600",
+      grepl("tp_-0.41", FileName) ~ ".400",
+      grepl("tp_-0.85", FileName) ~ ".300",
+      grepl("tp_-1.385", FileName) ~ ".200",
       TRUE ~ NA_character_
     ),
     Lambda = case_when(
@@ -1397,26 +1357,29 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-#### Step 14: Part 2 Calculate Violation Percentages per Condition
+#### Step 9: Part 3 Calculate Violation Percentages per Condition
 
 ```{r}
 
-#| label: "calculate-violation-percentages"
+#| label: "calculate-violations2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
 
-
+# Step 6 Part 2: Summarize Violations and Adjust for Errors
 
 # 1. Summarize violations per condition
 violation_summary <- final_data_with_actuals %>%
-  mutate(FileName = trimws(tolower(FileName))) %>%  # Remove spaces and ensure lowercase
-  mutate(Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation)) %>%
-  group_by(FileName, Population, N, Lambda) %>%
+  mutate(
+    Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation),
+    ErrorFlag = ifelse(is.na(ErrorFlag), 0, ErrorFlag)  # Ensure no missing values for ErrorFlag
+  ) %>%
+  group_by(FileName, Model, Population, N, Mixing_proportion, Lambda_values) %>%
   summarize(
     Total_Rows = n(),                                # Total runs
     Total_Violations = sum(Any_Violation, na.rm = TRUE), # Total violations
+    Total_Errors = sum(ErrorFlag, na.rm = TRUE),         # Total errors from ErrorFlag
     Percentage_Violations = (Total_Violations / Total_Rows) * 100, # % violations
     .groups = "drop"
   ) %>%
@@ -1425,36 +1388,21 @@ violation_summary <- final_data_with_actuals %>%
     N_numeric = as.numeric(gsub("N = ", "", as.character(N))), 
     Additional_Runs = (500 + Total_Violations) * (Percentage_Violations / 100), 
     Replications_Needed = ceiling(500 + Total_Violations + Additional_Runs + 20),
-    Replications_Needed = if_else(Replications_Needed < 500, 500, Replications_Needed)
-  )
-# Standardize FileName in both datasets
-violation_summary <- violation_summary %>%
-  mutate(FileName = gsub("\\.out$", "", tolower(trimws(FileName))))  # Remove `.out` and ensure lowercase
-
-replication_summary <- replication_summary %>%
-  mutate(FileName = gsub("\\.out$", "", tolower(trimws(FileName))))  # Remove `.out` and ensure lowercase
-
-# 3. Merge Error Rate from replication_summary
-violation_summary <- violation_summary %>%
-  left_join(
-    replication_summary %>%
-      mutate(ErrorRate = if_else(CompletedReplications > 0, ErrorReplications / CompletedReplications, 0)) %>%
-      select(FileName, ErrorRate), # Add Error Rate column
-    by = "FileName"
-  )
-
-# 4. Adjust Replications Needed for Errors
-violation_summary <- violation_summary %>%
-  mutate(
+    Replications_Needed = if_else(Replications_Needed < 500, 500, Replications_Needed),
+    ErrorRate = Total_Errors / Total_Rows,  # Calculate ErrorRate directly
     Adjusted_Replications_Needed = ceiling(Replications_Needed / (1 - ErrorRate)),
     Adjusted_Replications_Needed = if_else(Adjusted_Replications_Needed < 500, 500, Adjusted_Replications_Needed)
+  ) %>%
+  select(
+    FileName, Model, Population, N, N_numeric, Mixing_proportion,
+    Lambda_values, Total_Rows, Total_Violations, Total_Errors,
+    ErrorRate, Percentage_Violations, Replications_Needed,
+    Adjusted_Replications_Needed
   )
-
-
 
 ```
 
-#### Step 14: Part 3 Summarize & Visualize Label Switching Percentage Results
+#### Step 9: Part 4 Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
 #| label: "summarize-violations"
@@ -1527,9 +1475,7 @@ final_table
 
 ```
 
-# 
-
-# \*\* Step 15: Delete Cases that Violate\*\*
+### Step 10: Delete Cases that Violate
 
 #### **Objective**
 
@@ -1546,7 +1492,7 @@ final_table
 filtered_data_with_no_violations <- final_data_with_actuals[final_data_with_actuals$Any_Violation == 0, ]
 ```
 
-### STEP 15.1
+#### STEP 10 Part 1
 
 Randomly select 500 replications per condition
 
@@ -1580,7 +1526,7 @@ if (nrow(sanity_check) > 0) {
 
 ```
 
-### **Step 16: Compute Monte Carlo (MC) Values**
+### **Step 11: Compute Monte Carlo (MC) Values**
 
 #### **Objective**
 
@@ -1674,7 +1620,7 @@ mc_values <- mc_values %>%
 
 ```
 
-### **Step 18: Subset Data for Movers and Stayers**
+### **Step 12: Subset Data for Movers and Stayers**
 
 #### **Objective**
 
@@ -1740,7 +1686,7 @@ subset_stayer <- subset_stayer %>%
 
 ```
 
-### **Step 19: Combined Plot for Mover and Stayer**
+### **Step 13: Combined Plot for Mover and Stayer**
 
 #### **Objective**
 
@@ -1870,7 +1816,7 @@ plot_stayer_no_title <- plot_stayer + labs(title = NULL)
 ggsave(here("2 Time Points", "zFIGURES", "x2t_rilta_rilta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
 ```
 
-### **Step 20: Prepare Data for Heatmaps**
+### **Step 14: Prepare Data for Heatmaps**
 
 #### **Objective**
 
@@ -1952,7 +1898,7 @@ subset_08 <- subset_list[[6]]  # Subset for population value .800
 
 ```
 
-### **Step 21: Heatmap Creation and Rendering**
+### **Step 15: Heatmap Creation and Rendering**
 
 #### **Objective**
 

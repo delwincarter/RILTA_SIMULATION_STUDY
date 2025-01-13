@@ -1745,89 +1745,66 @@ create_gt_table <- function(subset, transition_probability) {
       columns = everything()
     )
   
-  # Check for violations in Parameter_Bias column
+  # Apply color highlighting for violations in Parameter Bias
   if (any(!(subset$Parameter_Bias >= -9.99 & subset$Parameter_Bias <= 9.99), na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "Parameter_Bias", 
-        rows = !(Parameter_Bias >= -9.99 & Parameter_Bias <= 9.99),
+        columns = "Parameter_Bias",
+        rows = .data$Parameter_Bias < -9.99 | .data$Parameter_Bias > 9.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("white", "#5ABCEB"),  # Brighter shade of blue
-        domain = c(-30, 170),
-        apply_to = "fill"
+        palette = c("#113386", "#DAE3FA", "#113386"),  # Darker blue for larger deviations
+        domain = c(-40, 40)  # Adjust the domain to reflect the range of values
       ) %>%
       tab_footnote(
-        footnote = md("Blue indicates violation of *Parameter Bias*."),
-        locations = cells_column_labels(columns = Parameter_Bias)
+        footnote = md("Darker blue indicates larger deviations from zero *Parameter Bias* beyond the ±9.99 threshold."),
+        locations = cells_column_labels(columns = "Parameter_Bias")
       )
   }
 
-  # Check for violations in Parameter_Bias column
-  if (any(!(subset$Parameter_Bias >= -9.99 & subset$Parameter_Bias <= 9.99), na.rm = TRUE)) {
-    gt_table <- gt_table %>%
-      data_color(
-        columns = "Parameter_Bias", 
-        rows = !(Parameter_Bias >= -9.99 & Parameter_Bias <= 9.99),
-        method = "numeric",
-        palette = c("white", "#5ABCEB"),  # Brighter shade of blue
-        domain = c(-30, 30),
-        apply_to = "fill"
-      ) %>%
-      tab_footnote(
-        footnote = md("Blue indicates violation of *Parameter Bias*."),
-        locations = cells_column_labels(columns = Parameter_Bias)
-      )
-  }
-
-  # Check for violations in SE_Bias column
+  # Apply color highlighting for violations in SE Bias
   if (any(!(subset$SE_Bias >= -4.99 & subset$SE_Bias <= 4.99), na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "SE_Bias", 
-        rows = !(SE_Bias >= -4.99 & SE_Bias <= 4.99),
+        columns = "SE_Bias",
+        rows = .data$SE_Bias < -4.99 | .data$SE_Bias > 4.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("white", "#E71012"),  # Brighter shade of red
-        domain = c(-30, 40),
-        apply_to = "fill"
+        palette = c("#B4186E", "#F9D5E9", "#B4186E"),  # Darker red for larger deviations
+        domain = c(-80, 80)  # Adjust the domain for the SE_Bias range
       ) %>%
       tab_footnote(
-        footnote = md("Red indicates violation of *Standard Error Bias*."),
-        locations = cells_column_labels(columns = SE_Bias)
+        footnote = md("Darker red indicates larger deviations from zero *Standard Error Bias* beyond the ±4.99 threshold."),
+        locations = cells_column_labels(columns = "SE_Bias")
       )
   }
 
-  # Check for violations in Coverage column
   if (any(subset$Coverage < 0.93 | subset$Coverage > 0.979, na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "Coverage", 
-        rows = Coverage < 0.93 | Coverage > 0.979,
+        columns = "Coverage",
+        rows = subset$Coverage < 0.93 | subset$Coverage > 0.979,
         method = "numeric",
-        palette = c("#193006", "white"),  # Same shade of blue
-        domain = c(0, 1),
-        apply_to = "fill"
+        palette = c("#93C6B1", "white"),  # Green for coverage issues
+        domain = c(0, 1)
       ) %>%
       tab_footnote(
         footnote = md("Green indicates failure to achieve adequate *Coverage*."),
-        locations = cells_column_labels(columns = Coverage)
+        locations = cells_column_labels(columns = "Coverage")
       )
   }
 
-  # Check for violations in Power column
   if (any(subset$Power < 0.8, na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "Power", 
-        rows = Power < 0.8,
+        columns = "Power",
+        rows = subset$Power < 0.8,
         method = "numeric",
-        palette = c("#300049", "white"),  # Same shade of red
-        domain = c(0, 1),
-        apply_to = "fill"
+        palette = c("#502CD1", "white"),  # Purple for power issues
+        domain = c(0, 1)
       ) %>%
       tab_footnote(
         footnote = md("Purple indicates failure to achieve adequate *Power*."),
-        locations = cells_column_labels(columns = Power)
-      )  
+        locations = cells_column_labels(columns = "Power")
+      )
   }
   
   return(gt_table)

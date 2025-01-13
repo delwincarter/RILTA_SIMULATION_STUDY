@@ -288,8 +288,8 @@ rilta_rilta_func <- function(N, TPs, lambda) {
 
   # Run Mplus model
   RILTA_RILTA_Model<- mplusModeler(RILTA_RILTA, 
-                                   dataout = here("7. 3T RILTA GEN RILTA ANALYZED", glue("RILTA_RILTA_N_{N}_TP_{TPs}_TH_1_lambda_{lambda}.dat")),
-                                   modelout = glue(here("7. 3T RILTA GEN RILTA ANALYZED", "RILTA_RILTA_N_{N}_TP_{TPs}_TH_1_lambda_{lambda}.inp")),
+                                   dataout = here('Simulations', 'STUDY_1', '3 Time Points', '7_3T_RILTA_GEN_LTA_ANALYZED', glue("RILTA_RILTA_N_{N}_TP_{TPs}_TH_1_lambda_{lambda}.dat")),
+                                   modelout = glue(here('Simulations', 'STUDY_1', '3 Time Points', '7_3T_RILTA_GEN_LTA_ANALYZED', "RILTA_RILTA_N_{N}_TP_{TPs}_TH_1_lambda_{lambda}.inp")),
                                    check = TRUE, run = TRUE, hashfilename = FALSE)
 return(RILTA_RILTA_Model)
 }
@@ -332,7 +332,7 @@ stopCluster(cl)
 #| code-fold: true
 
 # Step 1: Set the correct CSV directory
-csv_directory <- here('3 Time Points', '8_3T_RILTA_GEN_RILTA_ANALYZED')
+csv_directory <- here('Simulations', 'STUDY_1', '3 Time Points', '8_3T_RILTA_GEN_RILTA_ANALYZED')
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
@@ -551,7 +551,7 @@ calculate_replication_summary <- function(error_summary, completed_replications,
 }
 
 # Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- "8_3T_RILTA_GEN_RILTA_ANALYZED"  # Adjust to your folder path
+output_folder <- here('Simulations', 'STUDY_1', '3 Time Points', "8_3T_RILTA_GEN_RILTA_ANALYZED")  # Adjust to your folder path
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 # Step 5: Detect OS and Set Up Cluster
@@ -798,7 +798,11 @@ final_table
 
 ```
 
-#### Part 2
+# Part 2: Re Run Simulation
+
+#### Objective
+
+Rerun Simulation with the number of replications needed to deal with errors and/or label switching
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
@@ -1012,8 +1016,8 @@ rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
 
   # Run Mplus model
   RILTA_RILTA_Model<- mplusModeler(RILTA_RILTA, 
-                                   dataout = here("7. 3T RILTA GEN RILTA ANALYZED_REP", glue("RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.dat")),
-                                   modelout = glue(here("7. 3T RILTA GEN RILTA ANALYZED_REP", "RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
+                                   dataout = here('Simulations', 'STUDY_1', '3 Time Points', '7_3T_RILTA_GEN_LTA_ANALYZED', glue("RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.dat")),
+                                   modelout = glue(here('Simulations', 'STUDY_1', '3 Time Points', '7_3T_RILTA_GEN_LTA_ANALYZED', "RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
                                    check = TRUE, run = TRUE, hashfilename = FALSE)
 return(RILTA_RILTA_Model)
 }
@@ -1069,7 +1073,7 @@ stopCluster(cl)
 #| code-fold: true
 
 # Step 1: Set the correct CSV directory
-csv_directory <- here('3 Time Points', '8_3T_RILTA_GEN_RILTA_ANALYZED_REP')
+csv_directory <- here('Simulations', 'STUDY_1', '3 Time Points', '8_3T_RILTA_GEN_RILTA_ANALYZED_REP')
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
@@ -1208,7 +1212,7 @@ calculate_replication_summary <- function(all_reps) {
   return(full_summary)
 }
 
-output_folder <- here("3 Time Points", "8_3T_RILTA_GEN_RILTA_ANALYZED_REP")
+output_folder <- here('Simulations', 'STUDY_1', '3 Time Points', "8_3T_RILTA_GEN_RILTA_ANALYZED_REP")
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
@@ -1891,8 +1895,8 @@ create_plot <- function(data, title_suffix) {
   if (any(data$Power_Dic == 0)) present_categories <- c(present_categories, "Power Failure")
 
   # Define colors and shapes for different categories
-  colors <- c("Parameter Bias" = "#4169E1", "Standard Error Bias" = "#E14169", 
-              "Coverage Failure" = "#4169E1", "Power Failure" = "black")
+  colors <- c("Parameter Bias" = "#7030A0", "Standard Error Bias" = "#C830CC", 
+              "Coverage Failure" = "#7030A0", "Power Failure" = "black")
   shapes <- c("Parameter Bias" = 16, "Standard Error Bias" = 18, 
               "Coverage Failure" = 1, "Power Failure" = 4)
 
@@ -1903,9 +1907,9 @@ create_plot <- function(data, title_suffix) {
   ggplot(data = data, aes(x = Lambda, y = Parameter_Bias, color = "Parameter Bias", group = Population_Label)) +  
     geom_line(aes(group = Population_Label), linewidth = 0.3, linetype = "solid") +  
     geom_line(aes(y = SE_Bias, group = Population_Label, color = "Standard Error Bias"), linewidth = 0.3, linetype = "solid") +  
-    geom_point(aes(y = Parameter_Bias), shape = 16, size = 1, fill = "#4169E1", alpha = 0.8) +  
-    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1, fill = "#E14169", alpha = 0.8) +  # Corrected
-    geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = 1, size = 2, fill = "#4169E1", alpha = 1) +  
+    geom_point(aes(y = Parameter_Bias), shape = 16, size = 1, fill = "#7030A0", alpha = 0.8) +  
+    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1, fill = "#C830CC", alpha = 0.8) +  # Corrected
+    geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = 1, size = 2, fill = "#7030A0", alpha = 1) +  
     geom_point(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = 4, size = 2, fill = "black", alpha = 1) + 
     scale_color_manual(
       values = filtered_colors, 
@@ -1939,8 +1943,8 @@ create_plot <- function(data, title_suffix) {
       legend.margin = margin(t = -10),
       plot.caption = element_text(hjust = 0, margin = margin(t = 10))
     ) +
-    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#4169E1", linewidth = 0.3) +  
-    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#E14169", linewidth = 0.3)
+    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.3) +  
+    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.3)
 }
 
 ```
@@ -1959,7 +1963,7 @@ print(plot_mover)
 plot_mover_no_title <- plot_mover + labs(title = NULL)
 
 # Save Mover plot without title as .svg
-ggsave(here("3 Time Points", "zFIGURES", "x3t_rilta_rilta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 3, dpi = 300, device = "svg")
+ggsave(here('Simulations', 'STUDY_1', '3 Time Points', "zFigures", "x3t_rilta_rilta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 3, dpi = 300, device = "svg")
 ```
 
 #### Plot figure with Mover Transition Probablities (.200, .300, .400)
@@ -1975,7 +1979,7 @@ print(plot_stayer)
 plot_stayer_no_title <- plot_stayer + labs(title = NULL)
 
 # Save Stayer plot without title as .svg
-ggsave(here("3 Time Points", "zFIGURES", "x3t_rilta_rilta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
+ggsave(here('Simulations', 'STUDY_1', '3 Time Points', "zFigures", "x3t_rilta_rilta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
 ```
 
 ### **Step 15: Prepare Data for Heatmaps**
@@ -2143,73 +2147,68 @@ create_table <- function(subset, transition_probability) {
       columns = everything()
     )
 
-  # Check for violations in Parameter_Bias column
+  # Apply color highlighting for violations in Parameter Bias
   if (any(!(subset$Parameter_Bias >= -9.99 & subset$Parameter_Bias <= 9.99), na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "Parameter_Bias", 
-        rows = !(Parameter_Bias >= -9.99 & Parameter_Bias <= 9.99),
+        columns = "Parameter_Bias",
+        rows = .data$Parameter_Bias < -9.99 | .data$Parameter_Bias > 9.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("white", "#5ABCEB"),  # Brighter shade of blue
-        domain = c(-30, 30),
-        apply_to = "fill"
+        palette = c("#113386", "#DAE3FA", "#113386"),  # Darker blue for larger deviations
+        domain = c(-40, 40)  # Adjust the domain to reflect the range of values
       ) %>%
       tab_footnote(
-        footnote = md("Blue indicates violation of *Parameter Bias*."),
-        locations = cells_column_labels(columns = Parameter_Bias)
+        footnote = md("Darker blue indicates larger deviations from zero *Parameter Bias* beyond the ±9.99 threshold."),
+        locations = cells_column_labels(columns = "Parameter_Bias")
       )
   }
 
-  # Check for violations in SE_Bias column
+  # Apply color highlighting for violations in SE Bias
   if (any(!(subset$SE_Bias >= -4.99 & subset$SE_Bias <= 4.99), na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "SE_Bias", 
-        rows = !(SE_Bias >= -4.99 & SE_Bias <= 4.99),
+        columns = "SE_Bias",
+        rows = .data$SE_Bias < -4.99 | .data$SE_Bias > 4.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("white", "#E71012"),  # Brighter shade of red
-        domain = c(-70, 70),
-        apply_to = "fill"
+        palette = c("#B4186E", "#F9D5E9", "#B4186E"),  # Darker red for larger deviations
+        domain = c(-80, 80)  # Adjust the domain for the SE_Bias range
       ) %>%
       tab_footnote(
-        footnote = md("Red indicates violation of *Standard Error Bias*."),
-        locations = cells_column_labels(columns = SE_Bias)
+        footnote = md("Darker red indicates larger deviations from zero *Standard Error Bias* beyond the ±4.99 threshold."),
+        locations = cells_column_labels(columns = "SE_Bias")
       )
   }
 
-  # Check for violations in Coverage column
   if (any(subset$Coverage < 0.93 | subset$Coverage > 0.979, na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "Coverage", 
-        rows = Coverage < 0.93 | Coverage > 0.979,
+        columns = "Coverage",
+        rows = subset$Coverage < 0.93 | subset$Coverage > 0.979,
         method = "numeric",
-        palette = c("#193006", "white"),  # Same shade of blue
-        domain = c(0, 1),
-        apply_to = "fill"
+        palette = c("#93C6B1", "white"),  # Green for coverage issues
+        domain = c(0, 1)
       ) %>%
       tab_footnote(
         footnote = md("Green indicates failure to achieve adequate *Coverage*."),
-        locations = cells_column_labels(columns = Coverage)
+        locations = cells_column_labels(columns = "Coverage")
       )
   }
 
-  # Check for violations in Power column
   if (any(subset$Power < 0.8, na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "Power", 
-        rows = Power < 0.8,
+        columns = "Power",
+        rows = subset$Power < 0.8,
         method = "numeric",
-        palette = c("#300049", "white"),  # Same shade of red
-        domain = c(0, 1),
-        apply_to = "fill"
+        palette = c("#502CD1", "white"),  # Purple for power issues
+        domain = c(0, 1)
       ) %>%
       tab_footnote(
         footnote = md("Purple indicates failure to achieve adequate *Power*."),
-        locations = cells_column_labels(columns = Power)
+        locations = cells_column_labels(columns = "Power")
       )
   }
+
   
   return(gt_table)
 }
@@ -2221,7 +2220,7 @@ create_table <- function(subset, transition_probability) {
 ```{r, warning = FALSE}
 subset_02_table <- create_table(subset_02, ".200")
 subset_02_table
-subset_02_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Points", "zHEATMAPS", "z3t_heatmaps","z2t_r_r_heatmaps", "2T_R_R_.200.png"))
+subset_02_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps", "2T_R_R_.200.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .300
@@ -2229,7 +2228,7 @@ subset_02_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Po
 ```{r, warning = FALSE}
 subset_03_table <- create_table(subset_03, ".300")
 subset_03_table
-subset_03_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Points", "zHEATMAPS", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.300.png"))
+subset_03_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.300.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .400
@@ -2237,7 +2236,7 @@ subset_03_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Po
 ```{r, warning = FALSE}
 subset_04_table <- create_table(subset_04, ".400")
 subset_04_table
-subset_04_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Points", "zHEATMAPS", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.400.png"))
+subset_04_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.400.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .600
@@ -2245,7 +2244,7 @@ subset_04_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Po
 ```{r, warning = FALSE}
 subset_06_table <- create_table(subset_06, ".600")
 subset_06_table
-subset_06_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Points", "zHEATMAPS", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.600.png"))
+subset_06_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.600.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .700
@@ -2253,7 +2252,7 @@ subset_06_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Po
 ```{r, warning = FALSE}
 subset_07_table <- create_table(subset_07, ".700")
 subset_07_table
-subset_07_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Points", "zHEATMAPS", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.700.png"))
+subset_07_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.700.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .800
@@ -2261,5 +2260,5 @@ subset_07_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Po
 ```{r, warning = FALSE}
 subset_08_table <- create_table(subset_08, ".800")
 subset_08_table
-subset_08_table |>  tab_options(table.width = pct(65)) |> gtsave(here("3 Time Points", "zHEATMAPS", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.800.png"))
+subset_08_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.800.png"))
 ```

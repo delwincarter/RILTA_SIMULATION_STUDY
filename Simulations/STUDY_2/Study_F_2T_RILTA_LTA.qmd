@@ -9252,8 +9252,8 @@ generate_plot <- function(data, title, y_limits) {
   if (any(data$Power_Dic == 0)) present_categories <- c(present_categories, "Power Failure")
 
   # Define the corresponding colors and shapes based on the present categories
-  colors <- c("Parameter Bias" = "#4169E1", "Standard Error Bias" = "#E14169", 
-              "Coverage Failure" = "#4169E1", "Power Failure" = "black")
+  colors <- c("Parameter Bias" = "#7030A0", "Standard Error Bias" = "#C830CC", 
+              "Coverage Failure" = "#7030A0", "Power Failure" = "black")
 
   shapes <- c("Parameter Bias" = 16, "Standard Error Bias" = 18, 
               "Coverage Failure" = 1, "Power Failure" = 4)
@@ -9266,9 +9266,9 @@ generate_plot <- function(data, title, y_limits) {
   ggplot(data = data, aes(x = factor(Lambda_values))) +  
     geom_line(aes(y = Parameter_Bias, color = "Parameter Bias", group = 1), size = 0.3, linetype = "solid") +  
     geom_line(aes(y = SE_Bias, color = "Standard Error Bias", group = 1), size = 0.3, linetype = "solid") +  
-    geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 1, fill = "#4169E1", alpha = 0.8) +  
-    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1, fill = "#E14169", alpha = 0.8) +  
-    geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = 1, size = 2, fill = "#4169E1", alpha = 1) +  
+    geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 1, fill = "#7030A0", alpha = 0.8) +  
+    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1, fill = "#C830CC", alpha = 0.8) +  
+    geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = 1, size = 2, fill = "#7030A0", alpha = 1) +  
     geom_point(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = 4, size = 2, fill = "black", alpha = 1) + 
     scale_color_manual(
       values = filtered_colors, 
@@ -9291,8 +9291,8 @@ generate_plot <- function(data, title, y_limits) {
     scale_x_discrete(name = "Lambda Loadings on the RI") +  # Set x-axis title
     scale_y_continuous(breaks = seq(min(y_limits), max(y_limits), by = 20)) +  
     common_theme +
-    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#4169E1", size = 0.3) +  
-    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#E14169", size = 0.3) +
+    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", size = 0.3) +  
+    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", size = 0.3) +
     theme(strip.text.y = element_text(size = 8))  # Adjust the size of row titles
 }
 
@@ -9506,8 +9506,8 @@ create_table <- function(subset, transition_probability) {
         columns = "Parameter_Bias",
         rows = .data$Parameter_Bias < -9.99 | .data$Parameter_Bias > 9.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("#1f78b4", "#deebf7", "#1f78b4"),  # Darker blue for larger deviations
-        domain = c(-80, 240)  # Adjust the domain to reflect the range of values
+        palette = c("#113386", "#DAE3FA", "#113386"),  # Darker blue for larger deviations
+        domain = c(-40, 40)  # Adjust the domain to reflect the range of values
       ) %>%
       tab_footnote(
         footnote = md("Darker blue indicates larger deviations from zero *Parameter Bias* beyond the ±9.99 threshold."),
@@ -9522,7 +9522,7 @@ create_table <- function(subset, transition_probability) {
         columns = "SE_Bias",
         rows = .data$SE_Bias < -4.99 | .data$SE_Bias > 4.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("#e31a1c", "#fde0dd", "#e31a1c"),  # Darker red for larger deviations
+        palette = c("#B4186E", "#F9D5E9", "#B4186E"),  # Darker red for larger deviations
         domain = c(-80, 80)  # Adjust the domain for the SE_Bias range
       ) %>%
       tab_footnote(
@@ -9535,9 +9535,9 @@ create_table <- function(subset, transition_probability) {
     gt_table <- gt_table %>%
       data_color(
         columns = "Coverage",
-        rows = .data$Coverage < 0.93 | .data$Coverage > 0.979,
+        rows = subset$Coverage < 0.93 | subset$Coverage > 0.979,
         method = "numeric",
-        palette = c("#193006", "white"),
+        palette = c("#93C6B1", "white"),  # Green for coverage issues
         domain = c(0, 1)
       ) %>%
       tab_footnote(
@@ -9550,9 +9550,9 @@ create_table <- function(subset, transition_probability) {
     gt_table <- gt_table %>%
       data_color(
         columns = "Power",
-        rows = .data$Power < 0.8,
+        rows = subset$Power < 0.8,
         method = "numeric",
-        palette = c("#300049", "white"),
+        palette = c("#502CD1", "white"),  # Purple for power issues
         domain = c(0, 1)
       ) %>%
       tab_footnote(

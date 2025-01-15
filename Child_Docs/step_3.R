@@ -25,7 +25,7 @@ probabilities <- apply(logit_columns, 2, function(x) round(1 / (1 + exp(-as.nume
 
 # Combine probabilities with the FileName, Rep, TRANS11, and SE_11 columns
 final_combined_data_with_trans_se <- final_combined_data %>%
-  select(FileName, Rep, TRANS11, SE_11) %>%
+  select(FileName, Replication, TRANS11, SE_11) %>%
   bind_cols(as.data.frame(probabilities))
 
 # Step 6: Add actual values to the data in parallel

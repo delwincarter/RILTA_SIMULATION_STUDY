@@ -32,6 +32,15 @@ library(rlang)
 library(knitr)
 library(parallel)
 library(tools)
+
+
+```
+
+```{r}
+
+#EMERGENCY READ IN FILE BECAUSE I WROTE OVER THE 1st ITERATION FILES BUT SAVED THE CONDITIONS I NEED TO RE RUN
+
+violation_summary_df <- read.csv(here("violation_summary_df.csv"), stringsAsFactors = FALSE)
 ```
 
 # PART1:
@@ -526,7 +535,7 @@ calculate_replication_summary <- function(error_summary, completed_replications,
 }
 
 # Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '4_RILTA_GEN_RILTA_ANALYZED')  # Adjust to your folder path
+output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED')  # Adjust to your folder path
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 # Step 5: Detect OS and Set Up Cluster
@@ -668,7 +677,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
       grepl("tp_-1.385", FileName) ~ ".200",
       TRUE ~ NA_character_
     ),
-    Lambda = case_when(
+    Lambda_values = case_when(
       grepl("a_1$", FileName) ~ "1",
       grepl("a_1\\.5", FileName) ~ "1.5",
       grepl("a_2$", FileName) ~ "2",
@@ -709,7 +718,7 @@ violation_summary <- final_data_with_actuals %>%
     Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation),
     ErrorFlag = ifelse(is.na(ErrorFlag), 0, ErrorFlag)  # Ensure no missing values for ErrorFlag
   ) %>%
-  group_by(FileName, Model, Population, N, Mixing_proportion, Lambda_values) %>%
+  group_by(FileName, Population, N, Lambda_values) %>%
   summarize(
     Total_Rows = n(),                                # Total runs
     Total_Violations = sum(Any_Violation, na.rm = TRUE), # Total violations
@@ -728,9 +737,7 @@ violation_summary <- final_data_with_actuals %>%
     Adjusted_Replications_Needed = if_else(Adjusted_Replications_Needed < 500, 500, Adjusted_Replications_Needed)
   ) %>%
   select(
-    FileName, Model, Population, N, N_numeric, Mixing_proportion,
-    Lambda_values, Total_Rows, Total_Violations, Total_Errors,
-    ErrorRate, Percentage_Violations, Replications_Needed,
+    FileName, Population, N, N_numeric,Lambda_values, Total_Rows, Total_Violations, Total_Errors, ErrorRate, Percentage_Violations, Replications_Needed,
     Adjusted_Replications_Needed
   )
 
@@ -745,21 +752,16 @@ violation_summary <- final_data_with_actuals %>%
 #| warning: false
 #| code-fold: true
 
-# Rename `Population` to `Transition Probability` first
-violation_summary <- violation_summary %>%
-  rename(`Transition Probability` = Population)
 
-# Filter the data for rows with non-zero error rates and clean `N_numeric`
-filtered_violation_summary <- violation_summary %>%
-  filter(ErrorRate > 0) %>%  # Only include rows with non-zero error rates
-  mutate(
+violation_summary <- violation_summary %>%
+ mutate(
     TPs = case_when(
-      `Transition Probability` == ".800" ~ 1.385,
-      `Transition Probability` == ".700" ~ 0.85,
-      `Transition Probability` == ".600" ~ 0.41,
-      `Transition Probability` == ".400" ~ -0.41,
-      `Transition Probability` == ".300" ~ -0.85,
-      `Transition Probability` == ".200" ~ -1.385,
+      Population == ".800" ~ 1.385,
+      Population == ".700" ~ 0.85,
+      Population == ".600" ~ 0.41,
+      Population == ".400" ~ -0.41,
+      Population == ".300" ~ -0.85,
+      Population == ".200" ~ -1.385,
       TRUE ~ NA_real_
     ),
     # Clean `N_numeric` by stripping out "N = " and converting to numeric
@@ -767,11 +769,11 @@ filtered_violation_summary <- violation_summary %>%
   )
 
 # Summarize and visualize the final table
-final_table <- filtered_violation_summary %>%
+final_table <- violation_summary %>%
   select(
-    `Transition Probability`,               # Transition probabilities
+    `Transition Probability` = Population,               # Transition probabilities
     TPs,                                    # Logit values
-    Lambda,                                 # Lambda values
+    Lambda_values,                                 # Lambda values
     N_numeric,              # Cleaned sample size
     `Total Mplus Runs` = Total_Rows,        # Total runs
     Total_Violations,                       # Total violations
@@ -825,7 +827,7 @@ Rerun Analysis *with the NUmber of replications needed to deal with the Error ra
 
 
   # Define the Mplus object with the dynamic replications
-rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
+rilta_rilta_func <- function(TPs, Lambda, N_numeric,  Adjusted_Replications_Needed) {
   
   
   RILTA_RILTA <- mplusObject(
@@ -839,7 +841,7 @@ rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
       CLASSES = c1(2) c2(2);
       NOBSERVATIONS = {N_numeric};
       SEED = 07252005;
-      NREPS = {Replications_Needed};  ! Dynamic number of Replications_Needed
+      NREPS = {Adjusted_Replications_Needed};  ! Dynamic number of Replications_Needed
       !!SAVE = repM1*.dat;
       RESULTS = RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.csv;"),
 
@@ -920,7 +922,7 @@ rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
         prob22 = 1- prob21;
         ")
       } 
-             else if (TPs == .85) {
+             else if (TPs == 0.85) {
         glue("
         New(
         trans11*.70 trans12*.30 trans21*.5 trans22*.5
@@ -936,7 +938,7 @@ rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
         prob22 = 1- prob21;
         ")
               } 
-            else  if (TPs == .41) {
+            else  if (TPs == 0.41) {
         glue("
         New(
         trans11*.60 trans12*.40 trans21*.5 trans22*.5
@@ -952,7 +954,7 @@ rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
         prob22 = 1- prob21;
         ")
               } 
-             else if (TPs == -.41) {
+             else if (TPs == -0.410) {
         glue("
         New(
         trans11*.40 trans12*.60 trans21*.5 trans22*.5
@@ -968,7 +970,7 @@ rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
         prob22 = 1- prob21;
         ")
               } 
-             else if (TPs == -.85) {
+             else if (TPs == -0.85) {
         glue("
         New(
         trans11*.30 trans12*.70 trans21*.5 trans22*.5
@@ -1006,7 +1008,7 @@ rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
   # Run Mplus model
   RILTA_RILTA_Model<- mplusModeler(RILTA_RILTA, 
                                    dataout = here('Simulations', 'STUDY_1', '2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED_REP', glue("RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.dat")),
-                                   modelout = glue(here('Simulations', 'STUDY_1', '2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED', "RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
+                                   modelout = glue(here('Simulations', 'STUDY_1', '2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED_REP', "RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
                                    check = TRUE, run = TRUE, hashfilename = FALSE)
 return(RILTA_RILTA_Model)
 }
@@ -1021,21 +1023,21 @@ cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
 cl <- makeCluster(num_cores, type = cluster_type)
 
 # Export necessary objects to the cluster
-clusterExport(cl, c("rilta_rilta_func", "violation_summary", "here", "glue", "mplusModeler", "mplusObject"))
+invisible(clusterExport(cl, c("rilta_rilta_func", "violation_summary_df", "here", "glue", "mplusModeler", "mplusObject")))
 
 # Ensure required libraries are loaded on each node
-clusterEvalQ(cl, {
+invisible(clusterEvalQ(cl, {
   library(MplusAutomation)
   library(glue)
   library(here)
-})
+}))
 
-result_list <- parLapply(cl, 1:nrow(violation_summary), function(i) {
+result_list <- parLapply(cl, 1:nrow(violation_summary_df), function(i) {
   rilta_rilta_func(
-    violation_summary$N_numeric[i], 
-    violation_summary$TPs[i],  
-    violation_summary$Lambda[i], 
-    violation_summary$Replications_Needed[i]
+    violation_summary_df$TPs[i],  
+    violation_summary_df$Lambda[i], 
+    violation_summary_df$N_numeric[i], 
+    violation_summary_df$Adjusted_Replications_Needed[i]
   )
 })
 
@@ -1160,7 +1162,6 @@ extract_completed_replications <- function(filepath) {
   tibble(FileName = basename(filepath), CompletedReplications = completed)
 }
 
-
 # Step 3: Extract Requested Replications
 extract_requested_replications <- function(filepath) {
   lines <- readLines(filepath)
@@ -1192,7 +1193,7 @@ calculate_replication_summary <- function(error_summary, completed_replications,
 }
 
 # Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '4_RILTA_GEN_RILTA_ANALYZED_REP')  # Adjust to your folder path
+output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '4_2T_RILTA_GEN_RILTA_ANALYZED_REP')  # Adjust to your folder path
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 # Step 5: Detect OS and Set Up Cluster
@@ -1333,7 +1334,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
       grepl("tp_-1.385", FileName) ~ ".200",
       TRUE ~ NA_character_
     ),
-    Lambda = case_when(
+    Lambda_values = case_when(
       grepl("a_1$", FileName) ~ "1",
       grepl("a_1\\.5", FileName) ~ "1.5",
       grepl("a_2$", FileName) ~ "2",
@@ -1357,7 +1358,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-#### Step 9: Part 3 Calculate Violation Percentages per Condition
+#### Step 9: Part 3 Calculate Violation Percentages per Condition after resimulation
 
 ```{r}
 
@@ -1367,38 +1368,38 @@ final_data_with_actuals <- final_data_with_actuals %>%
 #| warning: false
 #| code-fold: true
 
-# Step 6 Part 2: Summarize Violations and Adjust for Errors
-
-# 1. Summarize violations per condition
 violation_summary <- final_data_with_actuals %>%
   mutate(
     Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation),
-    ErrorFlag = ifelse(is.na(ErrorFlag), 0, ErrorFlag)  # Ensure no missing values for ErrorFlag
+    ErrorFlag = ifelse(is.na(ErrorFlag), 0, ErrorFlag)  # No missing values for ErrorFlag
   ) %>%
-  group_by(FileName, Model, Population, N, Mixing_proportion, Lambda_values) %>%
+  group_by(FileName, Population, N, Lambda_values) %>%
   summarize(
     Total_Rows = n(),                                # Total runs
-    Total_Violations = sum(Any_Violation, na.rm = TRUE), # Total violations
-    Total_Errors = sum(ErrorFlag, na.rm = TRUE),         # Total errors from ErrorFlag
-    Percentage_Violations = (Total_Violations / Total_Rows) * 100, # % violations
+    Total_Violations = sum(Any_Violation, na.rm = TRUE), # Sum of violations
+    Total_Errors = sum(ErrorFlag, na.rm = TRUE),     # Sum of errors
+    Percentage_Violations = (Total_Violations / Total_Rows) * 100, # Percentage of violations
     .groups = "drop"
   ) %>%
-  # 2. Calculate Replications Needed for label switching
+  left_join(replication_summary %>% select(FileName, CompletedReplications), by = "FileName") %>%
   mutate(
-    N_numeric = as.numeric(gsub("N = ", "", as.character(N))), 
-    Additional_Runs = (500 + Total_Violations) * (Percentage_Violations / 100), 
-    Replications_Needed = ceiling(500 + Total_Violations + Additional_Runs + 20),
-    Replications_Needed = if_else(Replications_Needed < 500, 500, Replications_Needed),
-    ErrorRate = Total_Errors / Total_Rows,  # Calculate ErrorRate directly
-    Adjusted_Replications_Needed = ceiling(Replications_Needed / (1 - ErrorRate)),
-    Adjusted_Replications_Needed = if_else(Adjusted_Replications_Needed < 500, 500, Adjusted_Replications_Needed)
+    CompletedReplications = ifelse(is.na(CompletedReplications), 500, CompletedReplications),
+    N_numeric = as.numeric(gsub("N = ", "", N)),
+    GoodReplications = CompletedReplications - Total_Violations - Total_Errors,
+    GoodReplications = ifelse(GoodReplications < 0, 0, GoodReplications),
+    Reanalysis_Needed = if_else(GoodReplications >= 500, "No", "Yes"),  # Flag for reanalysis needed
+    ErrorRate = Total_Errors / Total_Rows,          # Calculate ErrorRate
+    Replications_Needed = ceiling(CompletedReplications + Total_Violations + (CompletedReplications * Percentage_Violations / 100) + 20),
+    Adjusted_Replications_Needed = ceiling(Replications_Needed / (1 - ErrorRate))
   ) %>%
   select(
-    FileName, Model, Population, N, N_numeric, Mixing_proportion,
+    FileName, Population, N, N_numeric,
     Lambda_values, Total_Rows, Total_Violations, Total_Errors,
-    ErrorRate, Percentage_Violations, Replications_Needed,
-    Adjusted_Replications_Needed
+    ErrorRate, Percentage_Violations, GoodReplications,
+    Replications_Needed, Adjusted_Replications_Needed,
+    Reanalysis_Needed
   )
+
 
 ```
 
@@ -1411,40 +1412,37 @@ violation_summary <- final_data_with_actuals %>%
 #| warning: false
 #| code-fold: true
 
-# Rename `Population` to `Transition Probability` first
+# Filter the data for rows with non-zero error rates and clean N_numeric
+# Modify the TPs assignment to force formatting
 violation_summary <- violation_summary %>%
-  rename(`Transition Probability` = Population)
-
-# Filter the data for rows with non-zero error rates and clean `N_numeric`
-filtered_violation_summary <- violation_summary %>%
-  filter(ErrorRate > 0) %>%  # Only include rows with non-zero error rates
   mutate(
     TPs = case_when(
-      `Transition Probability` == ".800" ~ 1.385,
-      `Transition Probability` == ".700" ~ 0.85,
-      `Transition Probability` == ".600" ~ 0.41,
-      `Transition Probability` == ".400" ~ -0.41,
-      `Transition Probability` == ".300" ~ -0.85,
-      `Transition Probability` == ".200" ~ -1.385,
-      TRUE ~ NA_real_
-    ),
-    # Clean `N_numeric` by stripping out "N = " and converting to numeric
-    N_numeric = as.numeric(gsub("N = ", "", as.character(N)))
+      Population == ".800" ~ formatC(1.385, format = "f", digits = 3),
+      Population == ".700" ~ formatC(0.85, format = "f", digits = 2),
+      Population == ".600" ~ formatC(0.41, format = "f", digits = 2),
+      Population == ".400" ~ formatC(-0.41, format = "f", digits = 2),
+      Population == ".300" ~ formatC(-0.85, format = "f", digits = 2),
+      Population == ".200" ~ formatC(-1.385, format = "f", digits = 3),
+      TRUE ~ NA_character_
+  ),
+    N_numeric = as.numeric(gsub("N = ", "", as.character(N)))  # Clean N_numeric by stripping out "N = "
   )
 
 # Summarize and visualize the final table
-final_table <- filtered_violation_summary %>%
+final_table <- violation_summary %>%
   select(
-    `Transition Probability`,               # Transition probabilities
-    TPs,                                    # Logit values
-    Lambda,                                 # Lambda values
-    N_numeric,              # Cleaned sample size
-    `Total Mplus Runs` = Total_Rows,        # Total runs
-    Total_Violations,                       # Total violations
-    `% of Violations` = Percentage_Violations, # Violation percentage
-    ErrorRate,                              # Error rate
-    Replications_Needed,                    # Replications needed
-    `Adjusted Replications Needed` = Adjusted_Replications_Needed # Adjusted replications needed
+    `Transition Probability` = Population,  # Rename column for clarity
+    TPs,  # Logit values
+    Lambda = Lambda_values,  # Lambda values
+    N_numeric,  # Cleaned sample size
+    `Total Mplus Runs` = Total_Rows,  # Total runs
+    Total_Violations,  # Total violations
+    `% of Violations` = Percentage_Violations,  # Violation percentage
+    Total_Errors, 
+    ErrorRate,  # Error rate
+    Replications_Needed,  # Replications needed
+    `Adjusted Replications Needed` = Adjusted_Replications_Needed,  # Adjusted replications needed
+    Reanalysis_Needed
   ) %>%
   gt() %>%
   tab_header(
@@ -1456,9 +1454,8 @@ final_table <- filtered_violation_summary %>%
     columns = everything()
   ) %>%
   fmt_number(
-    columns = c(`N_numeric`, `Total Mplus Runs`, Total_Violations, `% of Violations`,
-                ErrorRate, Replications_Needed, `Adjusted Replications Needed`),
-    decimals = 2  # Format numbers with two decimal places
+    columns = c(`% of Violations`, ErrorRate),
+    decimals = 2  # Ensure these percentages are formatted to 2 decimal places
   ) %>%
   tab_options(
     data_row.padding = px(4)  # Set padding between rows
@@ -1475,6 +1472,47 @@ final_table
 
 ```
 
+![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAaCAYAAADFTB7LAAAAcElEQVR4Xu3OwQmAQAxE0bClWYCW5N06tM6V2YPg5CjoF/JhLoHAi6iqn9eOefUbqrYvHY0cQDLyAlKRNyARmYA0ZMLRkAlGQyaU72tkAtlim7r/vJqDUDjlKBROOQyFU2icQuMUGqfQuBEaV1XPOwEx96nYACK8+wAAAABJRU5ErkJggg== "Run Current Chunk")
+
+#### Step 9: Part 5 Create Follow up iterator table
+
+```{r}
+# Assuming 'violation_summary' has been previously defined and transformed
+
+# Filter for rows where Reanalysis_Needed is 'Yes' and select specific columns
+# Save this filtered data as a DataFrame
+violation_summary_df <- violation_summary %>%
+  filter(Reanalysis_Needed == "Yes") %>%
+  select(
+    TPs,                     # Logit values
+    Lambda = Lambda_values,  # Lambda values
+    N_numeric,               # Cleaned sample size
+    Adjusted_Replications_Needed  # Adjusted replications needed
+  )
+
+# Use the saved DataFrame to create the gt table
+violation_summary_table <- gt(data = violation_summary_df) %>%
+  tab_header(
+    title = "Monte Carlo Results for Reanalysis:",
+    subtitle = "Selected cases requiring further analysis"
+  ) %>%
+  cols_align(
+    align = "center",  # Center all columns
+    columns = everything()
+  ) %>%
+  tab_options(
+    data_row.padding = px(4)  # Set padding between rows
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),  # Center align the headers only
+    locations = cells_column_labels(everything())  # Apply to headers only
+  )
+
+# Display the table
+violation_summary_table
+
+```
+
 ### Step 10: Delete Cases that Violate
 
 #### **Objective**
@@ -1488,8 +1526,9 @@ final_table
 #| warning: false
 #| code-fold: true
 
-# Step 1: Filter out cases with any violations (Any_Violation == 0)
-filtered_data_with_no_violations <- final_data_with_actuals[final_data_with_actuals$Any_Violation == 0, ]
+# Filter out cases with no violations and no errors
+filtered_data_with_no_violations <- final_data_with_actuals[
+  final_data_with_actuals$Any_Violation == 0 & final_data_with_actuals$ErrorFlag == 0, ]
 ```
 
 #### STEP 10 Part 1

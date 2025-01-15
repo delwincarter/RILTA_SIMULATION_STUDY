@@ -21,7 +21,7 @@ process_chunk <- function(chunk_start, data) {
     
     single_row_df <- as.data.frame(t(combined_data_chunk), stringsAsFactors = FALSE)
     colnames(single_row_df) <- c(
-      "FileName", "Rep",
+      "FileName", "Replication",
       "Ec1u1", "Ec1u2", "Ec1u3", "Ec1u4", "Ec1u5",
       "Ec2u1", "Ec2u2", "Ec2u3", "Ec2u4", "Ec2u5",
       "TRANS11", "SE_11"

@@ -1464,31 +1464,27 @@ Take random sample of replications to achieve n = 500
 #| message: false
 #| warning: false
 #| code-fold: true
-
-
 # Set seed for reproducibility
 set.seed(07252005)
 
-# Group data by FileName and sample 500 rows per condition (if possible)
-cleaned_data <- filtered_data_with_no_violations %>%
+# Check initial counts to ensure each FileName group has at least 500 rows
+initial_counts <- filtered_data_with_no_violations %>%
   group_by(FileName) %>%
-  slice_sample(n = 500, replace = FALSE) %>%  # Randomly sample 500 rows (without replacement)
-  ungroup()
+  summarize(Initial_Count = n(), .groups = "drop")
 
-# Verify the number of rows per condition
-condition_counts <- cleaned_data %>%
-  group_by(FileName) %>%
-  summarize(Count = n(), .groups = "drop")
+# Forcefully display the condition and message
+if (all(initial_counts$Initial_Count >= 500)) {
+  # Message to indicate successful operation
+  cat("All FileName groups had at least 500 rows. Sampling performed.\n")
 
-# Print conditions with more or less than 500 rows (sanity check)
-sanity_check <- condition_counts %>%
-  filter(Count != 500)
-
-if (nrow(sanity_check) > 0) {
-  warning("Some conditions do not have exactly 500 rows. Please verify the data and ensure extra replications are sufficient.")
-  print(sanity_check)
+  # Proceed with sampling
+  sampled_data <- filtered_data_with_no_violations %>%
+    group_by(FileName) %>%
+    sample_n(size = 500, replace = FALSE) %>%
+    ungroup()
 } else {
-  message("All conditions have exactly 500 rows.")
+  # Warning if not all groups meet the requirement
+  cat("Some FileName groups do not have at least 500 rows. Sampling not performed.\n")
 }
 ```
 
@@ -1505,35 +1501,30 @@ if (nrow(sanity_check) > 0) {
 #| warning: false
 #| code-fold: true
 
-# First, convert Population back to numeric if it's a factor
-cleaned_data <- cleaned_data %>%
-  mutate(Population = as.numeric(as.character(Population)))
+
+# Convert necessary columns to numeric
+cleaned_data <- sampled_data %>%
+  mutate(
+    Population = as.numeric(as.character(Population)),
+    TRANS11 = as.numeric(as.character(TRANS11)),  # Convert TRANS11 to numeric
+    SE_11 = as.numeric(as.character(SE_11))  # Convert SE_11 to numeric
+  )
 
 # Calculate the Monte Carlo values, including Population (transition probability), N, 
 # number of replications, and averages for TRANS11 and SE11
 mc_values <- cleaned_data %>%
-  group_by(FileName, Population, N, Transitions) %>%  # Group by FileName, Population, and N
+  group_by(FileName, Population, N, Transitions) %>%
   summarize(
     average = round(mean(TRANS11, na.rm = TRUE), 3),
     average_SE = round(mean(SE_11, na.rm = TRUE), 3),
     population_sd = round(sd(TRANS11, na.rm = TRUE), 3),
-    
-    # MSE calculation: mean squared error between TRANS11 and Population
     MSE = round(mean((TRANS11 - Population)^2, na.rm = TRUE), 3),
-    
-    # Coverage calculation: check if Population lies within the confidence interval
-    Coverage = round(mean((Population >= (TRANS11 - 1.96 * SE_11)) & (Population <= (TRANS11 + 1.96 * SE_11)), na.rm = TRUE), 3),
-    
-    # Power calculation: proportion of cases where TRANS11 is significant
+    Coverage = round(mean((Population >= (TRANS11 - 1.96 * SE_11)) & 
+                         (Population <= (TRANS11 + 1.96 * SE_11)), na.rm = TRUE), 3),
     Power = round(mean(TRANS11 / SE_11 > 1.96, na.rm = TRUE), 3),
-    
-    # Reps_Used counts the number of replications (rows) used for each FileName
     Reps_Used = n()
-  )
-
-# Round the values to 3 decimal points
-mc_values <- mc_values %>%
-  mutate(across(starts_with("Avg_"), ~ round(.x, 3)))
+  ) %>%
+  ungroup()
 
 ```
 
@@ -1609,12 +1600,12 @@ all_data <- mc_values
 all_data$Population_Label <- factor(all_data$Population, 
     levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),  # Numeric levels without leading zeros
     labels = c(
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .200"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .300"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .400"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .600"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .700"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .800")
+        expression(bold(italic(T))[11] ~ " = .200"),
+        expression(bold(italic(T))[11] ~ " = .300"),
+        expression(bold(italic(T))[11] ~ " = .400"),
+        expression(bold(italic(T))[11] ~ " = .600"),
+        expression(bold(italic(T))[11] ~ " = .700"),
+        expression(bold(italic(T))[11] ~ " = .800")
     )
 )
 
@@ -1647,7 +1638,7 @@ create_plot <- function(data, title_suffix) {
       panel.grid.minor.x = element_blank(),
       panel.grid.minor.y = element_blank(),
       axis.text.x = element_text(size = 8),
-      axis.ticks = element_line(color = "black", linewidth = 0.2),
+      axis.ticks = element_line(color = "black", linewidth = 0.5),
       legend.position = "bottom",
       legend.title = element_blank(),
       text = element_text(family = "Times New Roman"),
@@ -1673,10 +1664,10 @@ create_plot <- function(data, title_suffix) {
 
   # Plotting
   ggplot(data = data, aes(x = factor(N))) +  
-    geom_line(aes(y = Parameter_Bias, color = "Parameter Bias", group = Population_Label), linewidth = 0.5, linetype = "solid") +  
-    geom_line(aes(y = SE_Bias, color = "Standard Error Bias", group = Population_Label), linewidth = 0.5, linetype = "solid") +  
-    geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 1.5, fill = "#7030A0", alpha = 0.8) +  
-    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1.5, fill = "#C830CC", alpha = 0.8) +  
+    geom_line(aes(y = Parameter_Bias, color = "Parameter Bias", group = Population_Label), linewidth = 1, linetype = "solid") +  
+    geom_line(aes(y = SE_Bias, color = "Standard Error Bias", group = Population_Label), linewidth = 1, linetype = "solid") +  
+    geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 2.2, fill = "#7030A0", alpha = 1) +  
+    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 2.2, fill = "#C830CC", alpha = 1) +  
     geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = 1, size = 2, fill = "#7030A0", alpha = 1) +  
     geom_point(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = 4, size = 2, fill = "black", alpha = 1) + 
     geom_line(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure", group = Population_Label), linewidth = 0.3, linetype = "solid") +
@@ -1690,18 +1681,18 @@ create_plot <- function(data, title_suffix) {
       )
     ) +  
     labs(
-      x = "Lambda Loadings on the RI",
+      x = "Sample Size",
       y = "Bias (%)",
       color = "",
-      title = paste("LTA Generated, LTA Analyzed with", title_suffix, "Transition Probabilities")
+      title = paste("LTA Generated, RILTA Analyzed with", title_suffix, "Transition Probabilities")
     ) +
-    coord_cartesian(ylim = c(-40, 40)) +  
+    coord_cartesian(ylim = c(-20, 20)) +  
     facet_wrap(~ as.character(Population_Label), scales = "free", labeller = label_parsed) +  
     scale_x_discrete(labels = c(expression(italic("N") ~ " = 500"), expression(italic("N") ~ " = 1000"), expression(italic("N") ~ " = 2000"), expression(italic("N") ~ " = 4000"))) +  
-    scale_y_continuous(breaks = seq(-40, 40, by = 10)) +  
+    scale_y_continuous(breaks = seq(-20, 20, by = 10)) +  
     common_theme +
-    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.3) +  
-    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.3) +
+    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.7) +  
+    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.7) +
     theme(
       legend.position = "bottom", 
       strip.placement = "outside", 
@@ -1710,9 +1701,6 @@ create_plot <- function(data, title_suffix) {
       axis.text.x = element_text(angle = 45, hjust = 1, size = 8)
     )
 }
-
-
-
 ```
 
 ```{r}
@@ -1722,6 +1710,12 @@ plot_mover <- create_plot(subset_mover, "Mover")
 #| column: screen
 #| fig-format: svg
 print(plot_mover)
+
+# Remove title for the saved version
+plot_mover_no_title <- plot_mover + labs(title = NULL)
+
+# Save Mover plot without title as .svg
+ggsave(here('Simulations', 'STUDY_1', "3 Time Points", "zFIGURES", "x3t_lta_lta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 3, dpi = 300, device = "svg")
 ```
 
 ```{r}
@@ -1731,6 +1725,12 @@ plot_stayer <- create_plot(subset_stayer, "Stayer")
 #| fig-format: svg
 print(plot_stayer)
 
+
+# Remove title for the saved version
+plot_stayer_no_title <- plot_stayer + labs(title = NULL)
+
+# Save Stayer plot without title as .svg
+ggsave(here('Simulations', 'STUDY_1', "3 Time Points", "zFigures", "x3t_lta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
 ```
 
 ### **Step 15: Prepare Data for Heatmaps**
@@ -1867,7 +1867,7 @@ create_gt_table <- function(subset, transition_probability) {
         columns = "SE_Bias",
         rows = .data$SE_Bias < -4.99 | .data$SE_Bias > 4.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("#B4186E", "#F9D5E9", "#B4186E"),  # Darker red for larger deviations
+        palette = c("#781049", "#FDEAF4", "#781049"),  # Darker red for larger deviations
         domain = c(-80, 80)  # Adjust the domain for the SE_Bias range
       ) %>%
       tab_footnote(
@@ -1924,369 +1924,5 @@ gt_table <- create_gt_table(test_map, "Mover & Stayers")
 
 gt_table
 # Further operations on gt_table
-gt_table |> tab_options(table.width = pct(75)) |> gtsave(here("z2t_heatmaps", "2T_L_L.png"))
-```
-
-```{r}
-# Extract models
-lta_sim <- readModels(here("5. 3T LTA GEN LTA ANALYZED"), what = "parameters")
-
-# Create table of unstandardized values across outputs
-ltaNames <- names(lta_sim)
-unstandardizedLTA <- sapply(sapply(lta_sim, "[", "parameters"), "[", "unstandardized")
-names(unstandardizedLTA) <- ltaNames
-```
-
-```{r}
-# Wrangle
-apply_table_setup <- function(data) {
-  table_setup <- data %>%
-    slice(36) %>%  # Select only row 24
-    rename(Power = pct_sig_coef,
-           Parameter = param,
-           Coverage = cover_95)  %>% 
-               select(Parameter:Power)
-  
-  return(table_setup)
-}
-
-resultsLTA <- lapply(unstandardizedLTA, apply_table_setup)
-
-lta_combined <- do.call("rbind", resultsLTA)
-lta_combined <- as.data.frame(lta_combined)
-rownames(lta_combined) <- toupper(rownames(lta_combined))
-
-```
-
-```{r}
-# 1 = Mover, 2 = Stayer
-lta_combined$Transitions <- rep(c("1", "2"), each = 3)
-lta_combined$N <- rep(c("2", "3", "4", "1"), each = 6)
-
-lta_combined <- lta_combined %>%
-  arrange(N) %>%
-  mutate(Cond_Num = as.array(rep(1:24)))
-
-
-```
-
-```{r}
-# Calculate dichotomous variable for Power
-lta_combined <- lta_combined %>%
-  mutate(Power_Dic = ifelse(Power >= 0.8, 1, 0))
-
-# Calculate dichotomous variable for Coverage
-lta_combined <- lta_combined %>%
-  mutate(Coverage_Dic = ifelse(Coverage > 0.98 | Coverage < 0.91, 0, 1))
-```
-
-```{r}
-# Calculate Parameter Bias and SE Bias without %
-lta_combined <- lta_combined %>%
-  mutate(Parameter_Bias = ((as.numeric(as.character(average)) - as.numeric(as.character(population))) / as.numeric(as.character(population))) * 100,
-         SE_Bias = ((as.numeric(as.character(average_se)) - as.numeric(as.character(population_sd))) / as.numeric(as.character(population_sd))) * 100) %>%
-  mutate(across(c(Parameter_Bias, SE_Bias), ~ round(., 2)))
-
-lta_combined$Parameter_Bias <- as.numeric(lta_combined$Parameter_Bias)
-lta_combined$SE_Bias <- as.numeric(lta_combined$SE_Bias)
-```
-
-```{r}
-all_data <-lta_combined
-
-
-all_data$Population_Label <- factor(all_data$population, levels = c(.2, .3, .4, .6, .7, .8), labels = c(
-  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .200"),
-  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .300"),
-  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .400"),
-  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .600"),
-  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .700"),
-  expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .800")
-  ))
-                            
-# Subset for Transitions movers
-subset_mover <- subset(all_data, Transitions == 1)
-
-# Subset for Transitions stayers
-subset_stayer <- subset(all_data, Transitions == 2)
-
-
-```
-
-```{r}
-common_theme <- theme_minimal() +
-  theme(
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    axis.text.x = element_text(size = 8),  # Increase the size of x-axis text
-    axis.ticks = element_line(color = "black", linewidth = 0.2),
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    text = element_text(family = "Times New Roman"),
-    axis.title.x = element_text(margin = margin(t = 10, b = 10)),
-    legend.margin = margin(t = -10),
-    plot.caption = element_text(hjust = 0, margin = margin(t = 10))
-  )
-
-common_labels <- labs(
-  x = "Sample Size",  
-  y = "Bias (%)",
-  color = "",
-  title = ""
-)
-
-# Plotting
-create_plot <- function(data, title_suffix) {
-  ggplot(data = data, aes(x = factor(N))) +  
-    geom_line(aes(y = Parameter_Bias, color = "Parameter Bias", group = Population_Label), linewidth = 0.5, linetype = "solid") +  
-    geom_line(aes(y = SE_Bias, color = "Standard Error Bias", group = Population_Label), linewidth = 0.5, linetype = "solid") +  
-    geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 1.5, fill = "#7030A0", alpha = 0.8) +  
-    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1.5, fill = "#C830CC", alpha = 0.8) +  
-    geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = NA, size = 1.5, fill = "#7030A0", alpha = 0.8) +  
-    geom_point(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = NA, size = 1.5, fill = "black", alpha = 0.8) + 
-    geom_line(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure", group = Population_Label), linewidth = 0.3, linetype = "solid") +
-    geom_line(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure", group = Population_Label), linewidth = 0.3, linetype = "solid") +
-    scale_color_manual(
-      values = c("Parameter Bias" = "#7030A0", "Standard Error Bias" = "#C830CC", "Coverage Failure" = "#7030A0", "Power Failure" = "black"), 
-      labels = c("Parameter Bias", "Standard Error Bias", "Coverage Failure", "Power Failure"), 
-      breaks = c("Parameter Bias", "Standard Error Bias", "Coverage Failure", "Power Failure")
-    ) +  
-    labs(
-      x = "Lambda Loadings on the RI",
-      y = "Bias (%)",
-      color = "",
-      title = paste("3T LTA Generated, LTA Analyzed with", title_suffix, "Transition Probabilities")
-    ) +
-    coord_cartesian(ylim = c(-40, 40)) +  
-    facet_wrap(~ as.character(Population_Label), scales = "free", labeller = label_parsed) +  # Facet by Population_Label
-    scale_x_discrete(labels = c(expression(italic("N") ~ " = 500"), expression(italic("N") ~ " = 1000"), expression(italic("N") ~ " = 2000"), expression(italic("N") ~ " = 4000"))) +  # Set X-axis labels
-    scale_y_continuous(breaks = seq(-40, 40, by = 10)) +  
-    common_theme +
-    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.3) +  
-    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.3) +
-    theme(
-      legend.position = "bottom", 
-      strip.placement = "outside", 
-      strip.background = element_blank(),
-      panel.spacing = unit(0.5, "lines")
-    )
-}
-```
-
-```{r}
-# Create and print plot for Mover
-plot_mover <- create_plot(subset_mover, "Mover")
-#| column: screen
-#| fig-format: svg
-print(plot_mover)
-
-# Remove title for the saved version
-plot_mover_no_title <- plot_mover + labs(title = NULL)
-
-# Save Mover plot without title as .svg
-ggsave(here('Simulations', 'STUDY_1', "3 Time Points", "zFigures", "x3t_lta_lta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 3, dpi = 300, device = "svg")
-```
-
-```{r}
-# Create and print plot for Stayer
-plot_stayer <- create_plot(subset_stayer, "Stayer")
-#| column: screen
-#| fig-format: svg
-print(plot_stayer)
-
-
-# Remove title for the saved version
-plot_stayer_no_title <- plot_stayer + labs(title = NULL)
-
-# Save Stayer plot without title as .svg
-ggsave(here('Simulations', 'STUDY_1', "3 Time Points", "zFigures", "x3t_lta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
-```
-
-```{r}
-
-# Mutate columns to factor with custom labels
-all_data <- all_data %>% 
-  mutate(N = factor(N,
-                    labels = c("N = 500", "N = 1000", "N = 2000", "N = 4000"))) %>% 
-  mutate(population = factor(population,
-                             labels = c(`.2`= ".200", `.3` = ".300", `.4` = ".400",
-                                        `.6`= ".600", `.7` = ".700", `.8` = ".800")))
-
-# Change names in the "Transitions" column
-all_data <- all_data %>%
-  mutate(Transitions = ifelse(Transitions == 1, "Mover", "Stayer"))
-
-rownames(all_data) <- NULL
-
-# Ordering the table based on the "Transitions" column
-all_data <- all_data %>%
-  arrange(Transitions)
-
-# Create a new column for labels in Transition_Label and N_Label
-all_data$N_Label <- ""
-
-# Add labels to the "N" column at desired intervals
-num_rows <- nrow(all_data)
-for (i in seq(1, num_rows, by = 3)) {
-  if (i + 1 <= num_rows) {
-    all_data$N_Label[i + 1] <- as.character(all_data$N[i])
-  }
-}
-
-# Select necessary columns
-test_map <- select(all_data, N_Label, population, average, Coverage, Power, Parameter_Bias, SE_Bias)
-
-
-
-
-```
-
-```{r}
-# Function to create gt table based on subset data
-create_gt_table <- function(subset, transition_probability) {
-  # Create the gt object and set initial formatting
-  gt_table <- subset %>%
-    gt() %>%
-    opt_table_font(stack = "geometric-humanist") %>% 
-    tab_header(
-      title = paste("3T LTA Generated & LTA Analyzed with Transition Probability of", transition_probability)
-    ) %>%
-    cols_label(
-      N_Label = "Sample Size",
-      average = "Estimated<br>Probability",
-      Coverage = "Coverage",
-      Power = "Power",
-      Parameter_Bias = "Parameter <br>Bias",
-      SE_Bias = "Standard Error<br>Bias",
-      .fn = md
-    ) %>%
-    tab_spanner(
-      label = "Bias",
-      columns = c("Parameter_Bias", "SE_Bias")
-    ) %>%
-    tab_row_group(
-      label = "Stayer Probabilities",  # Label for the first subgroup
-      rows = c(13:24)  # Rows corresponding to the first subgroup
-    ) %>%
-    tab_row_group(
-      label = "Mover Probabilities",  # Label for the second subgroup
-      rows = c(1:12)  # Rows corresponding to the second subgroup
-    ) %>%
-    tab_style(
-      style = cell_text(
-        font = "bold italic"  # Apply bold and italic styling
-      ),
-      locations = cells_row_groups()  # Apply style to row subheaders
-    ) %>%
-    fmt_number(columns = c("Parameter_Bias", "SE_Bias"), decimals = 2) %>%  
-    fmt_number(columns = 3, decimals = 3) %>%
-    tab_options(
-      table_body.hlines.color = "white",
-      table.border.top.color = "black",
-      table.border.bottom.color = "black",
-      table_body.border.bottom.color = "black",
-      heading.border.bottom.color = "black",
-      column_labels.border.top.color = "black",
-      column_labels.border.bottom.color = "black",
-      row_group.border.bottom.color = "black" ,
-      row_group.border.top.color = "black" 
-    ) %>%
-    cols_align(
-      align = c("center"),
-      columns = everything()
-    )
-  
-  # Check for violations in Parameter_Bias column
-  if (any(!(subset$Parameter_Bias >= -9.99 & subset$Parameter_Bias <= 9.99), na.rm = TRUE)) {
-    gt_table <- gt_table %>%
-      data_color(
-        columns = "Parameter_Bias", 
-        rows = !(Parameter_Bias >= -9.99 & Parameter_Bias <= 9.99),
-        method = "numeric",
-        palette = c("white", "#5ABCEB"),  # Brighter shade of blue
-        domain = c(-30, 170),
-        apply_to = "fill"
-      ) %>%
-      tab_footnote(
-        footnote = md("Blue indicates violation of *Parameter Bias*."),
-        locations = cells_column_labels(columns = Parameter_Bias)
-      )
-  }
-
-  # Apply color highlighting for violations in Parameter Bias
-  if (any(!(subset$Parameter_Bias >= -9.99 & subset$Parameter_Bias <= 9.99), na.rm = TRUE)) {
-    gt_table <- gt_table %>%
-      data_color(
-        columns = "Parameter_Bias",
-        rows = .data$Parameter_Bias < -9.99 | .data$Parameter_Bias > 9.99,  # Apply color only if outside the threshold
-        method = "numeric",
-        palette = c("#113386", "#DAE3FA", "#113386"),  # Darker blue for larger deviations
-        domain = c(-40, 40)  # Adjust the domain to reflect the range of values
-      ) %>%
-      tab_footnote(
-        footnote = md("Darker blue indicates larger deviations from zero *Parameter Bias* beyond the ±9.99 threshold."),
-        locations = cells_column_labels(columns = "Parameter_Bias")
-      )
-  }
-
-  # Apply color highlighting for violations in SE Bias
-  if (any(!(subset$SE_Bias >= -4.99 & subset$SE_Bias <= 4.99), na.rm = TRUE)) {
-    gt_table <- gt_table %>%
-      data_color(
-        columns = "SE_Bias",
-        rows = .data$SE_Bias < -4.99 | .data$SE_Bias > 4.99,  # Apply color only if outside the threshold
-        method = "numeric",
-        palette = c("#B4186E", "#F9D5E9", "#B4186E"),  # Darker red for larger deviations
-        domain = c(-80, 80)  # Adjust the domain for the SE_Bias range
-      ) %>%
-      tab_footnote(
-        footnote = md("Darker red indicates larger deviations from zero *Standard Error Bias* beyond the ±4.99 threshold."),
-        locations = cells_column_labels(columns = "SE_Bias")
-      )
-  }
-
-  if (any(subset$Coverage < 0.93 | subset$Coverage > 0.979, na.rm = TRUE)) {
-    gt_table <- gt_table %>%
-      data_color(
-        columns = "Coverage",
-        rows = subset$Coverage < 0.93 | subset$Coverage > 0.979,
-        method = "numeric",
-        palette = c("#93C6B1", "white"),  # Green for coverage issues
-        domain = c(0, 1)
-      ) %>%
-      tab_footnote(
-        footnote = md("Green indicates failure to achieve adequate *Coverage*."),
-        locations = cells_column_labels(columns = "Coverage")
-      )
-  }
-
-  if (any(subset$Power < 0.8, na.rm = TRUE)) {
-    gt_table <- gt_table %>%
-      data_color(
-        columns = "Power",
-        rows = subset$Power < 0.8,
-        method = "numeric",
-        palette = c("#502CD1", "white"),  # Purple for power issues
-        domain = c(0, 1)
-      ) %>%
-      tab_footnote(
-        footnote = md("Purple indicates failure to achieve adequate *Power*."),
-        locations = cells_column_labels(columns = "Power")
-      )
-  }
-  
-  return(gt_table)
-}
-
-```
-
-```{r}
-gt_table <- create_gt_table(test_map, ".200 & .800")
-
-
-# Further operations on gt_table
-gt_table |> tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHEATMAPS", "z3t_heatmaps", "z3t_l_l_heatmaps", "3T_L_L.png", expand = 8))
-
-gt_table
+gt_table |> tab_options(table.width = pct(75)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", 'z3t_l_l_heatmaps', "2T_L_L.png"))
 ```

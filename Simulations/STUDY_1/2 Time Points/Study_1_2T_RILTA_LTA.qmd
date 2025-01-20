@@ -11,6 +11,7 @@ knitr:
   opts_chunk:
     out.width: "90%"
     fig.align: center
+---`
 ---
 
 ```{r, message=FALSE, warning=FALSE}
@@ -1052,7 +1053,7 @@ stopCluster(cl)
 #| code-fold: true
 
 # Step 1: Set the correct CSV directory
-csv_directory <- here('2 Time Points', '2_2T_RILTA_GEN_LTA_ANALYZED')
+csv_directory <- here('Simulations',  'STUDY_1', '2 Time Points', '3_2T_RILTA_GEN_LTA_ANALYZED_REP')
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
@@ -1359,41 +1360,42 @@ final_data_with_actuals <- final_data_with_actuals %>%
 #### Step 9: Part 3 Calculate Violation Percentages per Condition
 
 ```{r}
-
-#| label: "calculate-violation-percentages"
+#| label: "calculate-violations2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-# 1. Summarize violations per condition
+
 violation_summary <- final_data_with_actuals %>%
   mutate(
     Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation),
-    ErrorFlag = ifelse(is.na(ErrorFlag), 0, ErrorFlag)  # Ensure no missing values for ErrorFlag
+    ErrorFlag = ifelse(is.na(ErrorFlag), 0, ErrorFlag)  # No missing values for ErrorFlag
   ) %>%
-  group_by(FileName, Model, Population, N, Mixing_proportion, Lambda_values) %>%
+  group_by(FileName, Population, N, Lambda) %>%
   summarize(
     Total_Rows = n(),                                # Total runs
-    Total_Violations = sum(Any_Violation, na.rm = TRUE), # Total violations
-    Total_Errors = sum(ErrorFlag, na.rm = TRUE),         # Total errors from ErrorFlag
-    Percentage_Violations = (Total_Violations / Total_Rows) * 100, # % violations
+    Total_Violations = sum(Any_Violation, na.rm = TRUE), # Sum of violations
+    Total_Errors = sum(ErrorFlag, na.rm = TRUE),     # Sum of errors
+    Percentage_Violations = (Total_Violations / Total_Rows) * 100, # Percentage of violations
     .groups = "drop"
   ) %>%
-  # 2. Calculate Replications Needed for label switching
+  left_join(replication_summary %>% select(FileName, CompletedReplications), by = "FileName") %>%
   mutate(
-    N_numeric = as.numeric(gsub("N = ", "", as.character(N))), 
-    Additional_Runs = (500 + Total_Violations) * (Percentage_Violations / 100), 
-    Replications_Needed = ceiling(500 + Total_Violations + Additional_Runs + 20),
-    Replications_Needed = if_else(Replications_Needed < 500, 500, Replications_Needed),
-    ErrorRate = Total_Errors / Total_Rows,  # Calculate ErrorRate directly
-    Adjusted_Replications_Needed = ceiling(Replications_Needed / (1 - ErrorRate)),
-    Adjusted_Replications_Needed = if_else(Adjusted_Replications_Needed < 500, 500, Adjusted_Replications_Needed)
+    CompletedReplications = ifelse(is.na(CompletedReplications), 500, CompletedReplications),
+    N_numeric = as.numeric(gsub("N = ", "", N)),
+    GoodReplications = CompletedReplications - Total_Violations - Total_Errors,
+    GoodReplications = ifelse(GoodReplications < 0, 0, GoodReplications),
+    Reanalysis_Needed = if_else(GoodReplications >= 500, "No", "Yes"),  # Flag for reanalysis needed
+    ErrorRate = Total_Errors / Total_Rows,          # Calculate ErrorRate
+    Replications_Needed = ceiling(CompletedReplications + Total_Violations + (CompletedReplications * Percentage_Violations / 100) + 20),
+    Adjusted_Replications_Needed = ceiling(Replications_Needed / (1 - ErrorRate))
   ) %>%
   select(
-    FileName, Model, Population, N, N_numeric, Mixing_proportion,
-    Lambda_values, Total_Rows, Total_Violations, Total_Errors,
-    ErrorRate, Percentage_Violations, Replications_Needed,
-    Adjusted_Replications_Needed
+    FileName, Population, N, N_numeric,
+    Lambda, Total_Rows, Total_Violations, Total_Errors,
+    ErrorRate, Percentage_Violations, GoodReplications,
+    Replications_Needed, Adjusted_Replications_Needed,
+    Reanalysis_Needed
   )
 
 ```
@@ -1401,31 +1403,57 @@ violation_summary <- final_data_with_actuals %>%
 #### Step 9: Part 4 Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
-#| label: "summarize-violations2"
+#| label: "visualize-violations-and-errors2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-# Filter for rows where Reanalysis_Needed is 'Yes' and select specific columns
-# Save this filtered data as a DataFrame
-violation_summary_df <- violation_summary %>%
-  filter(Reanalysis_Needed == "Yes") %>%
-  select(
-    TPs,                     # Logit values
-    Lambda = Lambda_values,  # Lambda values
-    N_numeric,               # Cleaned sample size
-    Adjusted_Replications_Needed  # Adjusted replications needed
+
+
+# Filter the data for rows with non-zero error rates and clean N_numeric
+# Modify the TPs assignment to force formatting
+violation_summary <- violation_summary %>%
+  mutate(
+    TPs = case_when(
+      Population == ".800" ~ formatC(1.385, format = "f", digits = 3),
+      Population == ".700" ~ formatC(0.85, format = "f", digits = 2),
+      Population == ".600" ~ formatC(0.41, format = "f", digits = 2),
+      Population == ".400" ~ formatC(-0.41, format = "f", digits = 2),
+      Population == ".300" ~ formatC(-0.85, format = "f", digits = 2),
+      Population == ".200" ~ formatC(-1.385, format = "f", digits = 3),
+      TRUE ~ NA_character_
+  ),
+    N_numeric = as.numeric(gsub("N = ", "", as.character(N)))  # Clean N_numeric by stripping out "N = "
   )
 
-# Use the saved DataFrame to create the gt table
-violation_summary_table <- gt(data = violation_summary_df) %>%
+# Summarize and visualize the final table
+final_table <- violation_summary %>%
+  select(
+    `Transition Probability` = Population,  # Rename column for clarity
+    TPs,  # Logit values
+    Lambda,  # Lambda values
+    N_numeric,  # Cleaned sample size
+    `Total Mplus Runs` = Total_Rows,  # Total runs
+    Total_Violations,  # Total violations
+    `% of Violations` = Percentage_Violations,  # Violation percentage
+    Total_Errors, 
+    ErrorRate,  # Error rate
+    Replications_Needed,  # Replications needed
+    `Adjusted Replications Needed` = Adjusted_Replications_Needed,  # Adjusted replications needed
+    Reanalysis_Needed
+  ) %>%
+  gt() %>%
   tab_header(
-    title = "Monte Carlo Results for Reanalysis:",
-    subtitle = "Selected cases requiring further analysis"
+    title = "Monte Carlo Results:",
+    subtitle = "Percentage of Cases with Label Switching and Replications Needed"
   ) %>%
   cols_align(
     align = "center",  # Center all columns
     columns = everything()
+  ) %>%
+  fmt_number(
+    columns = c(`% of Violations`, ErrorRate),
+    decimals = 2  # Ensure these percentages are formatted to 2 decimal places
   ) %>%
   tab_options(
     data_row.padding = px(4)  # Set padding between rows
@@ -1436,8 +1464,7 @@ violation_summary_table <- gt(data = violation_summary_df) %>%
   )
 
 # Display the table
-violation_summary_table
-
+final_table
 ```
 
 ### **Step 11: Delete Cases that Violate**
@@ -1469,32 +1496,29 @@ Randomly select 500 replications per condition
 #| message: false
 #| warning: false
 #| code-fold: true
-#| 
+
 # Set seed for reproducibility
 set.seed(07252005)
 
-# Group data by FileName and sample 500 rows per condition (if possible)
-cleaned_data <- filtered_data_with_no_violations %>%
+# Check initial counts to ensure each FileName group has at least 500 rows
+initial_counts <- filtered_data_with_no_violations %>%
   group_by(FileName) %>%
-  slice_sample(n = 500, replace = FALSE) %>%  # Randomly sample 500 rows (without replacement)
-  ungroup()
+  summarize(Initial_Count = n(), .groups = "drop")
 
-# Verify the number of rows per condition
-condition_counts <- cleaned_data %>%
-  group_by(FileName) %>%
-  summarize(Count = n(), .groups = "drop")
+# Forcefully display the condition and message
+if (all(initial_counts$Initial_Count >= 500)) {
+  # Message to indicate successful operation
+  cat("All FileName groups had at least 500 rows. Sampling performed.\n")
 
-# Print conditions with more or less than 500 rows (sanity check)
-sanity_check <- condition_counts %>%
-  filter(Count != 500)
-
-if (nrow(sanity_check) > 0) {
-  warning("Some conditions do not have exactly 500 rows. Please verify the data and ensure extra replications are sufficient.")
-  print(sanity_check)
+  # Proceed with sampling
+  sampled_data <- filtered_data_with_no_violations %>%
+    group_by(FileName) %>%
+    sample_n(size = 500, replace = FALSE) %>%
+    ungroup()
 } else {
-  message("All conditions have exactly 500 rows.")
+  # Warning if not all groups meet the requirement
+  cat("Some FileName groups do not have at least 500 rows. Sampling not performed.\n")
 }
-
 ```
 
 ### **Step 12: Compute Monte Carlo (MC) Values**
@@ -1510,8 +1534,13 @@ if (nrow(sanity_check) > 0) {
 #| warning: false
 #| code-fold: true
 
-cleaned_data <- cleaned_data %>%
-  mutate(Population = as.numeric(as.character(Population)))
+# Convert necessary columns to numeric
+cleaned_data <- sampled_data %>%
+  mutate(
+    Population = as.numeric(as.character(Population)),
+    TRANS11 = as.numeric(as.character(TRANS11)),  # Convert TRANS11 to numeric
+    SE_11 = as.numeric(as.character(SE_11))  # Convert SE_11 to numeric
+  )
 
 # Calculate the Monte Carlo values, including Population (transition probability), N, 
 # number of replications, Lambda, and averages for TRANS11 and SE11
@@ -1631,19 +1660,19 @@ all_data$N <- factor(all_data$N, labels = n_labels)
 # Now you can use `n_labels` in the plotting code
 
 
-# Ensure that Population_Label is correctly prepared
+
+# Ensure that the Population_Label uses numeric levels without leading zeros but assigns expression-based labels
 all_data$Population_Label <- factor(all_data$Population, 
     levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),  # Numeric levels without leading zeros
     labels = c(
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .200"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .300"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .400"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .600"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .700"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .800")
+        expression(bold(italic(T))[11] ~ " = .200"),
+        expression(bold(italic(T))[11] ~ " = .300"),
+        expression(bold(italic(T))[11] ~ " = .400"),
+        expression(bold(italic(T))[11] ~ " = .600"),
+        expression(bold(italic(T))[11] ~ " = .700"),
+        expression(bold(italic(T))[11] ~ " = .800")
     )
 )
-
 
 # Subset for Transitions movers (already correctly defined as "Mover")
 subset_mover <- subset(all_data, Transitions == "Mover")
@@ -1664,7 +1693,6 @@ subset_stayer <- subset_stayer %>%
 *Create streamlined plots for both mover and stayer subsets using a common theme and labels.*
 
 ```{r}
-
 #| label: "plot-bias"
 #| echo: true
 #| message: false
@@ -1687,14 +1715,6 @@ common_theme <- theme_minimal() +
     plot.caption = element_text(hjust = 0, margin = margin(t = 10))
   )
 
-common_labels <- labs(
-  x = "Lambda Loadings on the RI",
-  y = "Bias (%)",
-  color = "",
-  title = ""
-)
-
-
 create_plot <- function(data, title_suffix) {
   # Detect which legend items to show
   present_categories <- c("Parameter Bias", "Standard Error Bias")  # Base categories
@@ -1702,60 +1722,46 @@ create_plot <- function(data, title_suffix) {
   if (any(data$Power_Dic == 0)) present_categories <- c(present_categories, "Power Failure")
 
   # Define colors and shapes for different categories
-  colors <- c(
-    "Parameter Bias" = "#7030A0", 
-    "Standard Error Bias" = "#C830CC", 
-    "Coverage Failure" = "#7030A0", 
-    "Power Failure" = "black"
-  )
-  shapes <- c(
-    "Parameter Bias" = 16,  # Solid circle
-    "Standard Error Bias" = 18,  # Diamond
-    "Coverage Failure" = 1,  # Hollow circle
-    "Power Failure" = 4  # X shape
-  )
+  colors <- c("Parameter Bias" = "#7030A0", "Standard Error Bias" = "#C830CC", 
+              "Coverage Failure" = "#7030A0", "Power Failure" = "black")
+  shapes <- c("Parameter Bias" = 16, "Standard Error Bias" = 18, 
+              "Coverage Failure" = 1, "Power Failure" = 4)
 
   # Filter colors and shapes based on detected categories
   filtered_colors <- colors[present_categories]
   filtered_shapes <- shapes[present_categories]
 
-  # Set Y-axis limits and breaks based on title_suffix
-  if (title_suffix == "Stayer") {
-    y_limits <- c(-40, 40)
-    y_breaks <- seq(-40, 40, by = 10)
-  } else {
-    y_limits <- NULL  # No specific limits for "Mover"
-    y_breaks <- seq(-40, 160, by = 40)
-  }
-
-  base_plot <- ggplot(data = data, aes(x = Lambda, group = Population_Label)) +  
-    geom_line(aes(y = Parameter_Bias, color = "Parameter Bias"), linewidth = 0.7, linetype = "solid") +  
-    geom_line(aes(y = SE_Bias, color = "Standard Error Bias"), linewidth = 0.7, linetype = "solid") +  
-    geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 1.2, alpha = 1) +  
-    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1.4, alpha = 1) +  # Red diamonds
-    geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = 1, size = 2, alpha = 1) +  
-    geom_point(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = 4, size = 2, alpha = 1) + 
-    scale_color_manual(
-      values = filtered_colors, 
-      labels = present_categories, 
-      breaks = present_categories,
-      guide = guide_legend(
-        override.aes = list(shape = filtered_shapes)
-      )
-    ) +  
+  base_plot <- ggplot(data, aes(x = Lambda, y = Parameter_Bias, color = "Parameter Bias", group = Population_Label)) +
+    geom_line(aes(group = Population_Label), linewidth = .7, linetype = "solid") +
+    geom_line(aes(y = SE_Bias, group = Population_Label, color = "Standard Error Bias"), linewidth = .7, linetype = "solid") +
+    geom_point(aes(y = Parameter_Bias), shape = shapes["Parameter Bias"], size = 1.5, fill = colors["Parameter Bias"], alpha = 1) +
+    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = shapes["Standard Error Bias"], size = 2, fill = colors["Standard Error Bias"], alpha = 1) +
+    geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = shapes["Coverage Failure"], size = 2.5, fill = colors["Coverage Failure"], alpha = 1) +
+    geom_point(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = shapes["Power Failure"], size = 2, fill = colors["Power Failure"], alpha = 1) +
+scale_color_manual(values = filtered_colors, labels = present_categories, breaks = present_categories, guide = guide_legend(override.aes = list(shape = filtered_shapes))
+) +
     labs(
       x = "Lambda Loadings on the RI",
       y = "Bias (%)",
       color = "",
       title = paste("RILTA Generated, LTA Analyzed with", title_suffix, "Transition Probabilities")
     ) +
-    facet_grid(Population_Label ~ N, scales = "free_x", labeller = label_parsed) +  
-    scale_x_continuous(breaks = seq(0, 1, by = 0.2), labels = scales::number_format(accuracy = 0.1)) +  
-    scale_y_continuous(breaks = y_breaks, limits = y_limits) +  
-    common_theme +  
-    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.3) +  
-    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.3)
+    facet_grid(Population_Label ~ N, scales = "free_x", labeller = label_parsed) +
+    scale_x_continuous(breaks = seq(0, 1, by = 0.2), labels = scales::number_format(accuracy = 0.1)) +
+    common_theme +
+    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.4) +
+    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.4)
 
+# Set y-axis limits based on the plot type
+if (title_suffix == "Stayer") {
+  base_plot <- base_plot + scale_y_continuous(limits = c(-20, 40), breaks = seq(-20, 40, by = 20))
+} else {  # Assume "Mover"
+  # Manually specify breaks to include 160
+  base_plot <- base_plot + scale_y_continuous(limits = c(-20, 160), breaks = c(-20, 40, 80, 120, 160))
+}
+
+
+  
   return(base_plot)
 }
 
@@ -1779,7 +1785,7 @@ print(plot_mover)
 plot_mover_no_title <- plot_mover + labs(title = NULL)
 
 # Save Mover plot without title as .svg
-ggsave(here("2 Time Points", "zFIGURES", "x2t_rilta_lta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 4, dpi = 300, device = "svg")
+ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_rilta_lta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 4, dpi = 300, device = "svg")
 ```
 
 ```{r}
@@ -1800,7 +1806,7 @@ print(plot_stayer)
 plot_stayer_no_title <- plot_stayer + labs(title = NULL)
 
 # Save Stayer plot without title as .svg
-ggsave(here("2 Time Points", "zFIGURES", "x2t_rilta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 4, dpi = 300, device = "svg")
+ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_rilta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 4, dpi = 300, device = "svg")
 ```
 
 ### **Step 16: Prepare Data for Heatmaps**
@@ -1947,71 +1953,65 @@ create_table <- function(subset, transition_probability) {
       columns = everything()
     )
 
-  # Check for violations in Parameter_Bias column
+  # Apply color highlighting for violations in Parameter Bias
   if (any(!(subset$Parameter_Bias >= -9.99 & subset$Parameter_Bias <= 9.99), na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "Parameter_Bias", 
-        rows = !(Parameter_Bias >= -9.99 & Parameter_Bias <= 9.99),
+        columns = "Parameter_Bias",
+        rows = .data$Parameter_Bias < -9.99 | .data$Parameter_Bias > 9.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("white", "#5ABCEB"),  # Brighter shade of blue
-        domain = c(-30, 170),
-        apply_to = "fill"
+        palette = c("#113386", "#DAE3FA", "#113386"),  # Darker blue for larger deviations
+        domain = c(-40, 40)  # Adjust the domain to reflect the range of values
       ) %>%
       tab_footnote(
-        footnote = md("Blue indicates violation of *Parameter Bias*."),
-        locations = cells_column_labels(columns = Parameter_Bias)
+        footnote = md("Darker blue indicates larger deviations from zero *Parameter Bias* beyond the ±9.99 threshold."),
+        locations = cells_column_labels(columns = "Parameter_Bias")
       )
   }
 
-  # Check for violations in SE_Bias column
+  # Apply color highlighting for violations in SE Bias
   if (any(!(subset$SE_Bias >= -4.99 & subset$SE_Bias <= 4.99), na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "SE_Bias", 
-        rows = !(SE_Bias >= -4.99 & SE_Bias <= 4.99),
+        columns = "SE_Bias",
+        rows = .data$SE_Bias < -4.99 | .data$SE_Bias > 4.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("white", "#E71012"),  # Brighter shade of red
-        domain = c(-30, 30),
-        apply_to = "fill"
+        palette = c("#781049", "#FDEAF4", "#781049"),  # Darker red for larger deviations
+        domain = c(-80, 80)  # Adjust the domain for the SE_Bias range
       ) %>%
       tab_footnote(
-        footnote = md("Red indicates violation of *Standard Error Bias*."),
-        locations = cells_column_labels(columns = SE_Bias)
+        footnote = md("Darker red indicates larger deviations from zero *Standard Error Bias* beyond the ±4.99 threshold."),
+        locations = cells_column_labels(columns = "SE_Bias")
       )
   }
 
-  # Check for violations in Coverage column
   if (any(subset$Coverage < 0.93 | subset$Coverage > 0.979, na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "Coverage", 
-        rows = Coverage < 0.93 | Coverage > 0.979,
+        columns = "Coverage",
+        rows = subset$Coverage < 0.93 | subset$Coverage > 0.979,
         method = "numeric",
-        palette = c("#193006", "white"),  # Same shade of blue
-        domain = c(0, 1),
-        apply_to = "fill"
+        palette = c("#93C6B1", "white"),  # Green for coverage issues
+        domain = c(0, 1)
       ) %>%
       tab_footnote(
         footnote = md("Green indicates failure to achieve adequate *Coverage*."),
-        locations = cells_column_labels(columns = Coverage)
+        locations = cells_column_labels(columns = "Coverage")
       )
   }
 
-  # Check for violations in Power column
   if (any(subset$Power < 0.8, na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
-        columns = "Power", 
-        rows = Power < 0.8,
+        columns = "Power",
+        rows = subset$Power < 0.8,
         method = "numeric",
-        palette = c("#300049", "white"),  # Same shade of red
-        domain = c(0, 1),
-        apply_to = "fill"
+        palette = c("#502CD1", "white"),  # Purple for power issues
+        domain = c(0, 1)
       ) %>%
       tab_footnote(
         footnote = md("Purple indicates failure to achieve adequate *Power*."),
-        locations = cells_column_labels(columns = Power)
+        locations = cells_column_labels(columns = "Power")
       )
   }
   

@@ -687,7 +687,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
       grepl("tp_-1.385", FileName) ~ ".200",
       TRUE ~ NA_character_
     ),
-Lambda_values = case_when(
+Lambda = case_when(
   grepl("a_1$", FileName) ~ "1",        # Match 'a_1' at the end of the string
   grepl("a_1\\.5", FileName) ~ "1.5",   # Match 'a_1.5' (escaping the decimal point)
   grepl("a_2$", FileName) ~ "2",        # Match 'a_2' at the end of the string
@@ -731,7 +731,7 @@ violation_summary <- final_data_with_actuals %>%
     Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation),
     ErrorFlag = ifelse(is.na(ErrorFlag), 0, ErrorFlag)  # Ensure no missing values for ErrorFlag
   ) %>%
-  group_by(FileName, Population, N, Lambda_values) %>%
+  group_by(FileName, Population, N, Lambda) %>%
   summarize(
     Total_Rows = n(),                                # Total runs
     Total_Violations = sum(Any_Violation, na.rm = TRUE), # Total violations
@@ -750,7 +750,7 @@ violation_summary <- final_data_with_actuals %>%
     Adjusted_Replications_Needed = if_else(Adjusted_Replications_Needed < 500, 500, Adjusted_Replications_Needed)
   ) %>%
   select(
-    FileName, Population, N, N_numeric,Lambda_values, Total_Rows, Total_Violations, Total_Errors, ErrorRate, Percentage_Violations, Replications_Needed,
+    FileName, Population, N, N_numeric,Lambda, Total_Rows, Total_Violations, Total_Errors, ErrorRate, Percentage_Violations, Replications_Needed,
     Adjusted_Replications_Needed
   )
 
@@ -786,7 +786,7 @@ final_table <- violation_summary %>%
   select(
     `Transition Probability` = Population,  # Transition probabilities
     TPs,                                    # Logit values
-    Lambda = Lambda_values,                 # Lambda values
+    Lambda,                 # Lambda values
     N_numeric,              # Cleaned sample size
     `Total Mplus Runs` = Total_Rows,        # Total runs
     Total_Violations,                       # Total violations
@@ -1038,8 +1038,8 @@ rilta_rilta_func <- function(N_numeric, TPs, Lambda, Replications_Needed) {
 
   # Run Mplus model
   RILTA_RILTA_Model<- mplusModeler(RILTA_RILTA, 
-                                   dataout = here('Simulations', 'STUDY_1', '3 Time Points', '7_3T_RILTA_GEN_LTA_ANALYZED', glue("RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.dat")),
-                                   modelout = glue(here('Simulations', 'STUDY_1', '3 Time Points', '7_3T_RILTA_GEN_LTA_ANALYZED', "RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
+                                   dataout = here('Simulations', 'STUDY_1', '3 Time Points', '8_3T_RILTA_GEN_RILTA_ANALYZED', glue("RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.dat")),
+                                   modelout = glue(here('Simulations', 'STUDY_1', '3 Time Points', '8_3T_RILTA_GEN_RILTA_ANALYZED', "RILTA_RILTA_N_{N_numeric}_TP_{TPs}_TH_1_Lambda_{Lambda}.inp")),
                                    check = TRUE, run = TRUE, hashfilename = FALSE)
 return(RILTA_RILTA_Model)
 }
@@ -1373,7 +1373,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
       grepl("tp_-1.385", FileName) ~ ".200",
       TRUE ~ NA_character_
     ),
-    Lambda_values = case_when(
+    Lambda = case_when(
       grepl("a_1$", FileName) ~ "1",
       grepl("a_1\\.5", FileName) ~ "1.5",
       grepl("a_2$", FileName) ~ "2",
@@ -1413,7 +1413,7 @@ violation_summary <- final_data_with_actuals %>%
     Any_Violation = ifelse(is.na(Any_Violation), 0, Any_Violation),
     ErrorFlag = ifelse(is.na(ErrorFlag), 0, ErrorFlag)  # No missing values for ErrorFlag
   ) %>%
-  group_by(FileName, Population, N, Lambda_values) %>%
+  group_by(FileName, Population, N, Lambda) %>%
   summarize(
     Total_Rows = n(),                                # Total runs
     Total_Violations = sum(Any_Violation, na.rm = TRUE), # Sum of violations
@@ -1434,7 +1434,7 @@ violation_summary <- final_data_with_actuals %>%
   ) %>%
   select(
     FileName, Population, N, N_numeric,
-    Lambda_values, Total_Rows, Total_Violations, Total_Errors,
+    Lambda, Total_Rows, Total_Violations, Total_Errors,
     ErrorRate, Percentage_Violations, GoodReplications,
     Replications_Needed, Adjusted_Replications_Needed,
     Reanalysis_Needed
@@ -1446,7 +1446,7 @@ violation_summary <- final_data_with_actuals %>%
 #### Step 9: Part 4 Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
-#| label: "visualize-violations-and-errors"
+#| label: "visualize-violations-and-errors2"
 #| echo: true
 #| message: false
 #| warning: false
@@ -1474,7 +1474,7 @@ final_table <- violation_summary %>%
   select(
     `Transition Probability` = Population,  # Rename column for clarity
     TPs,  # Logit values
-    Lambda = Lambda_values,  # Lambda values
+    Lambda,  # Lambda values
     N_numeric,  # Cleaned sample size
     `Total Mplus Runs` = Total_Rows,  # Total runs
     Total_Violations,  # Total violations
@@ -1531,30 +1531,35 @@ filtered_data_with_no_violations <- final_data_with_actuals[
 ### STEP 10: Part 1 *Randomly select 500 replications per condition*
 
 ```{r}
-# Set seed for reproducibility
-library(dplyr)
+#| label: "select-500-random-replication"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
 
-# Set seed for reproducibility (although not needed for counting)
+# Set seed for reproducibility
 set.seed(07252005)
 
-# Count the number of rows per FileName
-count_per_filename <- filtered_data_with_no_violations %>%
+# Check initial counts to ensure each FileName group has at least 500 rows
+initial_counts <- filtered_data_with_no_violations %>%
   group_by(FileName) %>%
-  summarize(Count = n(), .groups = "drop")
+  summarize(Initial_Count = n(), .groups = "drop")
 
-# Print the counts for each FileName
-print(count_per_filename)
+# Forcefully display the condition and message
+if (all(initial_counts$Initial_Count >= 500)) {
+  # Message to indicate successful operation
+  cat("All FileName groups had at least 500 rows. Sampling performed.\n")
 
-# Optionally, perform a check to ensure all FileName groups meet a certain threshold, e.g., 500 rows
-sanity_check <- count_per_filename %>%
-  filter(Count < 500)
-
-if (nrow(sanity_check) > 0) {
-  warning("Some FileName groups do not have at least 500 rows. Please verify the data.")
-  print(sanity_check)
+  # Proceed with sampling
+  sampled_data <- filtered_data_with_no_violations %>%
+    group_by(FileName) %>%
+    sample_n(size = 500, replace = FALSE) %>%
+    ungroup()
 } else {
-  message("All FileName groups have at least 500 rows or more.")
+  # Warning if not all groups meet the requirement
+  cat("Some FileName groups do not have at least 500 rows. Sampling not performed.\n")
 }
+
 
 ```
 
@@ -1571,8 +1576,14 @@ if (nrow(sanity_check) > 0) {
 #| warning: false
 #| code-fold: true
 
-cleaned_data <- cleaned_data %>%
-  mutate(Population = as.numeric(as.character(Population)))
+
+# Convert necessary columns to numeric
+cleaned_data <- sampled_data %>%
+  mutate(
+    Population = as.numeric(as.character(Population)),
+    TRANS11 = as.numeric(as.character(TRANS11)),  # Convert TRANS11 to numeric
+    SE_11 = as.numeric(as.character(SE_11))  # Convert SE_11 to numeric
+  )
 
 # Calculate the Monte Carlo values, including Population (transition probability), N, 
 # number of replications, Lambda, and averages for TRANS11 and SE11
@@ -1692,16 +1703,16 @@ all_data$N <- factor(all_data$N, labels = n_labels)
 # Now you can use `n_labels` in the plotting code
 
 
-# Ensure that Population_Label is correctly prepared
+# Ensure that the Population_Label uses numeric levels without leading zeros but assigns expression-based labels
 all_data$Population_Label <- factor(all_data$Population, 
     levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),  # Numeric levels without leading zeros
     labels = c(
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .200"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .300"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .400"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .600"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .700"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .800")
+        expression(bold(italic(T))[11] ~ " = .200"),
+        expression(bold(italic(T))[11] ~ " = .300"),
+        expression(bold(italic(T))[11] ~ " = .400"),
+        expression(bold(italic(T))[11] ~ " = .600"),
+        expression(bold(italic(T))[11] ~ " = .700"),
+        expression(bold(italic(T))[11] ~ " = .800")
     )
 )
 
@@ -1738,7 +1749,7 @@ common_theme <- theme_minimal() +
     panel.grid.minor.x = element_blank(),
     panel.grid.minor.y = element_blank(),
     axis.text.x = element_text(size = 8),
-    axis.ticks = element_line(color = "black", linewidth = 0.2),
+    axis.ticks = element_line(color = "black", linewidth = 0.5),
     legend.position = "bottom",
     legend.title = element_blank(),
     text = element_text(family = "Times New Roman"),
@@ -1746,14 +1757,6 @@ common_theme <- theme_minimal() +
     legend.margin = margin(t = -10),
     plot.caption = element_text(hjust = 0, margin = margin(t = 10))
   )
-
-common_labels <- labs(
-  x = "Lambda Loadings on the RI",
-  y = "Bias (%)",
-  color = "",
-  title = ""
-)
-
 
 create_plot <- function(data, title_suffix) {
   # Detect which legend items to show
@@ -1771,47 +1774,38 @@ create_plot <- function(data, title_suffix) {
   filtered_colors <- colors[present_categories]
   filtered_shapes <- shapes[present_categories]
 
-  ggplot(data = data, aes(x = Lambda, y = Parameter_Bias, color = "Parameter Bias", group = Population_Label)) +  
-    geom_line(aes(group = Population_Label), linewidth = 0.3, linetype = "solid") +  
-    geom_line(aes(y = SE_Bias, group = Population_Label, color = "Standard Error Bias"), linewidth = 0.3, linetype = "solid") +  
-    geom_point(aes(y = Parameter_Bias), shape = 16, size = 1, fill = "#7030A0", alpha = 0.8) +  
-    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1, fill = "#C830CC", alpha = 0.8) +  # Corrected
-    geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = 1, size = 2, fill = "#7030A0", alpha = 1) +  
-    geom_point(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = 4, size = 2, fill = "black", alpha = 1) + 
-    scale_color_manual(
-      values = filtered_colors, 
-      labels = present_categories, 
-      breaks = present_categories,
-      guide = guide_legend(
-        override.aes = list(shape = filtered_shapes)
-      )
-    ) +  
+  base_plot <- ggplot(data, aes(x = Lambda, y = Parameter_Bias, color = "Parameter Bias", group = Population_Label)) +
+    geom_line(aes(group = Population_Label), linewidth = .7, linetype = "solid") +
+    geom_line(aes(y = SE_Bias, group = Population_Label, color = "Standard Error Bias"), linewidth = .7, linetype = "solid") +
+    geom_point(aes(y = Parameter_Bias), shape = shapes["Parameter Bias"], size = 1.5, fill = colors["Parameter Bias"], alpha = 1) +
+    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = shapes["Standard Error Bias"], size = 2, fill = colors["Standard Error Bias"], alpha = 1) +
+    geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = shapes["Coverage Failure"], size = 2.5, fill = colors["Coverage Failure"], alpha = 1) +
+    geom_point(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = shapes["Power Failure"], size = 2, fill = colors["Power Failure"], alpha = 1) +
+scale_color_manual(values = filtered_colors, labels = present_categories, breaks = present_categories, guide = guide_legend(override.aes = list(shape = filtered_shapes))
+) +
     labs(
       x = "Lambda Loadings on the RI",
       y = "Bias (%)",
       color = "",
       title = paste("RILTA Generated, LTA Analyzed with", title_suffix, "Transition Probabilities")
     ) +
-    coord_cartesian(ylim = c(-40, 40)) +  
-    facet_grid(Population_Label ~ N, scales = "free_x", labeller = label_parsed) +  
-    scale_x_continuous(breaks = seq(0, 3, by = 0.5), labels = scales::number_format(accuracy = 0.1)) +  
-    scale_y_continuous(breaks = seq(-40, 40, by = 10)) +  
-    theme_minimal() +
-    theme(
-      panel.grid.major.x = element_blank(),
-      panel.grid.minor.x = element_blank(),
-      panel.grid.minor.y = element_blank(),
-      axis.text.x = element_text(size = 8),
-      axis.ticks = element_line(color = "black", linewidth = 0.2),
-      legend.position = "bottom",
-      legend.title = element_blank(),
-      text = element_text(family = "Times New Roman"),
-      axis.title.x = element_text(margin = margin(t = 10, b = 10)),
-      legend.margin = margin(t = -10),
-      plot.caption = element_text(hjust = 0, margin = margin(t = 10))
-    ) +
-    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.3) +  
-    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.3)
+    facet_grid(Population_Label ~ N, scales = "free_x", labeller = label_parsed) +
+    scale_x_continuous(breaks = seq(0, 3, by = 0.5), labels = scales::number_format(accuracy = 0.1)) +
+    common_theme +
+    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.4) +
+    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.4)
+
+# Set y-axis limits based on the plot type
+if (title_suffix == "Stayer") {
+  base_plot <- base_plot + scale_y_continuous(limits = c(-20, 20), breaks = seq(-20, 20, by = 10))
+} else {  # Assume "Mover"
+  # Manually specify breaks to include 160
+  base_plot <- base_plot + scale_y_continuous(limits = c(-20, 20), breaks = seq(-20, 20, by = 10))
+}
+
+
+  
+  return(base_plot)
 }
 
 ```
@@ -1950,6 +1944,7 @@ create_table <- function(subset, transition_probability) {
   # Create the gt object and set initial formatting
   gt_table <- subset %>%
     gt() %>%
+     cols_hide(columns = vars(Lambda)) %>%  # Hide the Lambda column
     opt_table_font(stack = "geometric-humanist") %>% 
     tab_header(
       title = paste("RILTA Generated & RILTA Analyzed with Transition Probability of", transition_probability)
@@ -2052,7 +2047,7 @@ create_table <- function(subset, transition_probability) {
         columns = "Coverage",
         rows = subset$Coverage < 0.93 | subset$Coverage > 0.979,
         method = "numeric",
-        palette = c("#93C6B1", "white"),  # Green for coverage issues
+        palette = c("#6C9180", "#D1EAE3"),  # Green for coverage issues
         domain = c(0, 1)
       ) %>%
       tab_footnote(
@@ -2087,7 +2082,14 @@ create_table <- function(subset, transition_probability) {
 ```{r, warning = FALSE}
 subset_02_table <- create_table(subset_02, ".200")
 subset_02_table
-subset_02_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps", "2T_R_R_.200.png"))
+
+suppressMessages({
+  subset_04_table %>%
+    tab_options(table.width = pct(65)) %>%
+    gtsave(
+      filename = here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps", "z2t_r_r_heatmaps", "2T_R_R_.400.png")
+    )
+})
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .300
@@ -2095,7 +2097,14 @@ subset_02_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulatio
 ```{r, warning = FALSE}
 subset_03_table <- create_table(subset_03, ".300")
 subset_03_table
-subset_03_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.300.png"))
+
+suppressMessages({
+  subset_03_table %>%
+    tab_options(table.width = pct(65)) %>%
+    gtsave(
+      filename = here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps", "z2t_r_r_heatmaps", "2T_R_R_.300.png")
+    )
+})
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .400
@@ -2103,7 +2112,14 @@ subset_03_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulatio
 ```{r, warning = FALSE}
 subset_04_table <- create_table(subset_04, ".400")
 subset_04_table
-subset_04_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.400.png"))
+
+suppressMessages({
+  subset_04_table %>%
+    tab_options(table.width = pct(65)) %>%
+    gtsave(
+      filename = here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps", "z2t_r_r_heatmaps", "2T_R_R_.400.png")
+    )
+})
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .600
@@ -2111,7 +2127,14 @@ subset_04_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulatio
 ```{r, warning = FALSE}
 subset_06_table <- create_table(subset_06, ".600")
 subset_06_table
-subset_06_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.600.png"))
+
+suppressMessages({
+  subset_06_table %>%
+    tab_options(table.width = pct(65)) %>%
+    gtsave(
+      filename = here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps", "z2t_r_r_heatmaps", "2T_R_R_.600.png")
+    )
+})
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .700
@@ -2119,7 +2142,14 @@ subset_06_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulatio
 ```{r, warning = FALSE}
 subset_07_table <- create_table(subset_07, ".700")
 subset_07_table
-subset_07_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.700.png"))
+
+suppressMessages({
+  subset_07_table %>%
+    tab_options(table.width = pct(65)) %>%
+    gtsave(
+      filename = here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps", "z2t_r_r_heatmaps", "2T_R_R_.700.png")
+    )
+})
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .800
@@ -2127,5 +2157,11 @@ subset_07_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulatio
 ```{r, warning = FALSE}
 subset_08_table <- create_table(subset_08, ".800")
 subset_08_table
-subset_08_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z2t_r_r_heatmaps","2T_R_R_.800.png"))
+# Suppress messages when saving the table
+suppressMessages({
+  gtsave(
+    subset_08_table |> tab_options(table.width = pct(65)),
+    filename = here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps", "z2t_r_r_heatmaps", "2T_R_R_.800.png")
+  )
+})
 ```

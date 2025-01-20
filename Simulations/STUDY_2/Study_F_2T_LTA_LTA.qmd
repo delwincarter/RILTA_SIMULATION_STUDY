@@ -2049,7 +2049,7 @@ Convert the logits to probabilities and add the known actual values to each row.
 #| code-fold: true
 
 # Step 3 and 4: Process the data and return results
-source(here('Child_Docs', 'step_3'))
+source(here('Child_Docs', 'step_3_3k.R'))
 
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
@@ -2146,7 +2146,7 @@ calculate_replication_summary <- function(error_summary, completed_replications,
 }
 
 # Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- "1_2T_LTA_GEN_LTA_ANALYZED"  # Adjust to your folder path
+output_folder <- here('Simulations', 'STUDY_2', "1_LTA_GEN_LTA_ANALYZED_REP")  # Adjust to your folder path
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 # Step 5: Detect OS and Set Up Cluster
@@ -2272,38 +2272,38 @@ final_data_with_actuals <- final_data_with_actuals %>%
 # Add new columns based on the information in the FileName and set factors
 final_data_with_actuals <- final_data_with_actuals %>%
   mutate(
-    # Extract the sample size (N) from the FileName with the correct values
-    N = case_when(
-      grepl("n_4000", FileName) ~ 4,  # Correct value for N_4000
-      grepl("n_500", FileName) ~ 1,   
-      grepl("n_1000", FileName) ~ 2,  
-      grepl("n_2000", FileName) ~ 3,  
-      TRUE ~ NA_integer_
-    ),
-    # Map the TPs from the FileName to the appropriate Population labels
-    Population = case_when(
-      grepl("tp_1.385", FileName) ~ ".800",   # Use ".800" instead of "0.800"
-      grepl("tp_0.85", FileName) ~ ".700",    # Use ".700" instead of "0.700"
-      grepl("tp_0.41", FileName) ~ ".600",    # Use ".600" instead of "0.600"
-      grepl("tp_-0.41", FileName) ~ ".400",   # Use ".400" instead of "0.400"
-      grepl("tp_-0.85", FileName) ~ ".300",   # Use ".300" instead of "0.300"
-      grepl("tp_-1.385", FileName) ~ ".200",  # Use ".200" instead of "0.200"
+    Model = case_when(
+      grepl("m1", FileName) ~ "1",
+      grepl("m2", FileName) ~ "2",
+      grepl("m3", FileName) ~ "3",
       TRUE ~ NA_character_
     ),
-    # Create the Transitions variable based on Population values
-    Transitions = case_when(
-      Population %in% c(".200", ".300", ".400") ~ 1,  # Assign 1 for Population .200, .300, .400
-      Population %in% c(".600", ".700", ".800") ~ 2,  # Assign 2 for Population .600, .700, .800
+    N = case_when(
+      grepl("n_5000", FileName) ~ 4,  
+      grepl("n_500", FileName) ~ 1,   
+      grepl("n_1000", FileName) ~ 2,  
+      grepl("n_2500", FileName) ~ 3,  
       TRUE ~ NA_integer_
+    ),
+    Mixing_proportion = case_when(
+      grepl("m_1", FileName) ~ 1,  
+      grepl("m_2", FileName) ~ 2,  
+      TRUE ~ NA_integer_
+    ),
+    # Add Population column based on FileName and convert it to a factor with formatted labels
+    Population = case_when(
+      grepl("tp_0.407", FileName) ~ "0.200",
+      grepl("tp_3.179", FileName) ~ "0.800",
+      TRUE ~ NA_character_
     )
   ) %>%
-  # Convert columns to factors, ordering N_4000 first in the factor levels
+  # Convert columns to factors
   mutate(
-    N = factor(N, levels = c(4, 1, 2, 3), labels = c("N = 4000", "N = 500", "N = 1000", "N = 2000")),
-    Population = factor(Population, levels = c(".800", ".700", ".600", ".400", ".300", ".200")),
-    Transitions = factor(Transitions, levels = c(1, 2), labels = c("Mover", "Stayer"))
+    Model = factor(Model, levels = c(1, 2, 3), labels = c("Model 1", "Model 2", "Model 3")),
+    N = factor(N, levels = c(1, 2, 3, 4), labels = c("N = 500", "N = 1000", "N = 2500", "N = 5000")),
+    Mixing_proportion = factor(Mixing_proportion, levels = c(1, 2), labels = c("Even Proportions", "Uneven Proportions")),
+    Population = factor(Population, levels = c("0.200", "0.800"), labels = c(".200", ".800"))
   )
-
 
 ```
 
@@ -2364,12 +2364,8 @@ violation_summary <- final_data_with_actuals %>%
 violation_summary <- violation_summary %>%
   mutate(
     TPs = case_when(
-      Population == ".800" ~ formatC(1.385, format = "f", digits = 3),
-      Population == ".700" ~ formatC(0.85, format = "f", digits = 2),
-      Population == ".600" ~ formatC(0.41, format = "f", digits = 2),
-      Population == ".400" ~ formatC(-0.41, format = "f", digits = 2),
-      Population == ".300" ~ formatC(-0.85, format = "f", digits = 2),
-      Population == ".200" ~ formatC(-1.385, format = "f", digits = 3),
+      Population == ".800" ~ formatC(3.179, format = "f", digits = 3),
+      Population == ".200" ~ formatC(0.407, format = "f", digits = 3),
       TRUE ~ NA_character_
   ),
     N_numeric = as.numeric(gsub("N = ", "", as.character(N)))  # Clean N_numeric by stripping out "N = "

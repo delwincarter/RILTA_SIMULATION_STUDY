@@ -1,24 +1,32 @@
 ---
-title: "Study 1 (k = 2) LTA Generated, LTA Analyzed: Two Timepoints"
+title: "Understanding the Performance of Random Intercepts Latent Transition Analysis (RI-LTA): A Monte Carlo Simulation Study"
+subtitle: "*Study 1: LTA Generated, LTA Analyzed with Two Timepoints*"
 format:
   html:
-    code-fold: true
+    toc: true
+    toc-depth: 3
+    code-fold: false
 editor: visual
+theme: pulse
 author: "Delwin Carter"
 page-layout: full
 fig-format: svg
+Mainfont: "Avenir.ttc"
 knitr:
   opts_chunk:
     out.width: "90%"
     fig.align: center
 ---
 
+------------------------------------------------------------------------
+
+Load Packages
+
 ```{r, message=FALSE, warning=FALSE}
 #| label: "load-libraries"
 #| echo: true
 #| message: false
 #| warning: false
-
 
 library(tidyverse)
 library(MplusAutomation)
@@ -34,13 +42,17 @@ library(parallel)
 library(tools)
 ```
 
-# Study 1 (k = 2) LTA Generated, LTA Analyzed
+------------------------------------------------------------------------
+
+## LTA Generated, LTA Analyzed
 
 ![](images/LTA_LTA-01.png){width="324"}
 
-# Model 1:
+------------------------------------------------------------------------
 
-# Conditions:
+## Model 1:
+
+##### Conditions:
 
 Sample Size: N = 500, 1000, 2000, 4000
 
@@ -48,7 +60,9 @@ Transition logit (Probability): TPs = 1.385 (.8), .85 (.7), .41 (.6), -.41 (.4),
 
 ![](images/clipboard-3344253592.png){width="450"}
 
-\## Setting up the Simulation Conditions 
+------------------------------------------------------------------------
+
+Setting up the Simulation Conditions 
 
 We first define the matrix of conditions that will be iterated through in the simulation. The matrix includes varying sample sizes and transition probabilities (TPs). These will be used to simulate latent transition models across different scenarios.
 
@@ -78,14 +92,17 @@ p1 %>%
 
 ```
 
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
+------------------------------------------------------------------------
+
+Run Initial Simulation
+
+```{r,eval = FALSE}
 
 #| label: "lta-lta-simulation"
-#| echo: true
+#| echo: false
 #| message: false
 #| warning: false
 #| code-fold: true
-
 
 library(parallel)
 # Step 1: Create the cluster for parallel processing
@@ -290,11 +307,13 @@ stopCluster(cl)
 
 ```
 
-# CHECK FOR LABEL SWITCHING
+------------------------------------------------------------------------
 
-### Step 1: Combine All CSV Files into One Data Frame
+## CHECK FOR LABEL SWITCHING
 
-**Objective:** 
+------------------------------------------------------------------------
+
+### Combine All CSV Files into One Data Frame
 
 *Load all CSV files and combine them into a single data frame.*
 
@@ -303,18 +322,18 @@ stopCluster(cl)
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+
 
 # Step 1: Set the correct CSV directory
-csv_directory <- here('2 Time Points', '1_2T_LTA_GEN_LTA_ANALYZED')
+csv_directory <- here('Simulations', 'STUDY_1', '2 Time Points', '1_2T_LTA_GEN_LTA_ANALYZED')
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
 ```
 
-### Step 2: Scrape Rows and Process Data
+------------------------------------------------------------------------
 
-**Objective:** 
+### Scrape Rows and Process Data
 
 Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.
 
@@ -323,15 +342,15 @@ Extract data from the appropriate rows from each 9-row chunk and prepare the dat
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+
 
 # Step 2: Process the data using the child script
 source(here('Child_Docs', 'step2_2t_LTA.R'))
 ```
 
-### Step 3: Convert Logits to Probabilities and Add Actual (Population) Values
+------------------------------------------------------------------------
 
-**Objective:** 
+### Convert Logits to Probabilities and Add Actual (Population) Values
 
 Convert the logits to probabilities and add the known actual values to each row.
 
@@ -340,17 +359,17 @@ Convert the logits to probabilities and add the known actual values to each row.
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+
 
 # Step 3 and 4: Process the data and return results
-source(here('Child_Docs', 'steps_3_and_4.R'))
+source(here('Child_Docs', 'step_3.R'))
 
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
-### **Step 4: Plot Random Sample of Violators for Visual Inspection**
+------------------------------------------------------------------------
 
-#### **Objective**
+### **Plot Random Sample of Violators for Visual Inspection**
 
 *Generate plots of randomly sampled violators for visual inspection using parallel processing.*
 
@@ -426,18 +445,18 @@ invisible(lapply(1:sample_size, plot_violator))
 
 ```
 
-### **Step 5: Summarize Errors**
+------------------------------------------------------------------------
 
-#### **Objective**
+## **Summarize Errors**
 
 *Calculate the percentage of violations for each file, handling missing values appropriately.*
 
-```{r, eval= FALSE}
+```{r}
 #| label: "summarize-errors"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+
 
 library(parallel)
 
@@ -516,7 +535,7 @@ calculate_replication_summary <- function(error_summary, completed_replications,
 }
 
 # Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- here('Simulations', 'STUDY_1', '3 Time Points', "5_3T_LTA_GEN_LTA_ANALYZED")  # Adjust to your folder path
+output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', "1_2T_LTA_GEN_LTA_ANALYZED")  # Adjust to your folder path
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 # Step 5: Detect OS and Set Up Cluster
@@ -597,14 +616,16 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 
 ```
 
-#### Step 5: Part 1 Merge errors with main data
+------------------------------------------------------------------------
+
+#### Part 1 Merge errors with main data
 
 ```{r}
 #| label: "merge-errors"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+
 
 # Ensure consistent column formats and remove .out and .csv extensions
 error_summary <- error_summary %>%
@@ -630,7 +651,9 @@ final_data_with_actuals <- final_data_with_actuals %>%
             by = c("FileName", "Replication"))
 ```
 
-#### Step 5: Part 2 Create Column Names from the Filename
+------------------------------------------------------------------------
+
+#### Part 2 Create Column Names from the Filename
 
 ```{r}
 
@@ -638,14 +661,14 @@ final_data_with_actuals <- final_data_with_actuals %>%
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+
 
 # Add new columns based on the information in the FileName and set factors
 final_data_with_actuals <- final_data_with_actuals %>%
   mutate(
     # Extract the sample size (N) from the FileName with the correct values
     N = case_when(
-      grepl("n_4000", FileName) ~ 4,  # Correct value for N_4000
+      grepl("n_4000", FileName) ~ 4,
       grepl("n_500", FileName) ~ 1,   
       grepl("n_1000", FileName) ~ 2,  
       grepl("n_2000", FileName) ~ 3,  
@@ -653,18 +676,18 @@ final_data_with_actuals <- final_data_with_actuals %>%
     ),
     # Map the TPs from the FileName to the appropriate Population labels
     Population = case_when(
-      grepl("tp_1.385", FileName) ~ ".800",   # Use ".800" instead of "0.800"
-      grepl("tp_0.85", FileName) ~ ".700",    # Use ".700" instead of "0.700"
-      grepl("tp_0.41", FileName) ~ ".600",    # Use ".600" instead of "0.600"
-      grepl("tp_-0.41", FileName) ~ ".400",   # Use ".400" instead of "0.400"
-      grepl("tp_-0.85", FileName) ~ ".300",   # Use ".300" instead of "0.300"
-      grepl("tp_-1.385", FileName) ~ ".200",  # Use ".200" instead of "0.200"
+      grepl("tp_1.385", FileName) ~ ".800",
+      grepl("tp_0.85", FileName) ~ ".700",
+      grepl("tp_0.41", FileName) ~ ".600",
+      grepl("tp_-0.41", FileName) ~ ".400", 
+      grepl("tp_-0.85", FileName) ~ ".300",
+      grepl("tp_-1.385", FileName) ~ ".200",
       TRUE ~ NA_character_
     ),
     # Create the Transitions variable based on Population values
     Transitions = case_when(
-      Population %in% c(".200", ".300", ".400") ~ 1,  # Assign 1 for Population .200, .300, .400
-      Population %in% c(".600", ".700", ".800") ~ 2,  # Assign 2 for Population .600, .700, .800
+      Population %in% c(".200", ".300", ".400") ~ 1,  # Assign 1
+      Population %in% c(".600", ".700", ".800") ~ 2,  # Assign 2 
       TRUE ~ NA_integer_
     )
   ) %>%
@@ -678,14 +701,16 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-#### Step 5: Part 3 Calculate Violation Percentages per Condition
+------------------------------------------------------------------------
+
+#### Part 3 Calculate Violation Percentages per Condition
 
 ```{r}
 #| label: "calculate-violations"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+
 
 # 1. Summarize violations per condition
 violation_summary <- final_data_with_actuals %>%
@@ -719,14 +744,16 @@ violation_summary <- final_data_with_actuals %>%
 
 ```
 
-#### Step 5: Part 4 Summarize & Visualize Label Switching Percentage Results
+------------------------------------------------------------------------
+
+#### Part 4 Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
 #| label: "summarize-violations"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+
 
 # Ensure correct column names and assign TPs (logits) based on Population (for display and MplusAutomation)
 violation_summary <- violation_summary %>%
@@ -783,25 +810,25 @@ final_table <- create_model_table(violation_summary)
 final_table
 ```
 
+------------------------------------------------------------------------
+
 # PART 2
 
-#### Objective
+------------------------------------------------------------------------
 
 Rerun Analysis *with VARIED NUMBER OF REPLICATIONS to meet the 500 number threshold*
 
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
+```{r,eval = FALSE}
 
-#| label: "lta-lta2-simulation"
+#| label: "lta-lta-simulation2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
 
-
   # Define the Mplus object with the dynamic replications
 lta_lta_func <- function(N_numeric, TPs, Replications_Needed) {
   
-
   # Manually construct the MONTECARLO section with dynamic NREPS
   montecarlo_section <- glue("
     NAMES = u11-u15 u21-u25;
@@ -999,76 +1026,77 @@ stopCluster(cl)
 
 ```
 
-# CHECK FOR LABEL SWITCHING
+------------------------------------------------------------------------
 
-### Step 6: Combine All CSV Files into One Data Frame
+## CHECK FOR LABEL SWITCHING
+
+------------------------------------------------------------------------
+
+### Combine All CSV Files into One Data Frame
 
 **Objective:** 
 
 *Load all CSV files and combine them into a single data frame.*
 
 ```{r}
-#| label: "combine-csv-files-parallel"
+#| label: "combine-csv-files-parallel2"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+
 
 # Step 1: Set the correct CSV directory
-csv_directory <- here('2 Time Points', '1_2T_LTA_GEN_LTA_ANALYZED')
+csv_directory <- here('Simulations', 'STUDY_1', '2 Time Points', '1_2T_LTA_GEN_LTA_ANALYZED_REP')
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
 ```
 
-### Step 7: Scrape Rows and Process Data
+------------------------------------------------------------------------
 
-**Objective:** 
+### Scrape Rows and Process Data 2
 
 Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.
 
 ```{r}
-#| label: "scrape-rows-process-data-parallel"
+#| label: "scrape-rows-process-data-parallel2"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 # Step 2: Process the data using the child script
 source(here('Child_Docs', 'step2_2t_LTA.R'))
 ```
 
-### Step 8: Convert Logits to Probabilities and Add Actual (Population) Values
+------------------------------------------------------------------------
 
-**Objective:** 
+### Convert Logits to Probabilities and Add Actual (Population) Values 2
 
 Convert the logits to probabilities and add the known actual values to each row.
 
 ```{r}
-#| label: "convert-logits-to-probabilities"
+#| label: "convert-logits-to-probabilities2"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 # Step 3 and 4: Process the data and return results
-source(here('Child_Docs', 'steps_3_and_4.R'))
+source(here('Child_Docs', 'step_3.R'))
 
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
-### **Step 9: Summarize Errors and Violations**
+------------------------------------------------------------------------
 
-#### **Objective**
+### **Summarize Errors and Violations**
 
 *Calculate the percentage of violations for each file, handling missing values appropriately.*
 
-```{r, eval= FALSE}
+```{r}
 #| label: "summarize-errors2"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 library(parallel)
 
@@ -1147,7 +1175,7 @@ calculate_replication_summary <- function(error_summary, completed_replications,
 }
 
 # Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- here('Simulations', 'STUDY_1', '3 Time Points', "5_3T_LTA_GEN_LTA_ANALYZED_REP")  # Adjust to your folder path
+output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', "1_2T_LTA_GEN_LTA_ANALYZED_REP")  # Adjust to your folder path
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 # Step 5: Detect OS and Set Up Cluster
@@ -1228,14 +1256,15 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 
 ```
 
-#### Step 9: Part 1 Merge errors with main data
+------------------------------------------------------------------------
+
+#### Part 1 Merge errors with main data
 
 ```{r}
 #| label: "merge-errors2"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 # Ensure consistent column formats and remove .out and .csv extensions
 error_summary <- error_summary %>%
@@ -1261,14 +1290,15 @@ final_data_with_actuals <- final_data_with_actuals %>%
             by = c("FileName", "Replication"))
 ```
 
-#### Step 9: Part 2 Create Column Names from the Filename
+------------------------------------------------------------------------
+
+#### Part 2 Create Column Names from the Filename
 
 ```{r}
-#| label: "create-column-names-from-filename"
+#| label: "create-column-names-from-filename2"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 # Add new columns based on the information in the FileName and set factors
 final_data_with_actuals <- final_data_with_actuals %>%
@@ -1283,12 +1313,12 @@ final_data_with_actuals <- final_data_with_actuals %>%
     ),
     # Map the TPs from the FileName to the appropriate Population labels
     Population = case_when(
-      grepl("tp_1.385", FileName) ~ ".800",   # Use ".800" instead of "0.800"
-      grepl("tp_0.85", FileName) ~ ".700",    # Use ".700" instead of "0.700"
-      grepl("tp_0.41", FileName) ~ ".600",    # Use ".600" instead of "0.600"
-      grepl("tp_-0.41", FileName) ~ ".400",   # Use ".400" instead of "0.400"
-      grepl("tp_-0.85", FileName) ~ ".300",   # Use ".300" instead of "0.300"
-      grepl("tp_-1.385", FileName) ~ ".200",  # Use ".200" instead of "0.200"
+      grepl("tp_1.385", FileName) ~ ".800",  
+      grepl("tp_0.85", FileName) ~ ".700",  
+      grepl("tp_0.41", FileName) ~ ".600",   
+      grepl("tp_-0.41", FileName) ~ ".400",  
+      grepl("tp_-0.85", FileName) ~ ".300", 
+      grepl("tp_-1.385", FileName) ~ ".200",
       TRUE ~ NA_character_
     ),
     # Create the Transitions variable based on Population values
@@ -1308,14 +1338,15 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-#### Step 9: Part 3 Calculate Violation Percentages per Condition
+------------------------------------------------------------------------
+
+#### Part 3 Calculate Violation Percentages per Condition
 
 ```{r}
 #| label: "calculate-violations2"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 violation_summary <- final_data_with_actuals %>%
   mutate(
@@ -1351,14 +1382,15 @@ violation_summary <- final_data_with_actuals %>%
 
 ```
 
-#### Step 9: Part 4 Summarize & Visualize Label Switching Percentage Results
+------------------------------------------------------------------------
+
+#### Part 4 Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
 #| label: "summarize-violations2"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 # Filter the data for rows with non-zero error rates and clean N_numeric
 # Modify the TPs assignment to force formatting
@@ -1381,15 +1413,16 @@ final_table <- violation_summary %>%
   select(
     `Transition Probability` = Population,  # Rename column for clarity
     TPs,  # Logit values
+    N, 
     N_numeric,  # Cleaned sample size
     `Total Mplus Runs` = Total_Rows,  # Total runs
     Total_Violations,  # Total violations
     `% of Violations` = Percentage_Violations,  # Violation percentage
-    Total_Errors, 
-    ErrorRate,  # Error rate
-    Replications_Needed,  # Replications needed
+    `Total Errors` = Total_Errors, 
+     ErrorRate,  # Error rate
+    `Replications Needed` = Replications_Needed,  # Replications needed
     `Adjusted Replications Needed` = Adjusted_Replications_Needed,  # Adjusted replications needed
-    Reanalysis_Needed
+    `Reanalysis Needed` = Reanalysis_Needed
   ) %>%
   gt() %>%
   tab_header(
@@ -1419,9 +1452,9 @@ final_table
 
 ```
 
-### **Step 10: Delete Cases that Violate**
+------------------------------------------------------------------------
 
-#### **Objective**
+### **Delete Cases that Violate**
 
 *Filter out cases with any violations, leaving only the clean data.*
 
@@ -1430,54 +1463,51 @@ final_table
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 # Filter out cases with no violations and no errors
 filtered_data_with_no_violations <- final_data_with_actuals[
   final_data_with_actuals$Any_Violation == 0 & final_data_with_actuals$ErrorFlag == 0, ]
 ```
 
-#### Step 10: Part 1
+------------------------------------------------------------------------
+
+##### Create Final Data Set for Visualization
 
 Take random sample of replications to achieve n = 500
 
 ```{r}
-#| label: "Select-random-sample-replications"
+#| label: "select-500-random-replication"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
-
 
 # Set seed for reproducibility
 set.seed(07252005)
 
-# Group data by FileName and sample 500 rows per condition (if possible)
-cleaned_data <- filtered_data_with_no_violations %>%
+# Check initial counts to ensure each FileName group has at least 500 rows
+initial_counts <- filtered_data_with_no_violations %>%
   group_by(FileName) %>%
-  slice_sample(n = 500, replace = FALSE) %>%  # Randomly sample 500 rows (without replacement)
-  ungroup()
+  summarize(Initial_Count = n(), .groups = "drop")
 
-# Verify the number of rows per condition
-condition_counts <- cleaned_data %>%
-  group_by(FileName) %>%
-  summarize(Count = n(), .groups = "drop")
+# Forcefully display the condition and message
+if (all(initial_counts$Initial_Count >= 500)) {
+  # Message to indicate successful operation
+  cat("All FileName groups had at least 500 rows. Sampling performed.\n")
 
-# Print conditions with more or less than 500 rows (sanity check)
-sanity_check <- condition_counts %>%
-  filter(Count != 500)
-
-if (nrow(sanity_check) > 0) {
-  warning("Some conditions do not have exactly 500 rows. Please verify the data and ensure extra replications are sufficient.")
-  print(sanity_check)
+  # Proceed with sampling
+  sampled_data <- filtered_data_with_no_violations %>%
+    group_by(FileName) %>%
+    sample_n(size = 500, replace = FALSE) %>%
+    ungroup()
 } else {
-  message("All conditions have exactly 500 rows.")
+  # Warning if not all groups meet the requirement
+  cat("Some FileName groups do not have at least 500 rows. Sampling not performed.\n")
 }
 ```
 
-### **Step 11: Compute Monte Carlo (MC) Values**
+------------------------------------------------------------------------
 
-#### **Objective**
+### **Compute Monte Carlo (MC) Values**
 
 *Calculate Monte Carlo values for `TRANS11`, including population values, averages, standard errors, Mean Squared Error (MSE), coverage, and power.*
 
@@ -1486,11 +1516,14 @@ if (nrow(sanity_check) > 0) {
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
-# First, convert Population back to numeric if it's a factor
-cleaned_data <- cleaned_data %>%
-  mutate(Population = as.numeric(as.character(Population)))
+# Convert necessary columns to numeric
+cleaned_data <- sampled_data %>%
+  mutate(
+    Population = as.numeric(as.character(Population)),
+    TRANS11 = as.numeric(as.character(TRANS11)),  # Convert TRANS11 to numeric
+    SE_11 = as.numeric(as.character(SE_11))  # Convert SE_11 to numeric
+  )
 
 # Calculate the Monte Carlo values, including Population (transition probability), N, 
 # number of replications, and averages for TRANS11 and SE11
@@ -1520,9 +1553,9 @@ mc_values <- mc_values %>%
 
 ```
 
-### **Step 12: Calculate Dichotomous Variables and Bias**
+------------------------------------------------------------------------
 
-#### **Objective**
+### **Calculate Dichotomous Variables and Bias**
 
 *Calculate dichotomous variables for Power and Coverage, compute Parameter and SE Bias, and prepare subsets for movers and stayers.*
 
@@ -1531,7 +1564,6 @@ mc_values <- mc_values %>%
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 ## Step 1: Calculate dichotomous variable for Power (1 if Power >= 0.8, else 0)
 mc_values <- mc_values %>%
@@ -1570,9 +1602,9 @@ mc_values <- mc_values %>%
 
 ```
 
-### **Step 13: Subset Data for Movers and Stayers**
+------------------------------------------------------------------------
 
-#### **Objective**
+### **Subset Data for Movers and Stayers**
 
 *Subset the Monte Carlo values data for transitions with movers and stayers based on the population value.*
 
@@ -1581,9 +1613,6 @@ mc_values <- mc_values %>%
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
-
-
 
 # Assuming Population is numeric in all_data
 all_data <- mc_values
@@ -1592,12 +1621,12 @@ all_data <- mc_values
 all_data$Population_Label <- factor(all_data$Population, 
     levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),  # Numeric levels without leading zeros
     labels = c(
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .200"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .300"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .400"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .600"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .700"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .800")
+        expression(bold(italic(T))[11] ~ " = .200"),
+        expression(bold(italic(T))[11] ~ " = .300"),
+        expression(bold(italic(T))[11] ~ " = .400"),
+        expression(bold(italic(T))[11] ~ " = .600"),
+        expression(bold(italic(T))[11] ~ " = .700"),
+        expression(bold(italic(T))[11] ~ " = .800")
     )
 )
 
@@ -1608,19 +1637,17 @@ subset_mover <- subset(all_data, Transitions == "Mover")
 subset_stayer <- subset(all_data, Transitions == "Stayer")
 ```
 
-### **Step 14: Combined Plot for Mover and Stayer**
+------------------------------------------------------------------------
 
-#### **Objective**
+### **Combined Plot for Mover and Stayer**
 
-*Create streamlined plots for both mover and stayer subsets using a common theme and labels.*
+*Create function to create plots*
 
 ```{r}
 #| label: "plot-bias"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
-
 
 create_plot <- function(data, title_suffix) {
   # Common theme for the plots
@@ -1656,10 +1683,10 @@ create_plot <- function(data, title_suffix) {
 
   # Plotting
   ggplot(data = data, aes(x = factor(N))) +  
-    geom_line(aes(y = Parameter_Bias, color = "Parameter Bias", group = Population_Label), linewidth = 0.7, linetype = "solid") +  
-    geom_line(aes(y = SE_Bias, color = "Standard Error Bias", group = Population_Label), linewidth = 0.7, linetype = "solid") +  
-    geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 1.2, fill = "#7030A0", alpha = 1) +  
-    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 1.4, fill = "#C830CC", alpha = 1) +  
+    geom_line(aes(y = Parameter_Bias, color = "Parameter Bias", group = Population_Label), linewidth = 1, linetype = "solid") +  
+    geom_line(aes(y = SE_Bias, color = "Standard Error Bias", group = Population_Label), linewidth = 1, linetype = "solid") +  
+    geom_point(aes(y = Parameter_Bias, color = "Parameter Bias"), shape = 16, size = 2.2, fill = "#7030A0", alpha = 1) +  
+    geom_point(aes(y = SE_Bias, color = "Standard Error Bias"), shape = 18, size = 2.2, fill = "#C830CC", alpha = 1) +  
     geom_point(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure"), shape = 1, size = 2, fill = "#7030A0", alpha = 1) +  
     geom_point(data = subset(data, Power_Dic == 0), aes(y = Parameter_Bias, color = "Power Failure"), shape = 4, size = 2, fill = "black", alpha = 1) + 
     geom_line(data = subset(data, Coverage_Dic == 0), aes(y = Parameter_Bias, color = "Coverage Failure", group = Population_Label), linewidth = 0.3, linetype = "solid") +
@@ -1676,15 +1703,15 @@ create_plot <- function(data, title_suffix) {
       x = "Sample Size",
       y = "Bias (%)",
       color = "",
-      title = paste("LTA Generated, LTA Analyzed with", title_suffix, "Transition Probabilities")
+      title = paste("LTA Generated, RILTA Analyzed with", title_suffix, "Transition Probabilities")
     ) +
-    coord_cartesian(ylim = c(-40, 40)) +  
+    coord_cartesian(ylim = c(-20, 20)) +  
     facet_wrap(~ as.character(Population_Label), scales = "free", labeller = label_parsed) +  
     scale_x_discrete(labels = c(expression(italic("N") ~ " = 500"), expression(italic("N") ~ " = 1000"), expression(italic("N") ~ " = 2000"), expression(italic("N") ~ " = 4000"))) +  
-    scale_y_continuous(breaks = seq(-40, 40, by = 10)) +  
+    scale_y_continuous(breaks = seq(-20, 20, by = 10)) +  
     common_theme +
-    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.3) +  
-    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.3) +
+    geom_hline(yintercept = c(-10, 10), linetype = "dashed", color = "#7030A0", linewidth = 0.7) +  
+    geom_hline(yintercept = c(-5, 5), linetype = "dashed", color = "#C830CC", linewidth = 0.7) +
     theme(
       legend.position = "bottom", 
       strip.placement = "outside", 
@@ -1693,15 +1720,17 @@ create_plot <- function(data, title_suffix) {
       axis.text.x = element_text(angle = 45, hjust = 1, size = 8)
     )
 }
-
 ```
+
+------------------------------------------------------------------------
+
+### Create Bias Figures
 
 ```{r}
 #| label: "plot-movers"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 # Create and print plot for Mover
 plot_mover <- create_plot(subset_mover, "Mover")
@@ -1713,7 +1742,7 @@ print(plot_mover)
 plot_mover_no_title <- plot_mover + labs(title = NULL)
 
 # Save Mover plot without title as .svg
-ggsave(here("2 Time Points", "zFIGURES", "x2t_lta_lta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 3, dpi = 300, device = "svg")
+ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_lta_lta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 3, dpi = 300, device = "svg")
 
 
 ```
@@ -1724,7 +1753,6 @@ ggsave(here("2 Time Points", "zFIGURES", "x2t_lta_lta_plots", "plot_mover.svg"),
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 # Create and print plot for Stayer
 plot_stayer <- create_plot(subset_stayer, "Stayer")
@@ -1736,13 +1764,13 @@ print(plot_stayer)
 plot_stayer_no_title <- plot_stayer + labs(title = NULL)
 
 # Save Stayer plot without title as .svg
-ggsave(here("2 Time Points", "zFIGURES", "x2t_lta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
+ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_lta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
 
 ```
 
-### **Step 15: Prepare Data for Heatmaps**
+------------------------------------------------------------------------
 
-#### **Objective**
+### **Prepare Data for Heatmaps**
 
 *Prepare data for heatmap creation by ensuring correct formatting for population values, and subsetting the data based on class proportions and sample sizes.*
 
@@ -1752,7 +1780,6 @@ ggsave(here("2 Time Points", "zFIGURES", "x2t_lta_lta_plots", "plot_stayer.svg")
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 # Step 1: Separate the movers and stayers and ensure sorting by N and Population for each transition
 movers <- all_data %>%
@@ -1782,18 +1809,17 @@ test_map <- select(all_data_sorted, N_Label, Population, average, Coverage, Powe
 
 ```
 
-### **Step 16: Heatmap Creation and Rendering**
+------------------------------------------------------------------------
 
-#### **Objective**
+### **Heatmap Creation and Rendering**
 
-*Create heatmaps using the `gt` package and render each table separately for different subsets of the data.*
+*Create heatmap function to prepare for heatmap creation*
 
 ```{r}
 #| label: "create-heatmap-function"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
 
 
 # Function to create gt table based on subset data
@@ -1874,7 +1900,7 @@ create_gt_table <- function(subset, transition_probability) {
         columns = "SE_Bias",
         rows = .data$SE_Bias < -4.99 | .data$SE_Bias > 4.99,  # Apply color only if outside the threshold
         method = "numeric",
-        palette = c("#B4186E", "#F9D5E9", "#B4186E"),  # Darker red for larger deviations
+        palette = c("#781049", "#FDEAF4", "#781049"),  # Darker red for larger deviations
         domain = c(-80, 80)  # Adjust the domain for the SE_Bias range
       ) %>%
       tab_footnote(
@@ -1919,7 +1945,9 @@ create_gt_table <- function(subset, transition_probability) {
 
 ```
 
-### Step 18: Render the Table
+------------------------------------------------------------------------
+
+### Render Heatmap
 
 ```{r}
 #| label: "render-heatmap"

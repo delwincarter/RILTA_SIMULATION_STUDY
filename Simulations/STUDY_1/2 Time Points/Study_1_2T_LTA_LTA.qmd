@@ -60,9 +60,7 @@ library(tools)
 
 # Part 1: Conduct Simulation
 
-> In this section, I am conducting a simulation where I am generating data as Latent Transition Analysis and analyzing it as Latent Transition Analysis to fully explore the model's dynamics. The simulation consists of 24 conditions, combining four sample sizes (N = 500, 1000, 2000, 4000) with six transition probabilities linked to logits (1.385, .85, .41, -.41, -.85, -1.385), corresponding to probabilities of .8, .7, .6, .4, .3, and .2. These conditions are iterated over programmatically using MplusAutomation to set up and execute the models. To speed up the process, I employ parallel processing, which distributes computations across multiple CPU cores, enabling efficient completion of the simulations across all scenarios.
-
-#### Model 1:
+> In this section, I am conducting a simulation where I am generating data as Latent Transition Analysis and analyzing it as Latent Transition Analysis to fully explore the model's performance. The simulation consists of 24 conditions, combining four sample sizes (N = 500, 1000, 2000, 4000) with six transition probabilities linked to logits (1.385, .85, .41, -.41, -.85, -1.385), corresponding to probabilities of .8, .7, .6, .4, .3, and .2. These conditions are iterated over programmatically using MplusAutomation to set up and execute the models. To speed up the process, I employ parallel processing, which distributes computations across multiple CPU cores, enabling efficient completion of the simulations across all scenarios.
 
 ##### Conditions:
 
@@ -330,7 +328,6 @@ stopCluster(cl)
 #| message: false
 #| warning: false
 
-
 # Step 1: Set the correct CSV directory
 csv_directory <- here('Simulations', 'STUDY_1', '2 Time Points', '1_2T_LTA_GEN_LTA_ANALYZED')
 
@@ -345,7 +342,6 @@ source(here('Child_Docs', 'data_scraping.R'))
 #| echo: true
 #| message: false
 #| warning: false
-
 
 # Step 2: Process the data using the child script
 source(here('Child_Docs', 'step2_2t_LTA.R'))
@@ -615,7 +611,6 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 #| message: false
 #| warning: false
 
-
 # Ensure consistent column formats and remove .out and .csv extensions
 error_summary <- error_summary %>%
   mutate(
@@ -633,7 +628,6 @@ final_data_with_actuals <- final_data_with_actuals %>%
 error_summary <- error_summary %>%
   mutate(ErrorFlag = if_else(Message == "None", 0, 1))
 
-
 # Merge ErrorFlag into final_data_with_actuals
 final_data_with_actuals <- final_data_with_actuals %>%
   left_join(error_summary %>% select(FileName, Replication, ErrorFlag),
@@ -643,12 +637,10 @@ final_data_with_actuals <- final_data_with_actuals %>%
 *Create Column Names from the Filename*
 
 ```{r}
-
 #| label: "create-column-names-from-filename"
 #| echo: true
 #| message: false
 #| warning: false
-
 
 # Add new columns based on the information in the FileName and set factors
 final_data_with_actuals <- final_data_with_actuals %>%
@@ -696,7 +688,6 @@ final_data_with_actuals <- final_data_with_actuals %>%
 #| message: false
 #| warning: false
 
-
 # 1. Summarize violations per condition
 violation_summary <- final_data_with_actuals %>%
   mutate(
@@ -736,7 +727,6 @@ violation_summary <- final_data_with_actuals %>%
 #| echo: true
 #| message: false
 #| warning: false
-
 
 # Ensure correct column names and assign TPs (logits) based on Population (for display and MplusAutomation)
 violation_summary <- violation_summary %>%
@@ -795,7 +785,7 @@ final_table
 
 ------------------------------------------------------------------------
 
-# Part 2: Re Run Simulatoin
+# Part 2: Re Run Simulation
 
 ------------------------------------------------------------------------
 
@@ -1004,8 +994,6 @@ result_list <- parLapply(cl, 1:nrow(violation_summary), function(i) {
 
 # Stop the cluster after the simulation
 stopCluster(cl)
-
-
 ```
 
 ------------------------------------------------------------------------
@@ -1030,6 +1018,7 @@ csv_directory <- here('Simulations', 'STUDY_1', '2 Time Points', '1_2T_LTA_GEN_L
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
+# Will returen datafame combine_data
 ```
 
 Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.
@@ -1042,9 +1031,10 @@ Extract data from the appropriate rows from each 9-row chunk and prepare the dat
 
 # Step 2: Process the data using the child script
 source(here('Child_Docs', 'step2_2t_LTA.R'))
+# Will return dataframe final_combined data
 ```
 
-Convert the logits to probabilities and add the known actual values to each row.
+*Convert the logits to probabilities and add the known actual values to each row.*
 
 ```{r}
 #| label: "convert-logits-to-probabilities2"
@@ -1256,7 +1246,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
             by = c("FileName", "Replication"))
 ```
 
-Create Column Names from the Filename
+*Create Column Names from the File Name*
 
 ```{r}
 #| label: "create-column-names-from-filename2"
@@ -1298,8 +1288,6 @@ final_data_with_actuals <- final_data_with_actuals %>%
     Population = factor(Population, levels = c(".800", ".700", ".600", ".400", ".300", ".200")),
     Transitions = factor(Transitions, levels = c(1, 2), labels = c("Mover", "Stayer"))
   )
-
-
 ```
 
 *Calculate Violation Percentages per Condition*
@@ -1683,12 +1671,9 @@ plot_mover_no_title <- plot_mover + labs(title = NULL)
 
 # Save Mover plot without title as .svg
 ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_lta_lta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 3, dpi = 300, device = "svg")
-
-
 ```
 
 ```{r}
-
 #| label: "plot-stayers"
 #| echo: true
 #| message: false
@@ -1705,7 +1690,6 @@ plot_stayer_no_title <- plot_stayer + labs(title = NULL)
 
 # Save Stayer plot without title as .svg
 ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_lta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
-
 ```
 
 ------------------------------------------------------------------------
@@ -1715,7 +1699,6 @@ ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_lta_lta_
 *Prepare data for heatmap creation by ensuring correct formatting for population values, and subsetting the data based on class proportions and sample sizes.*
 
 ```{r}
-
 #| label: "prepare-data-for-heatmaps"
 #| echo: true
 #| message: false
@@ -1746,7 +1729,6 @@ all_data_sorted <- bind_rows(movers, stayers)
 
 # Step 4: Select necessary columns for the final display
 test_map <- select(all_data_sorted, N_Label, Population, average, Coverage, Power, Parameter_Bias, SE_Bias)
-
 ```
 
 *Create heatmap function to prepare for heatmap creation*

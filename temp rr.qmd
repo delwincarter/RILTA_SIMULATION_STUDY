@@ -1,0 +1,111 @@
+---
+title: "TEMP rr"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+#| label: "load-libraries"
+#| echo: true
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(glue)
+library(MplusAutomation)
+library(here)
+library(gt)
+library(janitor)
+library(parallel)
+library(tools)
+library(dplyr)
+library(ggplot2)
+library(rmarkdown)
+library(knitr)
+library(webshot2)
+library(webshot)
+```
+
+Scrape input files
+
+```{r}
+library(dplyr)
+library(stringr)
+
+# List filenames from the directory
+input_dir <- file.path("Simulations", "STUDY_1", "2 Time Points", "TEMP R R")
+input_files <- list.files(input_dir, pattern = "\\.inp$", full.names = FALSE)
+
+# Extract relevant information directly from filenames
+extracted_data <- data.frame(FileName = input_files) %>%
+  mutate(
+    # Extract sample size (N)
+    N = case_when(
+      grepl("N_4000", FileName) ~ 4000,
+      grepl("N_500", FileName) ~ 500,
+      grepl("N_1000", FileName) ~ 1000,
+      grepl("N_2000", FileName) ~ 2000,
+      TRUE ~ NA_integer_
+    ),
+    # Extract Population based on `TP` values
+    Population = case_when(
+      grepl("TP_1.385", FileName) ~ ".800",
+      grepl("TP_0.85", FileName) ~ ".700",
+      grepl("TP_0.41", FileName) ~ ".600",
+      grepl("TP_-0.41", FileName) ~ ".400",
+      grepl("TP_-0.85", FileName) ~ ".300",
+      grepl("TP_-1.385", FileName) ~ ".200",
+      TRUE ~ NA_character_
+    ),
+    # Extract Lambda (only "1" or "0")
+    Lambda = case_when(
+      grepl("lambda_1", FileName) ~ "1",
+      grepl("lambda_0", FileName) ~ "0",
+      TRUE ~ NA_character_
+    ),
+    # Determine Transition based on Population
+    Transitions = case_when(
+      Population %in% c(".200", ".300", ".400") ~ 1,
+      Population %in% c(".600", ".700", ".800") ~ 2,
+      TRUE ~ NA_integer_
+    )
+  ) %>%
+  mutate(
+    Population = factor(Population, levels = c(".800", ".700", ".600", ".400", ".300", ".200")),
+    Lambda = factor(Lambda, levels = c("0", "1")),
+    Transitions = factor(Transitions, levels = c(1, 2), labels = c("Mover", "Stayer"))
+  )
+
+# View the results
+print(extracted_data)
+
+```
+
+```{r}
+library(MplusAutomation)
+
+# Set the directory where your input files are stored
+input_dir <- file.path("Simulations", "STUDY_1", "2 Time Points", "TEMP R R")
+
+# List all Mplus input files in the directory
+input_files <- list.files(input_dir, pattern = "\\.inp$", full.names = TRUE)
+
+# Function to run Mplus models
+run_model <- function(file) {
+  mplusModeler(file, run = 1L, hashfilename = FALSE)
+}
+
+# Run all input files
+lapply(input_files, run_model)
+
+cat("All input files have been executed.")
+
+```

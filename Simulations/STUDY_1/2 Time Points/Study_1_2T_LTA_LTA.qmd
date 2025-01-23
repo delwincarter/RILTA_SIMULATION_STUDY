@@ -1,21 +1,31 @@
 ---
 title: "Understanding the Performance of Random Intercepts Latent Transition Analysis (RI-LTA): A Monte Carlo Simulation Study"
-subtitle: "*Study 1: LTA Generated, LTA Analyzed with Two Timepoints*"
+subtitle: "Study 1: LTA Generated, LTA Analyzed with Two Timepoints"
+author: "Delwin Carter"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+
 format:
   html:
     toc: true
+    toc-title: "Overview"
     toc-depth: 3
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
+    theme: flatly
+    fig-format: svg
+    font:
+      main: "Avenir Next LT Pro, Arial, sans-serif"
+    page-layout: full
+    code-tools: true
+
 editor: visual
-theme: flatly
-author: "Delwin Carter"
-date: "`r format(Sys.time(), '%B %d, %Y')`"
-page-layout: full
-fig-format: svg
-Mainfont: "Avenir.ttc"
+
 knitr:
   opts_chunk:
-    out.width: "90%"
-    fig.align: center
+    echo: true
+    out.width: "100%"
+    fig.align: "center"
 ---
 
 ------------------------------------------------------------------------
@@ -25,6 +35,16 @@ knitr:
 
 ![](images/UCSB_Gauchos_logo_PNG2.png){width="300"}
 :::
+
+------------------------------------------------------------------------
+
+# Introduction
+
+## Study 1A: LTA Generated, LTA Analyzed
+
+------------------------------------------------------------------------
+
+![](images/LTA_LTA-01.png){width="324"}
 
 ------------------------------------------------------------------------
 
@@ -52,17 +72,15 @@ library(tools)
 
 ------------------------------------------------------------------------
 
-# LTA Generated, LTA Analyzed
-
-![](images/LTA_LTA-01.png){width="324"}
+# Simulation 
 
 ------------------------------------------------------------------------
 
-# Part 1: Conduct Simulation
+## Part 1: Conduct Simulation
 
 > In this section, I am conducting a simulation where I am generating data as Latent Transition Analysis and analyzing it as Latent Transition Analysis to fully explore the model's performance. The simulation consists of 24 conditions, combining four sample sizes (N = 500, 1000, 2000, 4000) with six transition probabilities linked to logits (1.385, .85, .41, -.41, -.85, -1.385), corresponding to probabilities of .8, .7, .6, .4, .3, and .2. These conditions are iterated over programmatically using MplusAutomation to set up and execute the models. To speed up the process, I employ parallel processing, which distributes computations across multiple CPU cores, enabling efficient completion of the simulations across all scenarios.
 
-##### Conditions:
+Conditions:
 
 Sample Size: N = 500, 1000, 2000, 4000
 
@@ -72,7 +90,7 @@ Transition logit (Probability): TPs = 1.385 (.8), .85 (.7), .41 (.6), -.41 (.4),
 
 ------------------------------------------------------------------------
 
-Setting up the Simulation Conditions 
+### Setting up the Simulation Conditions 
 
 ```{r}
 #| label: "simulation-conditions"
@@ -102,7 +120,7 @@ p1 %>%
 
 ------------------------------------------------------------------------
 
-## Run Initial Simulation
+### Run Initial Simulation
 
 ```{r,eval = FALSE}
 #| label: "lta-lta-simulation"
@@ -316,9 +334,15 @@ stopCluster(cl)
 
 ------------------------------------------------------------------------
 
-## [Check for Label Switching and Errors]{.underline}
+# Data Processing and Verification
+
+------------------------------------------------------------------------
+
+## Check for Label Switching and Errors
 
 > In this section: .csv files are first merged into a single data frame, from which specific parameters are extracted. Logit values are then converted to probabilities, and known class values are incorporated into the data frame. A subset of cases involving label switching is selected randomly and plotted for visual review. Output files are scanned for errors, which are subsequently merged back into the original data file. Additional columns derived from the file name are added, and the percentage of violations is calculated. Both errors and label switching violations are visually represented, and the total number of corrected replications is reported.
+
+### Scrape Mplus CSV Files
 
 *First, Load all CSV files and combine them into a single data frame.*
 
@@ -333,7 +357,11 @@ csv_directory <- here('Simulations', 'STUDY_1', '2 Time Points', '1_2T_LTA_GEN_L
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
+
+# Will populate combined_data dataframe in the global environment
 ```
+
+### Slice Data / Extract Parameters
 
 *Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.*
 
@@ -345,7 +373,11 @@ source(here('Child_Docs', 'data_scraping.R'))
 
 # Step 2: Process the data using the child script
 source(here('Child_Docs', 'step2_2t_LTA.R'))
+
+# Will populate final_combined_data dataframe in global environment
 ```
+
+### Wrangle Data
 
 *Convert the logits to probabilities and add the known actual values to each row.*
 
@@ -362,14 +394,16 @@ source(here('Child_Docs', 'step_3.R'))
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
-Generate plots of randomly sampled violators for visual inspection using parallel processing.
+### Generate Plots of Label Switching
+
+*Generate plots of randomly sampled violators for visual inspection using parallel processing.*
 
 ```{r, eval=FALSE}
 #| label: "plot-violators"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+#| code-fold: false
 
 # Set plot width and height
 plot_width <- 8
@@ -436,130 +470,50 @@ invisible(lapply(1:sample_size, plot_violator))
 
 ```
 
-*Calculate the percentage of Errors for each file, handling missing values appropriately.*
+------------------------------------------------------------------------
+
+# Error Handling
+
+------------------------------------------------------------------------
+
+### Scrape for Errors
+
+*Scrape output files for errors*
 
 ```{r}
-#| label: "summarize-errors"
+#| label: "process-out-files-parallel"
 #| echo: true
 #| message: false
 #| warning: false
 
+# Step 1: Set the correct output directory for .out files
+output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '1_2T_LTA_GEN_LTA_ANALYZED')
 
-library(parallel)
+# Step 2: Source the child document that processes .out files
+source(here('Child_Docs', 'out_scraping.R'))
 
-extract_errors_from_file <- function(filepath, total_replications) {
-  lines <- readLines(filepath)
-  results <- vector("list", total_replications)
-  error_keywords <- c("NON-POSITIVE DEFINITE", "SADDLE")
+```
 
-  # Initialize results for every replication
-  for (rep in 1:total_replications) {
-    results[[rep]] <- tibble(
-      FileName = basename(filepath),
-      Replication = rep,
-      Message = "None",
-      MessageType = "None"
-    )
-  }
+### Tabulate Error Rates
 
-  current_replication <- NULL
-  for (line in lines) {
-    if (str_detect(line, "REPLICATION")) {
-      current_replication <- as.integer(str_extract(line, "\\d+"))
-    }
+*Create Visual Summary of Errors per Condition*
 
-    if (!is.null(current_replication) && current_replication <= total_replications &&
-        any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
-      results[[current_replication]] <- tibble(
-        FileName = basename(filepath),
-        Replication = current_replication,
-        Message = str_trim(line),
-        MessageType = "Error"
-      )
-    }
-  }
+```{r}
+#| label: "create-table-errors"
+#| echo: true
+#| message: false
+#| warning: false
 
-  return(bind_rows(results))
-}
-
-# Step 2: Extract Completed Replications
-extract_completed_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  completed_line <- lines[grepl("Completed", lines, ignore.case = TRUE)]
-  completed <- as.integer(str_match(completed_line, "Completed\\s+(\\d+)")[, 2])
-  if (length(completed) == 0) completed <- 0
-  tibble(FileName = basename(filepath), CompletedReplications = completed)
-}
-
-# Step 3: Extract Requested Replications
-extract_requested_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  requested_line <- lines[grepl("Requested", lines, ignore.case = TRUE)]
-  requested <- as.integer(str_match(requested_line, "Requested\\s+(\\d+)")[, 2])
-  if (length(requested) == 0) requested <- 0
-  tibble(FileName = basename(filepath), RequestedReplications = requested)
-}
-
-calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
-  summary <- error_summary %>%
-    group_by(FileName) %>%
-    summarise(
-      ErrorReplications = n_distinct(Replication[MessageType == "Error"]),
-      .groups = "drop"
-    )
-
-  full_summary <- requested_replications %>%
-    left_join(completed_replications, by = "FileName") %>%
-    left_join(summary, by = "FileName") %>%
-    mutate(
-      ErrorReplications = coalesce(ErrorReplications, 0),
-      GoodReplications = CompletedReplications - ErrorReplications,
-      ErrorRate = if_else(CompletedReplications > 0, (ErrorReplications / CompletedReplications) * 100, 0)
-    ) %>%
-    select(FileName, RequestedReplications, CompletedReplications, ErrorReplications, GoodReplications, ErrorRate)
-
-  full_summary
-}
-
-# Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', "1_2T_LTA_GEN_LTA_ANALYZED")  # Adjust to your folder path
-file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
-
-# Step 5: Detect OS and Set Up Cluster
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-num_cores <- detectCores() - 1  # Use all but one core
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Export necessary libraries and functions to the cluster
-invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
-invisible(clusterEvalQ(cl, library(tidyverse)))
-
-# Step 6: Parallel Processing
-# Calculate completed replications first
-completed_rep_list <- parLapply(cl, file_list, extract_completed_replications)
-
-# Extract errors while passing the total number of completed replications to the function
-error_summary <- bind_rows(mapply(function(filepath, completed_data) {
-  extract_errors_from_file(filepath, completed_data$CompletedReplications)
-}, file_list, completed_rep_list, SIMPLIFY = FALSE))
-
-completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
-requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
-
-# Stop the cluster
-stopCluster(cl)
-
-# Step 7: Calculate Replication Summary
-replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
-
-# Step 8: Create and Display the Table with Error Rate
 replication_summary_table <- replication_summary %>%
   gt() %>%
   tab_header(
     title = "Replication Summary",
     subtitle = paste0("Folder: ", output_folder)
   ) %>%
-  fmt_number(columns = c(ErrorRate), decimals = 2) %>%
+  fmt_number(
+    columns = c("ErrorRate"),  # Use the actual column name, ensure it matches your dataframe
+    decimals = 2
+  ) %>%
   cols_label(
     FileName = "File Name",
     CompletedReplications = "Completed Replications",
@@ -568,34 +522,20 @@ replication_summary_table <- replication_summary %>%
     GoodReplications = "Good Replications",
     ErrorRate = "Error Rate (%)"
   ) %>%
+  cols_align(
+    align = "center",
+    columns = everything()  # This aligns all columns' text to center
+  ) %>%
   tab_options(
     table.font.size = "small",
     heading.title.font.size = "medium",
-    heading.subtitle.font.size = "small"
+    heading.subtitle.font.size = "small",
+    table.width = pct(80)  # Adjust this percentage to reduce the width of the table
   )
 
 # Display the table
 replication_summary_table
-
-completed_replications <- completed_replications %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-error_summary <- error_summary %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-replication_summary <- replication_summary %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
+#Compare rows in both .csv and .out data frames
 cat("Rows in final_data_with_actuals:", nrow(final_data_with_actuals), "\n")
 # Output the final number of rows to confirm data handling
 cat("Number of rows in error_summary: ", nrow(error_summary), "\n")
@@ -603,7 +543,9 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 
 ```
 
-*Merge errors with main data*
+### Merge Errors with Main Data File
+
+*Combine error information with main data file*
 
 ```{r}
 #| label: "merge-errors"
@@ -611,30 +553,13 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 #| message: false
 #| warning: false
 
-# Ensure consistent column formats and remove .out and .csv extensions
-error_summary <- error_summary %>%
-  mutate(
-    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
-    Replication = as.character(Replication) # Convert Replication to character
-  )
-
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(
-    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
-    Replication = as.character(Replication) # Convert Replication to character
-  )
-
-# Add a new column to flag errors
-error_summary <- error_summary %>%
-  mutate(ErrorFlag = if_else(Message == "None", 0, 1))
-
-# Merge ErrorFlag into final_data_with_actuals
-final_data_with_actuals <- final_data_with_actuals %>%
-  left_join(error_summary %>% select(FileName, Replication, ErrorFlag),
-            by = c("FileName", "Replication"))
+# Step 2: Process the data using the child script
+source(here('Child_Docs', 'merge_errors.R'))
 ```
 
-*Create Column Names from the Filename*
+### Scrape File Name
+
+*Create Column Names from the file name*
 
 ```{r}
 #| label: "create-column-names-from-filename"
@@ -680,6 +605,8 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
+### Calculate Violations
+
 *Calculate Violation Percentages per Condition*
 
 ```{r}
@@ -720,7 +647,7 @@ violation_summary <- final_data_with_actuals %>%
 
 ```
 
-*Summarize & Visualize Label Switching Percentage Results*
+### Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
 #| label: "summarize-violations"
@@ -785,11 +712,13 @@ final_table
 
 ------------------------------------------------------------------------
 
-# Part 2: Re Run Simulation
+# Re-Running Simulations
 
 ------------------------------------------------------------------------
 
-#### Re-Run Simulation with Dynamic Replication Conditions
+# Part 2: Re Run Simulation
+
+### Re-Run Simulation with Dynamic Replication Conditions
 
 ```{r,eval = FALSE}
 #| label: "lta-lta-simulation2"
@@ -998,9 +927,9 @@ stopCluster(cl)
 
 ------------------------------------------------------------------------
 
-## Check for Label Switching and Errors 
+### Check for Label Switching and Errors - Part 2
 
-In this section: we re conduct the steps for aggregating the label switching and errors to guarantee that we will have at minimum 500 replications per condition.
+> In this section: we re conduct the steps for aggregating the label switching and errors to guarantee that we will have at minimum 500 replications per condition.
 
 ------------------------------------------------------------------------
 
@@ -1018,7 +947,8 @@ csv_directory <- here('Simulations', 'STUDY_1', '2 Time Points', '1_2T_LTA_GEN_L
 
 # Step 2: Source the child document
 source(here('Child_Docs', 'data_scraping.R'))
-# Will returen datafame combine_data
+
+# Will populate combine_data data frame in the global environment 
 ```
 
 Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.
@@ -1031,7 +961,8 @@ Extract data from the appropriate rows from each 9-row chunk and prepare the dat
 
 # Step 2: Process the data using the child script
 source(here('Child_Docs', 'step2_2t_LTA.R'))
-# Will return dataframe final_combined data
+
+# Will populate final_combined data in global environment
 ```
 
 *Convert the logits to probabilities and add the known actual values to each row.*
@@ -1048,129 +979,39 @@ source(here('Child_Docs', 'step_3.R'))
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
-*Calculate the percentage of violations for each file, handling missing values appropriately.*
+*Scrape Output Files for Errors*
 
 ```{r}
-#| label: "summarize-errors2"
+#| label: "process-out-files-parallel2"
 #| echo: true
 #| message: false
 #| warning: false
 
-library(parallel)
+# Step 1: Set the correct output directory for .out files
+output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '1_2T_LTA_GEN_LTA_ANALYZED_REP')
 
-extract_errors_from_file <- function(filepath, total_replications) {
-  lines <- readLines(filepath)
-  results <- vector("list", total_replications)
-  error_keywords <- c("NON-POSITIVE DEFINITE", "SADDLE")
+# Step 2: Source the child document that processes .out files
+source(here('Child_Docs', 'out_scraping.R'))
+```
 
-  # Initialize results for every replication
-  for (rep in 1:total_replications) {
-    results[[rep]] <- tibble(
-      FileName = basename(filepath),
-      Replication = rep,
-      Message = "None",
-      MessageType = "None"
-    )
-  }
+*Create Visual Summary of Errors per Condition*
 
-  current_replication <- NULL
-  for (line in lines) {
-    if (str_detect(line, "REPLICATION")) {
-      current_replication <- as.integer(str_extract(line, "\\d+"))
-    }
+```{r}
+#| label: "create-table-errors2"
+#| echo: true
+#| message: false
+#| warning: false
 
-    if (!is.null(current_replication) && current_replication <= total_replications &&
-        any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
-      results[[current_replication]] <- tibble(
-        FileName = basename(filepath),
-        Replication = current_replication,
-        Message = str_trim(line),
-        MessageType = "Error"
-      )
-    }
-  }
-
-  return(bind_rows(results))
-}
-
-# Step 2: Extract Completed Replications
-extract_completed_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  completed_line <- lines[grepl("Completed", lines, ignore.case = TRUE)]
-  completed <- as.integer(str_match(completed_line, "Completed\\s+(\\d+)")[, 2])
-  if (length(completed) == 0) completed <- 0
-  tibble(FileName = basename(filepath), CompletedReplications = completed)
-}
-
-# Step 3: Extract Requested Replications
-extract_requested_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  requested_line <- lines[grepl("Requested", lines, ignore.case = TRUE)]
-  requested <- as.integer(str_match(requested_line, "Requested\\s+(\\d+)")[, 2])
-  if (length(requested) == 0) requested <- 0
-  tibble(FileName = basename(filepath), RequestedReplications = requested)
-}
-
-calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
-  summary <- error_summary %>%
-    group_by(FileName) %>%
-    summarise(
-      ErrorReplications = n_distinct(Replication[MessageType == "Error"]),
-      .groups = "drop"
-    )
-
-  full_summary <- requested_replications %>%
-    left_join(completed_replications, by = "FileName") %>%
-    left_join(summary, by = "FileName") %>%
-    mutate(
-      ErrorReplications = coalesce(ErrorReplications, 0),
-      GoodReplications = CompletedReplications - ErrorReplications,
-      ErrorRate = if_else(CompletedReplications > 0, (ErrorReplications / CompletedReplications) * 100, 0)
-    ) %>%
-    select(FileName, RequestedReplications, CompletedReplications, ErrorReplications, GoodReplications, ErrorRate)
-
-  full_summary
-}
-
-# Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', "1_2T_LTA_GEN_LTA_ANALYZED_REP")  # Adjust to your folder path
-file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
-
-# Step 5: Detect OS and Set Up Cluster
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-num_cores <- detectCores() - 1  # Use all but one core
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Export necessary libraries and functions to the cluster
-invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
-invisible(clusterEvalQ(cl, library(tidyverse)))
-
-# Step 6: Parallel Processing
-# Calculate completed replications first
-completed_rep_list <- parLapply(cl, file_list, extract_completed_replications)
-
-# Extract errors while passing the total number of completed replications to the function
-error_summary <- bind_rows(mapply(function(filepath, completed_data) {
-  extract_errors_from_file(filepath, completed_data$CompletedReplications)
-}, file_list, completed_rep_list, SIMPLIFY = FALSE))
-
-completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
-requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
-
-# Stop the cluster
-stopCluster(cl)
-
-# Step 7: Calculate Replication Summary
-replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
-
-# Step 8: Create and Display the Table with Error Rate
 replication_summary_table <- replication_summary %>%
   gt() %>%
   tab_header(
     title = "Replication Summary",
     subtitle = paste0("Folder: ", output_folder)
   ) %>%
-  fmt_number(columns = c(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
+  fmt_number(
+    columns = c("ErrorRate"),  # Use the actual column name, ensure it matches your dataframe
+    decimals = 2
+  ) %>%
   cols_label(
     FileName = "File Name",
     CompletedReplications = "Completed Replications",
@@ -1179,42 +1020,28 @@ replication_summary_table <- replication_summary %>%
     GoodReplications = "Good Replications",
     ErrorRate = "Error Rate (%)"
   ) %>%
+  cols_align(
+    align = "center",
+    columns = everything()  # This aligns all columns' text to center
+  ) %>%
   tab_options(
     table.font.size = "small",
     heading.title.font.size = "medium",
-    heading.subtitle.font.size = "small"
+    heading.subtitle.font.size = "small",
+    table.width = pct(80)  # Adjust this percentage to reduce the width of the table
   )
 
 # Display the table
 replication_summary_table
 
-completed_replications <- completed_replications %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-error_summary <- error_summary %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-replication_summary <- replication_summary %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
+#Compare rows in both .csv and .out data frames
 cat("Rows in final_data_with_actuals:", nrow(final_data_with_actuals), "\n")
 # Output the final number of rows to confirm data handling
 cat("Number of rows in error_summary: ", nrow(error_summary), "\n")
 cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
-
 ```
 
-*Merge errors with main data*
+*Merge Errors with Main Data*
 
 ```{r}
 #| label: "merge-errors2"
@@ -1222,28 +1049,8 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 #| message: false
 #| warning: false
 
-# Ensure consistent column formats and remove .out and .csv extensions
-error_summary <- error_summary %>%
-  mutate(
-    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
-    Replication = as.character(Replication) # Convert Replication to character
-  )
-
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(
-    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
-    Replication = as.character(Replication) # Convert Replication to character
-  )
-
-# Add a new column to flag errors
-error_summary <- error_summary %>%
-  mutate(ErrorFlag = if_else(Message == "None", 0, 1))
-
-
-# Merge ErrorFlag into final_data_with_actuals
-final_data_with_actuals <- final_data_with_actuals %>%
-  left_join(error_summary %>% select(FileName, Replication, ErrorFlag),
-            by = c("FileName", "Replication"))
+# Step 2: Process the data using the child script
+source(here('Child_Docs', 'merge_errors.R'))
 ```
 
 *Create Column Names from the File Name*
@@ -1400,6 +1207,14 @@ final_table
 
 ```
 
+------------------------------------------------------------------------
+
+# Final Data Preparation
+
+------------------------------------------------------------------------
+
+## Filter Cases with Violations and Errors
+
 *Filter out cases with any violations, leaving only the clean data.*
 
 ```{r}
@@ -1412,6 +1227,8 @@ final_table
 filtered_data_with_no_violations <- final_data_with_actuals[
   final_data_with_actuals$Any_Violation == 0 & final_data_with_actuals$ErrorFlag == 0, ]
 ```
+
+### Randomly Sample 500 Replications
 
 *Take random sample of replications to achieve n = 500*
 
@@ -1447,7 +1264,7 @@ if (all(initial_counts$Initial_Count >= 500)) {
 
 ------------------------------------------------------------------------
 
-## **Prepare Final Data for Visualization**
+## Calculate Monte Carlo Values
 
 *Calculate Monte Carlo values for `TRANS11`, including population values, averages, standard errors, Mean Squared Error (MSE), coverage, and power.*
 
@@ -1457,41 +1274,11 @@ if (all(initial_counts$Initial_Count >= 500)) {
 #| message: false
 #| warning: false
 
-# Convert necessary columns to numeric
-cleaned_data <- sampled_data %>%
-  mutate(
-    Population = as.numeric(as.character(Population)),
-    TRANS11 = as.numeric(as.character(TRANS11)),  # Convert TRANS11 to numeric
-    SE_11 = as.numeric(as.character(SE_11))  # Convert SE_11 to numeric
-  )
-
-# Calculate the Monte Carlo values, including Population (transition probability), N, 
-# number of replications, and averages for TRANS11 and SE11
-mc_values <- cleaned_data %>%
-  group_by(FileName, Population, N, Transitions) %>%  # Group by FileName, Population, and N
-  summarize(
-    average = round(mean(TRANS11, na.rm = TRUE), 3),
-    average_SE = round(mean(SE_11, na.rm = TRUE), 3),
-    population_sd = round(sd(TRANS11, na.rm = TRUE), 3),
-    
-    # MSE calculation: mean squared error between TRANS11 and Population
-    MSE = round(mean((TRANS11 - Population)^2, na.rm = TRUE), 3),
-    
-    # Coverage calculation: check if Population lies within the confidence interval
-    Coverage = round(mean((Population >= (TRANS11 - 1.96 * SE_11)) & (Population <= (TRANS11 + 1.96 * SE_11)), na.rm = TRUE), 3),
-    
-    # Power calculation: proportion of cases where TRANS11 is significant
-    Power = round(mean(TRANS11 / SE_11 > 1.96, na.rm = TRUE), 3),
-    
-    # Reps_Used counts the number of replications (rows) used for each FileName
-    Reps_Used = n()
-  )
-
-# Round the values to 3 decimal points
-mc_values <- mc_values %>%
-  mutate(across(starts_with("Avg_"), ~ round(.x, 3)))
-
+# Compute Monte Carlo Values
+source(here('Child_Docs', 'compute_mc.R'))
 ```
+
+### Calculate Bias and Dichotomous Variables
 
 *Calculate dichotomous variables for Power and Coverage, compute Parameter and SE Bias, and prepare subsets for movers and stayers.*
 
@@ -1538,7 +1325,11 @@ mc_values <- mc_values %>%
 
 ```
 
-*Subset the Monte Carlo values data for transitions with movers and stayers based on the population value.*
+## Prepare Data for Visualization
+
+### Subset Data for Bias Plots
+
+*Subset the Monte Carlo data into mover transition probabilities (.2, .3, .4) and stayer transition probabilities (.6, .7, .8) based on population values*
 
 ```{r}
 #| label: "subset-data-for-bias-plots"
@@ -1569,7 +1360,7 @@ subset_mover <- subset(all_data, Transitions == "Mover")
 subset_stayer <- subset(all_data, Transitions == "Stayer")
 ```
 
-*Create function to generate plots*
+### Prepare Function for Bias Plots
 
 ```{r}
 #| label: "plot-bias"
@@ -1650,8 +1441,6 @@ create_plot <- function(data, title_suffix) {
 }
 ```
 
-------------------------------------------------------------------------
-
 ### Render Bias Figures
 
 ```{r}
@@ -1694,9 +1483,9 @@ ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_lta_lta_
 
 ------------------------------------------------------------------------
 
-## **Prepare Data for Heatmaps**
+## **Prepare Data for Heat Maps**
 
-*Prepare data for heatmap creation by ensuring correct formatting for population values, and subsetting the data based on class proportions and sample sizes.*
+*Prepare data for heat map creation by ensuring correct formatting for population values, and subsetting the data based on class proportions and sample sizes.*
 
 ```{r}
 #| label: "prepare-data-for-heatmaps"
@@ -1731,7 +1520,7 @@ all_data_sorted <- bind_rows(movers, stayers)
 test_map <- select(all_data_sorted, N_Label, Population, average, Coverage, Power, Parameter_Bias, SE_Bias)
 ```
 
-*Create heatmap function to prepare for heatmap creation*
+### Prepare Function for Heat Map Creation
 
 ```{r}
 #| label: "create-heatmap-function"
@@ -1863,7 +1652,7 @@ create_gt_table <- function(subset, transition_probability) {
 
 ```
 
-### Render Heatmap
+### Render Heat map
 
 ```{r}
 #| label: "render-heatmap"

@@ -23,9 +23,9 @@ clusterExport(cl, c("final_combined_data", "get_actual_values", "M1Ac1u", "M1Ac2
 logit_columns <- final_combined_data[, 3:12]
 probabilities <- apply(logit_columns, 2, function(x) round(1 / (1 + exp(-as.numeric(x))), 2))
 
-# Combine probabilities with the FileName, Rep, TRANS11, and SE_11 columns
+# Combine probabilities with the FileName, Rep, TRANS11, SE_11, and ll_csv columns
 final_combined_data_with_trans_se <- final_combined_data %>%
-  select(FileName, Replication, TRANS11, SE_11) %>%
+  select(FileName, Replication, TRANS11, SE_11, ll_csv) %>%  # ✅ Include ll_csv
   bind_cols(as.data.frame(probabilities))
 
 # Step 6: Add actual values to the data in parallel
@@ -52,7 +52,6 @@ colnames(final_data_with_actuals)[(ncol(final_combined_data_with_trans_se) + 1):
 # Step 9: Round all numeric columns
 final_data_with_actuals <- final_data_with_actuals %>%
   mutate(across(where(is.numeric), ~ round(.x, 3)))
-
 
 # Initialize columns for comparisons and flags
 final_data_with_actuals <- final_data_with_actuals %>%
@@ -98,7 +97,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 violators <- filter(final_data_with_actuals, Any_Violation == 1)
 
-# Return results for future steps
+# ✅ Ensure `ll_csv` is part of the final output
 return(list(
   final_data_with_actuals = final_data_with_actuals,
   violators = violators

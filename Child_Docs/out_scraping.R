@@ -1,128 +1,136 @@
-
-
 library(parallel)
+library(tidyverse)
+library(stringr)
 
-extract_errors_from_file <- function(filepath, total_replications) {
+# ===================================================== #
+#  ✅ SECTION 1: Extract Errors, Log-Likelihood, and Replication
+# ===================================================== #
+extract_all_info <- function(filepath) {
   lines <- readLines(filepath)
-  results <- vector("list", total_replications)
   error_keywords <- c("NON-POSITIVE DEFINITE", "SADDLE")
   
-  # Initialize results for every replication
-  for (rep in 1:total_replications) {
-    results[[rep]] <- tibble(
-      FileName = basename(filepath),
-      Replication = rep,
-      Message = "None",
-      MessageType = "None"
-    )
-  }
+  # Initialize current replication info
+  current_rep <- NA
+  current_ll <- NA
+  current_LL_Replicated <- "No"
+  current_error_flag <- 0
+  current_message <- "None"
   
-  current_replication <- NULL
-  for (line in lines) {
-    if (str_detect(line, "REPLICATION")) {
-      current_replication <- as.integer(str_extract(line, "\\d+"))
+  results <- list()
+  
+  # Process the file line-by-line
+  for (i in seq_along(lines)) {
+    line <- lines[i]
+    
+    # Check for a replication header
+    if (str_detect(line, "^REPLICATION\\s+\\d+:")) {
+      rep_num <- as.integer(str_extract(line, "\\d+"))
+      
+      # If we've already started a replication and encounter a new one, save the previous record
+      if (!is.na(current_rep) && rep_num != current_rep) {
+        results[[length(results) + 1]] <- tibble(
+          FileName = basename(filepath),
+          Replication = current_rep,
+          ll_out = current_ll,
+          LL_Replicated = current_LL_Replicated,
+          Message = current_message,
+          ErrorFlag = current_error_flag
+        )
+        # Reset values for the new replication
+        current_ll <- NA
+        current_LL_Replicated <- "No"
+        current_error_flag <- 0
+        current_message <- "None"
+      }
+      current_rep <- rep_num
     }
     
-    if (!is.null(current_replication) && current_replication <= total_replications &&
-        any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
-      results[[current_replication]] <- tibble(
-        FileName = basename(filepath),
-        Replication = current_replication,
-        Message = str_trim(line),
-        MessageType = "Error"
-      )
+    # Look for the log-likelihood marker and process the following lines
+    if (str_detect(line, "Final stage loglikelihood values")) {
+      start_ll <- i + 1
+      end_ll <- min(length(lines), i + 10)
+      ll_lines <- lines[start_ll:end_ll]
+      ll_values <- as.numeric(unlist(str_extract_all(ll_lines, "-?\\d+\\.\\d+")))
+      if (length(ll_values) > 0) {
+        current_ll <- ll_values[1]
+        current_LL_Replicated <- ifelse(sum(ll_values == current_ll) > 1, "Yes", "No")
+      }
+    }
+    
+    # Check for error keywords
+    if (str_detect(line, paste(error_keywords, collapse = "|"))) {
+      current_error_flag <- 1
+      if (current_message == "None") {
+        current_message <- str_trim(line)
+      }
     }
   }
   
-  return(bind_rows(results))
-}
-
-# Step 2: Extract Completed Replications
-extract_completed_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  completed_line <- lines[grepl("Completed", lines, ignore.case = TRUE)]
-  completed <- as.integer(str_match(completed_line, "Completed\\s+(\\d+)")[, 2])
-  if (length(completed) == 0) completed <- 0
-  tibble(FileName = basename(filepath), CompletedReplications = completed)
-}
-
-# Step 3: Extract Requested Replications
-extract_requested_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  requested_line <- lines[grepl("Requested", lines, ignore.case = TRUE)]
-  requested <- as.integer(str_match(requested_line, "Requested\\s+(\\d+)")[, 2])
-  if (length(requested) == 0) requested <- 0
-  tibble(FileName = basename(filepath), RequestedReplications = requested)
-}
-
-calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
-  summary <- error_summary %>%
-    group_by(FileName) %>%
-    summarise(
-      ErrorReplications = n_distinct(Replication[MessageType == "Error"]),
-      .groups = "drop"
+  # Save the final replication record if it exists
+  if (!is.na(current_rep)) {
+    results[[length(results) + 1]] <- tibble(
+      FileName = basename(filepath),
+      Replication = current_rep,
+      ll_out = current_ll,
+      LL_Replicated = current_LL_Replicated,
+      Message = current_message,
+      ErrorFlag = current_error_flag
     )
+  }
   
-  full_summary <- requested_replications %>%
-    left_join(completed_replications, by = "FileName") %>%
-    left_join(summary, by = "FileName") %>%
-    mutate(
-      ErrorReplications = coalesce(ErrorReplications, 0),
-      GoodReplications = CompletedReplications - ErrorReplications,
-      ErrorRate = if_else(CompletedReplications > 0, (ErrorReplications / CompletedReplications) * 100, 0)
-    ) %>%
-    select(FileName, RequestedReplications, CompletedReplications, ErrorReplications, GoodReplications, ErrorRate)
-  
-  full_summary
+  bind_rows(results)
 }
 
-# Assumes 'out_files_directory' is already defined in the main .qmd and passed into the child script
+# ===================================================== #
+#  ✅ SECTION 2: Parallel Processing
+# ===================================================== #
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
+num_cores <- detectCores() - 1
+cl <- makeCluster(num_cores, type = "PSOCK")
+clusterExport(cl, c("extract_all_info"))
+clusterEvalQ(cl, library(tidyverse))
 
-# Step 5: Detect OS and Set Up Cluster
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-num_cores <- detectCores() - 1  # Use all but one core
-cl <- makeCluster(num_cores, type = cluster_type)
+final_results <- bind_rows(parLapply(cl, file_list, extract_all_info))
 
-# Export necessary libraries and functions to the cluster
-invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
-invisible(clusterEvalQ(cl, library(tidyverse)))
-
-# Step 6: Parallel Processing
-# Calculate completed replications first
-completed_rep_list <- parLapply(cl, file_list, extract_completed_replications)
-
-# Extract errors while passing the total number of completed replications to the function
-error_summary <- bind_rows(mapply(function(filepath, completed_data) {
-  extract_errors_from_file(filepath, completed_data$CompletedReplications)
-}, file_list, completed_rep_list, SIMPLIFY = FALSE))
-
-completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
-requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
-
-# Stop the cluster
 stopCluster(cl)
 
-# Step 7: Calculate Replication Summary
-replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
+# ===================================================== #
+#  ✅ SECTION 3: Compute Replication Summary
+# ===================================================== #
+replication_summary <- final_results %>%
+  group_by(FileName) %>%
+  summarise(
+    Total = n(),
+    Replicated_Yes = sum(LL_Replicated == "Yes", na.rm = TRUE),
+    Replicated_No = sum(LL_Replicated == "No", na.rm = TRUE),
+    Error_Count = sum(ErrorFlag, na.rm = TRUE),
+    .groups = "drop"
+  )
 
-
-completed_replications <- completed_replications %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-error_summary <- error_summary %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
+# ===================================================== #
+#  ✅ SECTION 4: Standardize Log-Likelihood Decimal Precision
+# ===================================================== #
+final_results <- final_results %>%
+  mutate(ll_out = round(ll_out, 3))
 
 final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(FileName = tolower(FileName),
-         FileName = str_trim(FileName))
+  mutate(ll_csv = as.numeric(ll_csv)) %>%
+  mutate(ll_csv = round(ll_csv, 3))
 
-replication_summary <- replication_summary %>%
+# ===================================================== #
+#  ✅ SECTION 5: Normalize FileName (Ensure Consistency)
+# ===================================================== #
+final_results <- final_results %>%
+  mutate(
+    FileName = str_replace(FileName, "\\.out$", ""),  # Remove .out extension
+    FileName = tolower(FileName),  # Standardize filename
+    FileName = str_trim(FileName),  # Trim whitespace
+    Replication = as.character(Replication)  # Convert to character for merging
+  )
+
+final_data_with_actuals <- final_data_with_actuals %>%
   mutate(FileName = str_replace(FileName, "\\.out$", ""),
          FileName = tolower(FileName),
          FileName = str_trim(FileName))
+

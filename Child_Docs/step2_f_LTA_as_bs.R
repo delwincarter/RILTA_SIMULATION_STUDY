@@ -15,33 +15,42 @@ process_chunk <- function(chunk_start, data) {
   if (chunk_start + 8 <= nrow(data)) {
     row1 <- data[chunk_start, ]        # Row 1
     row2 <- data[chunk_start + 1, ]    # Row 2
-    row3 <- data[chunk_start + 2, ]    # Row 3 (TRANS11)
-    row6 <- data[chunk_start + 5, ]    # Row 6 (SE_11)
-    row8 <- data[chunk_start + 7, ]    # Row 8 (LL value)
+    row3 <- data[chunk_start + 2, ]    # Row 3
+    row4 <- data[chunk_start + 3, ]    # Row 4 (TRANS11)
+    row6 <- data[chunk_start + 5, ]    # Row 6
+    row7 <- data[chunk_start + 6, ]    # Row 7 (SE_11)
+    row8 <- data[chunk_start + 7, ]    # Row 8 (ll_csv)
     
     # Step 5.1: Extract relevant data
-    rep_variable <- row1[1]            # Replication number from row 1, column 1
-    columns_1_to_10 <- row2[1:10]      # Columns 1-10 from row 2
-    trans11 <- row3[4]                 # Column 4 from row 3 (TRANS11)
-    se11 <- row6[4]                    # Column 4 from row 6 (SE_11)
-    ll_csv <- row8[2]                   # Column 2 from row 8 (Log-Likelihood from CSV)
+    rep_variable <- row1[1]                     # Replication number from row 1, column 1
+    columns_1_to_10 <- row2[1:10]               # Columns 1-10 from row 2
+    columns_1_to_5 <- c(row3[1:5], row3[8:10])  # Columns 1-5 and 8-10 (a1, a2, b11) from row 3 
+    trans11 <- row4[1:4]                        # Columns 1-3 (b12, b21, b22) and 4 from row 4 (TRANS11)
+    SEab <- row6[8:10]                          # Columns 8-10 (SE_a1, SE_a2, SE_b11) from row 6
+    se11 <- row7[1:4]                           # Columns 1-3 (SE_b12, SE_b21, SE_b22) and (SE_11) 4 from row 7 
+    ll_csv <- row8[2]                           # Column 2 from row 8 (ll_csv)
     
     # Step 5.2: Combine extracted columns into a single row
     combined_data_chunk <- c(as.character(row1$FileName), 
                              as.character(rep_variable), 
                              as.numeric(columns_1_to_10), 
+                             as.numeric(columns_1_to_5),
                              as.numeric(trans11), 
+                             as.numeric(SEab),
                              as.numeric(se11),
-                             as.numeric(ll_csv))  # ✅ Added ll_csv
+                             as.numeric(ll_csv))
     
     # Step 5.3: Convert the combined row into a data frame
     single_row_df <- as.data.frame(t(combined_data_chunk), stringsAsFactors = FALSE)
     
-    # Step 5.4: Rename columns, ensuring TRANS11, SE_11, and ll_csv are included
+    # Step 5.4: Rename columns, ensuring TRANS11 and SE_11 are included
     colnames(single_row_df) <- c("FileName", "Replication", 
                                  "Ec1u1", "Ec1u2", "Ec1u3", "Ec1u4", "Ec1u5", 
                                  "Ec2u1", "Ec2u2", "Ec2u3", "Ec2u4", "Ec2u5",
-                                 "TRANS11", "SE_11", "ll_csv")  # ✅ Added ll_csv
+                                 "Ec3u1", "Ec3u2", "Ec3u3", "Ec3u4", "Ec3u5",
+                                 "a1", "a2", "b11", "b12", "b21", "b22", "TRANS11", 
+                                 "SE_a1", "SE_a2", "SE_b11", "SE_b12", "SE_b21", "SE_b22",  
+                                 "SE_11", "ll_csv")
     return(single_row_df)
   } else {
     return(NULL)

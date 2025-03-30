@@ -10,8 +10,9 @@ process_chunk <- function(chunk_start, data) {
     row1 <- data[chunk_start, ]        # Row 1
     row2 <- data[chunk_start + 1, ]    # Row 2
     row3 <- data[chunk_start + 2, ]    # Row 3
-    row4 <- data[chunk_start + 3, ]    # Row 4 (TRANS data)
-    row8 <- data[chunk_start + 7, ]    # Row 8 (SE data)
+    row4 <- data[chunk_start + 3, ]    # Row 4 (TRANS11)
+    row8 <- data[chunk_start + 7, ]    # Row 8 (SE_11)
+    row10 <- data[chunk_start + 9, ]   # Row 10 (ll_csv)
     
     # Combine data from the rows into a single row, including all necessary columns
     rep_variable <- row1[1]            # Replication number from row 1, column 1
@@ -19,6 +20,7 @@ process_chunk <- function(chunk_start, data) {
     row3_cols_1_to_10 <- row3[1:10]    # Row 3 columns 1 through 10
     trans11 <- row4[9]                 # Row 4 column 9 (TRANS11)
     se11 <- row8[9]                    # Row 8 column 9 (SE_11)
+    ll_csv <- row10[2]                 # Row 10 column 2 (ll_csv)
     
     # Combine all columns into a single row
     combined_data_chunk <- c(as.character(row1$FileName), 
@@ -26,7 +28,8 @@ process_chunk <- function(chunk_start, data) {
                              as.numeric(row2_cols_6_to_10), 
                              as.numeric(row3_cols_1_to_10),
                              as.numeric(trans11), 
-                             as.numeric(se11))
+                             as.numeric(se11),
+                             as.numeric(ll_csv))
     
     # Convert to a data frame
     single_row_df <- as.data.frame(t(combined_data_chunk), stringsAsFactors = FALSE)
@@ -36,7 +39,9 @@ process_chunk <- function(chunk_start, data) {
                                  "Ec1u1", "Ec1u2", "Ec1u3", "Ec1u4", "Ec1u5", 
                                  "Ec2u1", "Ec2u2", "Ec2u3", "Ec2u4", "Ec2u5",
                                  "Ec3u1", "Ec3u2", "Ec3u3", "Ec3u4", "Ec3u5",
-                                 "TRANS11", "SE_11")
+                                 "TRANS11", "SE_11", "ll_csv")
+    
+    
     return(single_row_df)
   } else {
     return(NULL)

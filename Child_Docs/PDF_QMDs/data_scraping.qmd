@@ -1,0 +1,70 @@
+---
+title: "Data Scraping Child Document"
+subtitle: "Overview of the Data Scraping Process"
+author: "Delwin Carter"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+
+format:
+  html:
+    toc: false
+    theme: flatly
+    fig-format: svg
+    font:
+      main: "Avenir Next LT Pro, Arial, sans-serif"
+    page-layout: article
+    self-contained: true
+    include-in-header:
+      - |
+        <style>
+          body {
+            max-width: 800px; /* Restrict content width */
+            margin: 0 auto;  /* Center the content horizontally */
+            padding: 20px;   /* Add padding around the content */
+          }
+          h1.title, h2.subtitle {
+            text-align: center;
+            margin-top: 0;
+          }
+          p.author, p.date {
+            text-align: center;
+            font-style: italic;
+          }
+        </style>
+---
+
+------------------------------------------------------------------------
+
+::: {layout-ncol="2"}
+![](images/LVG%20FINAL.png){width="300"}
+
+![](images/UCSB_Gauchos_logo_PNG2.png){width="300"}
+:::
+
+------------------------------------------------------------------------
+
+```{r,eval=FALSE}
+#| label: "load-libraries"
+#| echo: true
+#| message: false
+#| warning: false
+
+library(parallel)
+
+# Use the global variable `csv_directory`
+csv_files <- list.files(path = csv_directory, pattern = "*.csv", full.names = TRUE)
+# Read and process each CSV file
+read_csv_file <- function(file) {
+  data <- read.csv(file, sep = " ", header = FALSE)
+  data$FileName <- gsub("\\.[^.]*$", "", basename(file))
+  return(data)
+}
+
+# Combine files using parallel processing
+num_cores <- detectCores() - 1
+cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
+cl <- makeCluster(num_cores, type = cluster_type)
+clusterExport(cl, c("read_csv_file", "gsub", "basename"))
+combined_data <- do.call(rbind, parLapply(cl, csv_files, read_csv_file))
+stopCluster(cl)
+
+```

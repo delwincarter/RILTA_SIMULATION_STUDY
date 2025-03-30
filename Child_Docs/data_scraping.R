@@ -1,7 +1,8 @@
 library(parallel)
 
 # Use the global variable `csv_directory`
-csv_files <- list.files(path = csv_directory, pattern = "*.csv", full.names = TRUE)
+
+csv_files <- list.files(path = csv_directory, pattern = "\\.csv$", full.names = TRUE)
 
 # Read and process each CSV file
 read_csv_file <- function(file) {

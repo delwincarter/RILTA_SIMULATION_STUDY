@@ -49,10 +49,13 @@ process_row_parallel <- function(i, data) {
 logit_columns <- final_combined_data[, 3:17]  # Adjust to columns 3 to 17
 probabilities <- apply(logit_columns, 2, function(x) round(1 / (1 + exp(-as.numeric(x))), 2))
 
-# Step 9: Combine probabilities with the FileName, Rep columns, and the TRANS11 and SE_11 columns
+# Step 9: Combine probabilities with the FileName, Replication, TRANS11, SE_11, ll_csv, and new variables
 final_combined_data_with_trans_se <- final_combined_data %>%
-  select(FileName, Replication, TRANS11, SE_11, ll_csv) %>%
+  select(FileName, Replication, TRANS11, SE_11, ll_csv,  
+         a1, a2, b11, b12, b21, b22, 
+         SE_a1, SE_a2, SE_b11, SE_b12, SE_b21, SE_b22) %>%
   bind_cols(as.data.frame(probabilities))
+
 
 # Step 10: Apply the function to add actual values in parallel using parLapply
 final_data_with_actuals <- parLapply(cl, 1:nrow(final_combined_data_with_trans_se), process_row_parallel, data = final_combined_data_with_trans_se)
@@ -74,8 +77,13 @@ colnames(final_data_with_actuals)[(ncol(final_combined_data_with_trans_se) + 1):
 final_data_with_actuals <- final_data_with_actuals %>%
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 
-# Step 15: Ensure that TRANS11 and SE_11 columns are numeric and rounded to 3 decimal places
-trans_se_columns <- c("TRANS11", "SE_11", "ll_csv")
+# Step 15: Ensure that TRANS11, SE_11, ll_csv, and new variables are numeric and rounded
+trans_se_columns <- c("TRANS11", "SE_11", "ll_csv", 
+                      "a1", "a2", "b11", "b12", "b21", "b22",
+                      "SE_a1", "SE_a2", "SE_b11", "SE_b12", "SE_b21", "SE_b22")
+
+final_data_with_actuals[trans_se_columns] <- lapply(final_data_with_actuals[trans_se_columns], function(x) as.numeric(x))
+
 
 final_data_with_actuals[trans_se_columns] <- lapply(final_data_with_actuals[trans_se_columns], function(x) as.numeric(x))
 

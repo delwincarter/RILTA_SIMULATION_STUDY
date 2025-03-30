@@ -28,6 +28,8 @@ knitr:
     fig.align: "center"
 ---
 
+
+
 ------------------------------------------------------------------------
 
 ::: {layout-ncol="2"}
@@ -50,6 +52,8 @@ knitr:
 
 Load Packages
 
+
+
 ```{r}
 #| label: "load-libraries"
 #| echo: true
@@ -71,6 +75,8 @@ library(knitr)
 library(webshot2)
 library(webshot)
 ```
+
+
 
 ------------------------------------------------------------------------
 
@@ -95,6 +101,8 @@ RI Loadings: lambda = 0, .2, .4, .6, .8, 1
 ![](images/clipboard-3621509256.png){width="450"}
 
 ### Setting up the Simulation Conditions 
+
+
 
 ```{r}
 
@@ -123,9 +131,13 @@ p1 %>%
 
 ```
 
+
+
 ------------------------------------------------------------------------
 
 ### Run Initial Simulation
+
+
 
 ```{r,eval = FALSE}
 #| label: "rilta-lta-simulation"
@@ -345,6 +357,8 @@ stopCluster(cl)
 
 ```
 
+
+
 ------------------------------------------------------------------------
 
 # Data Processing and Verification
@@ -358,6 +372,8 @@ stopCluster(cl)
 ### Scrape Mplus CSV Files
 
 *First, Load all CSV files and combine them into a single data frame.*
+
+
 
 ```{r}
 #| label: "combine-csv-files-parallel"
@@ -375,9 +391,13 @@ source(here('Child_Docs', 'data_scraping.R'))
 # Will return combined_data dataframe
 ```
 
+
+
 ### Slice Data / Extract Parameters
 
 *Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.*
+
+
 
 ```{r}
 #| label: "scrape-rows-process-data-parallel"
@@ -392,9 +412,13 @@ source(here('Child_Docs', 'step2_2t_LTA.R'))
 # Will populate final_combined_data dataframe in global environment
 ```
 
+
+
 ### Wrangle Data
 
 *Convert the logits to probabilities and add the known actual values to each row.*
+
+
 
 ```{r}
 #| label: "convert-logits-to-probabilities"
@@ -409,9 +433,13 @@ source(here('Child_Docs', 'step_3.R'))
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
+
+
 ### Generate Plots of Label Switching
 
 *Generate plots of randomly sampled violators for visual inspection using parallel processing.*
+
+
 
 ```{r, eval=FALSE}
 #| label: "plot-violators"
@@ -485,6 +513,8 @@ invisible(lapply(1:sample_size, plot_violator))
 
 ```
 
+
+
 ------------------------------------------------------------------------
 
 # Error Handling
@@ -494,6 +524,8 @@ invisible(lapply(1:sample_size, plot_violator))
 ### Scrape for Errors
 
 *Scrape output files for errors*
+
+
 
 ```{r}
 #| label: "process-out-files-parallel"
@@ -508,9 +540,13 @@ output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '3_2T_RILTA_GEN
 source(here('Child_Docs', 'out_scraping.R'))
 ```
 
+
+
 ### Tabulate Error Rates
 
 *Create Visual Summary of Errors per Condition*
+
+
 
 ```{r}
 #| label: "create-table-errors"
@@ -558,7 +594,13 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 
 ```
 
+
+
 ### Merge Errors with Main Data File
+
+*Merge Errors with Main Data*
+
+
 
 ```{r}
 #| label: "merge-errors"
@@ -570,9 +612,13 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 source(here('Child_Docs', 'merge_errors.R'))
 ```
 
+
+
 ### Scrape File Name Components
 
 *Create Column Names from the File Name*
+
+
 
 ```{r}
 
@@ -628,9 +674,13 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
+
+
 ### Calculate Violations
 
 *Calculate Violation Percentages per Condition*
+
+
 
 ```{r}
 #| label: "calculate-violations"
@@ -670,7 +720,11 @@ violation_summary <- final_data_with_actuals %>%
 
 ```
 
+
+
 ### Summarize & Visualize Label Switching Percentage Results
+
+
 
 ```{r}
 #| label: "summarize-violations"
@@ -735,6 +789,8 @@ final_table <- violation_summary %>%
 final_table
 ```
 
+
+
 ------------------------------------------------------------------------
 
 # Re-Run Simulations
@@ -742,6 +798,8 @@ final_table
 ------------------------------------------------------------------------
 
 ### Re-Run Simulation with Dynamic Replication Conditions
+
+
 
 ```{r,eval = FALSE}
 #| label: "rilta-lta-simulation2"
@@ -965,6 +1023,8 @@ result_list <- parLapply(cl, 1:nrow(violation_summary), function(i) {
 stopCluster(cl)
 ```
 
+
+
 ------------------------------------------------------------------------
 
 ## Check for Label Switching and Errors - Part 2
@@ -974,6 +1034,8 @@ stopCluster(cl)
 ------------------------------------------------------------------------
 
 *Load all CSV files and combine them into a single data frame.*
+
+
 
 ```{r}
 #| label: "combine-csv-files-parallel2"
@@ -991,7 +1053,11 @@ source(here('Child_Docs', 'data_scraping.R'))
 # Will populate combine_data in global environment
 ```
 
+
+
 *Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.*
+
+
 
 ```{r}
 #| label: "scrape-rows-process-data-parallel2"
@@ -1006,7 +1072,11 @@ source(here('Child_Docs', 'step2_2t_LTA.R'))
 # Will will populate final_combined data in global environment
 ```
 
+
+
 *Convert the logits to probabilities and add the known actual values to each row.*
+
+
 
 ```{r}
 #| label: "convert-logits-to-probabilities2"
@@ -1021,7 +1091,11 @@ source(here('Child_Docs', 'step_3.R'))
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
+
+
 *Scrape Output Files for Errors*
+
+
 
 ```{r}
 #| label: "process-out-files-parallel2"
@@ -1036,7 +1110,11 @@ output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '3_2T_RILTA_GEN
 source(here('Child_Docs', 'out_scraping.R'))
 ```
 
+
+
 *Create Visual Summary of Errors per Condition*
+
+
 
 ```{r}
 #| label: "create-table-errors2"
@@ -1083,7 +1161,11 @@ cat("Number of rows in error_summary: ", nrow(error_summary), "\n")
 cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 ```
 
+
+
 *Merge Errors with Main Data*
+
+
 
 ```{r}
 #| label: "merge-errors2"
@@ -1095,7 +1177,11 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 source(here('Child_Docs', 'merge_errors.R'))
 ```
 
+
+
 *Create Column Names from the File Name*
+
+
 
 ```{r}
 #| label: "create-column-names-from-filename2"
@@ -1149,7 +1235,11 @@ final_data_with_actuals <- final_data_with_actuals %>%
   )
 ```
 
+
+
 *Calculate Violation Percentages per Condition*
+
+
 
 ```{r}
 #| label: "calculate-violations2"
@@ -1191,7 +1281,11 @@ violation_summary <- final_data_with_actuals %>%
   )
 ```
 
+
+
 *Summarize & Visualize Label Switching Percentage Results*
+
+
 
 ```{r}
 #| label: "visualize-violations-and-errors2"
@@ -1257,6 +1351,8 @@ final_table <- violation_summary %>%
 final_table
 ```
 
+
+
 ------------------------------------------------------------------------
 
 # Final Data Preparation
@@ -1266,6 +1362,8 @@ final_table
 ## Filter Cases with Violations and Errors
 
 *Filter out cases with any violations, leaving only the clean data.*
+
+
 
 ```{r}
 #| label: "delete-cases"
@@ -1279,9 +1377,13 @@ filtered_data_with_no_violations <- final_data_with_actuals[
   final_data_with_actuals$Any_Violation == 0 & final_data_with_actuals$ErrorFlag == 0, ]
 ```
 
+
+
 ### Randomly Sample 500 Replications
 
 *Take random sample of replications to achieve n = 500*
+
+
 
 ```{r}
 #| label: "select-500-random-replication"
@@ -1314,11 +1416,15 @@ if (all(initial_counts$Initial_Count >= 500)) {
 }
 ```
 
+
+
 ------------------------------------------------------------------------
 
 ### Calculate Monte Carlo Values
 
 *Calculate Monte Carlo values for `TRANS11`, including population values, averages, standard errors, Mean Squared Error (MSE), coverage, and power.*
+
+
 
 ```{r}
 #| label: "compute-mc-values"
@@ -1331,9 +1437,13 @@ if (all(initial_counts$Initial_Count >= 500)) {
 source(here('Child_Docs', 'compute_mc_lambda.R'))
 ```
 
+
+
 ### Calculate Bias and Dichotomous Variables
 
 *Calculate dichotomous variables for Power and Coverage, compute Parameter and SE Bias, and prepare subsets for movers and stayers.*
+
+
 
 ```{r}
 #| label: "calculate-bias-dichotomous-variables"
@@ -1378,13 +1488,15 @@ mc_values <- mc_values %>%
   select(-population_numeric)
 ```
 
-------------------------------------------------------------------------
+
 
 ## Prepare Data for Visualization
 
 ### Subset Data for Bias Plots
 
 *Subset the Monte Carlo data into mover transition probabilities (.2, .3, .4) and stayer transition probabilities (.6, .7, .8) based on population values*
+
+
 
 ```{r}
 #| label: "subset-data-for-bias-plots"
@@ -1441,7 +1553,11 @@ subset_stayer <- subset_stayer %>%
   mutate(Lambda = as.numeric(as.character(Lambda)))
 ```
 
+
+
 ### Prepare Function for Bias Plots
+
+
 
 ```{r}
 #| label: "plot-bias"
@@ -1518,7 +1634,11 @@ if (title_suffix == "Stayer") {
 
 ```
 
+
+
 ### Render Bias Figures
+
+
 
 ```{r}
 #| label: "plot-movers"
@@ -1560,11 +1680,15 @@ plot_stayer_no_title <- plot_stayer + labs(title = NULL)
 ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_rilta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 4, dpi = 300, device = "svg")
 ```
 
+
+
 ------------------------------------------------------------------------
 
 ## **Prepare Data for Heat Maps**
 
 *Prepare data for heat map creation by ensuring correct formatting for population values, and subsetting the data based on class proportions and sample sizes.*
+
+
 
 ```{r}
 #| label: "prepare-data-for-heatmaps"
@@ -1619,7 +1743,11 @@ subset_07 <- subset_list[[5]]  # Subset for population value .700
 subset_08 <- subset_list[[6]]  # Subset for population value .800
 ```
 
+
+
 ### Prepare Function for Heat Map Creation
+
+
 
 ```{r}
 #| label: "create-heatmap-function"
@@ -1763,9 +1891,13 @@ create_table <- function(subset, transition_probability) {
 }
 ```
 
+
+
 ### Render Heat maps
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .200
+
+
 
 ```{r}
 #| label: "create-heatmap-tabe-.200"
@@ -1781,7 +1913,11 @@ subset_02_table |>
   gtsave(here("2 Time Points", "zHEATMAPS", "z2t_heatmaps", "z2t_r_l_heatmaps", "2T_R_L_.200.png"))
 ```
 
+
+
 #### TABLE FOR TRANSITION PROBABILITIES OF .300
+
+
 
 ```{r}
 #| label: "create-heatmap-tabe-.300"
@@ -1796,7 +1932,11 @@ subset_03_table
 subset_03_table |>  tab_options(table.width = pct(65)) |> gtsave(here("2 Time Points", "zHEATMAPS", "z2t_heatmaps", "z2t_r_l_heatmaps","2T_R_L_.300.png"))
 ```
 
+
+
 #### TABLE FOR TRANSITION PROBABILITIES OF .400
+
+
 
 ```{r}
 #| label: "create-heatmap-tabe-.400"
@@ -1810,7 +1950,11 @@ subset_04_table
 subset_04_table |>  tab_options(table.width = pct(65)) |> gtsave(here("2 Time Points", "zHEATMAPS", "z2t_heatmaps", "z2t_r_l_heatmaps","2T_R_L_.400.png"))
 ```
 
+
+
 #### TABLE FOR TRANSITION PROBABILITIES OF .600
+
+
 
 ```{r}
 #| label: "create-heatmap-tabe-.600"
@@ -1824,7 +1968,11 @@ subset_06_table
 subset_06_table |>  tab_options(table.width = pct(65)) |> gtsave(here("2 Time Points", "zHEATMAPS", "z2t_heatmaps", "z2t_r_l_heatmaps","2T_R_L_.600.png"))
 ```
 
+
+
 #### TABLE FOR TRANSITION PROBABILITIES OF .700
+
+
 
 ```{r}
 #| label: "create-heatmap-tabe-.700"
@@ -1838,7 +1986,11 @@ subset_07_table
 subset_07_table |>  tab_options(table.width = pct(65)) |> gtsave(here("2 Time Points", "zHEATMAPS", "z2t_heatmaps", "z2t_r_l_heatmaps","2T_R_L_.700.png"))
 ```
 
+
+
 #### TABLE FOR TRANSITION PROBABILITIES OF .800
+
+
 
 ```{r}
 #| label: "create-heatmap-tabe-.800"
@@ -1851,3 +2003,4 @@ subset_08_table <- create_table(subset_08, ".800")
 subset_08_table
 subset_08_table |>  tab_options(table.width = pct(65)) |> gtsave(here("2 Time Points", "zHEATMAPS", "z2t_heatmaps", "z2t_r_l_heatmaps","2T_R_L_.800.png"))
 ```
+

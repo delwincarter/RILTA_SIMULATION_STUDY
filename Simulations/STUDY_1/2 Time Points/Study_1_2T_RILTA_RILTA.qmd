@@ -1,21 +1,31 @@
 ---
 title: "Understanding the Performance of Random Intercepts Latent Transition Analysis (RI-LTA): A Monte Carlo Simulation Study"
-subtitle: "*Study 1: RILTA Generated, RILTA Analyzed with Two Timepoints*"
+subtitle: "Study 1: LTA Generated, LTA Analyzed with Two Timepoints"
+author: "Delwin Carter"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+
 format:
   html:
     toc: true
+    toc-title: "Overview"
     toc-depth: 3
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
+    theme: flatly
+    fig-format: svg
+    font:
+      main: "Avenir Next LT Pro, Arial, sans-serif"
+    page-layout: full
+    code-tools: true
+
 editor: visual
-theme: flatly
-author: "Delwin Carter"
-date: "`r format(Sys.time(), '%B %d, %Y')`"
-page-layout: full
-fig-format: svg
-Mainfont: "Avenir.ttc"
+
 knitr:
   opts_chunk:
-    out.width: "90%"
-    fig.align: center
+    echo: true
+    out.width: "100%"
+    fig.align: "center"
 ---
 
 ------------------------------------------------------------------------
@@ -25,6 +35,16 @@ knitr:
 
 ![](images/UCSB_Gauchos_logo_PNG2.png){width="300"}
 :::
+
+------------------------------------------------------------------------
+
+# Introduction
+
+## Study 1D: RILTA Generated, LTA Analyzed
+
+------------------------------------------------------------------------
+
+![](images/RILTA_RILTA.png){width="354"}
 
 ------------------------------------------------------------------------
 
@@ -52,17 +72,15 @@ library(tools)
 
 ------------------------------------------------------------------------
 
-# RILTA Generated, RILTA Analyzed
-
-![](images/RILTA_RILTA.png){width="354"}
+# Simulation 
 
 ------------------------------------------------------------------------
 
-# Part 1: Conduct Simulation
+## Part 1: Conduct Simulation
 
 > In this section, I am conducting a simulation where I am generating data as Latent Transition Analysis and analyzing it as Random Intercepts Latent Transition Analysis to fully explore the model's performance. The simulation consists of 144 conditions, combining four sample sizes (N = 500, 1000, 2000, 4000) with six transition probabilities linked to logits (1.385, .85, .41, -.41, -.85, -1.385), corresponding to probabilities of .8, .7, .6, .4, .3, and .2., and lambda loadings on the random intercept of 0, 1, 1.5, 2, 2.5, and 3. These conditions are iterated over programmatically using MplusAutomation to set up and execute the models. To speed up the process, I employ parallel processing, which distributes computations across multiple CPU cores, enabling efficient completion of the simulations across all scenarios.
 
-##### Conditions:
+Conditions:
 
 Sample Size: N = 500, 1000, 2000, and 4000
 
@@ -74,9 +92,7 @@ RI Loadings: lambda = 0, 1, 1.5, 2, 2.5, and 3
 
 ![](images/clipboard-3119439446.png){width="351"}
 
-------------------------------------------------------------------------
-
-Setting up the Simulation
+### Setting up the Simulation Conditions 
 
 ```{r}
 #| label: "simulation-conditions"
@@ -106,51 +122,6 @@ p1 %>%
 ------------------------------------------------------------------------
 
 ## Run Initial Simulation
-
-TEMP ITERATOR MATRIX
-
-```{r}
-library(dplyr)
-library(stringr)
-
-# List filenames from the directory
-input_dir <- file.path("TEMP R R")
-input_files <- list.files(input_dir, pattern = "\\.inp$", full.names = FALSE)
-
-# Extract relevant information directly from filenames
-p1 <- data.frame(FileName = input_files) %>%
-  mutate(
-    # Extract sample size (N)
-    N = case_when(
-      grepl("N_4000", FileName) ~ 4000,
-      grepl("N_500", FileName) ~ 500,
-      grepl("N_1000", FileName) ~ 1000,
-      grepl("N_2000", FileName) ~ 2000,
-      TRUE ~ NA_integer_
-    ),
-    # Extract Population based on `TP` values
-    TPs = case_when(
-      grepl("TP_1.385", FileName) ~ "1.385",
-      grepl("TP_0.85", FileName) ~ ".85",
-      grepl("TP_0.41", FileName) ~ ".41",
-      grepl("TP_-0.41", FileName) ~ "-.41",
-      grepl("TP_-0.85", FileName) ~ "-.85",
-      grepl("TP_-1.385", FileName) ~ "-1.385",
-      TRUE ~ NA_character_
-    ),
-    # Extract Lambda (only "1" or "0")
-    Lambda = case_when(
-      grepl("lambda_1", FileName) ~ "1",
-      grepl("lambda_0", FileName) ~ "0",
-      TRUE ~ NA_character_
-    ),
-  ) %>%
-  mutate(
-    Lambda = factor(Lambda, levels = c("0", "1")),
-  )
-
-
-```
 
 ```{r,eval = FALSE}
 #| label: "rilta-rilta-simulation"
@@ -377,13 +348,20 @@ write.csv(p1, file = here("Simulations", "STUDY_1", "2 Time Points", "TEMP R R",
 
 p1 <- read.csv(here("Simulations", "STUDY_1", "2 Time Points", "TEMP R R", "p1_extracted_data.csv"))
 
+
 ```
 
 ------------------------------------------------------------------------
 
-## [Check for Label Switching and Errors]{.underline}
+# Data Processing and Verification
+
+------------------------------------------------------------------------
+
+## Check for Label Switching and Errors
 
 > In this section: .csv files are first merged into a single data frame, from which specific parameters are extracted. Logit values are then converted to probabilities, and known class values are incorporated into the data frame. A subset of cases involving label switching is selected randomly and plotted for visual review. Output files are scanned for errors, which are subsequently merged back into the original data file. Additional columns derived from the file name are added, and the percentage of violations is calculated. Both errors and label switching violations are visually represented, and the total number of corrected replications is reported.
+
+### Scrape Mplus CSV Files
 
 *First, Load all CSV files and combine them into a single data frame.*
 
@@ -403,6 +381,8 @@ source(here('Child_Docs', 'data_scraping.R'))
 # Will return combined_data dataframe
 ```
 
+### Slice Data / Extract Parameters
+
 *Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.*
 
 ```{r}
@@ -418,6 +398,8 @@ source(here('Child_Docs', 'step2_2t_RILTA.R'))
 # Will populate final_combined_data dataframe in global environment
 ```
 
+### Wrangle Data
+
 *Convert the logits to probabilities and add the known actual values to each row.*
 
 ```{r}
@@ -432,6 +414,8 @@ source(here('Child_Docs', 'step_3.R'))
 
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
+
+### Generate Plots of Label Switching
 
 *Generate plots of randomly sampled violators for visual inspection using parallel processing.*
 
@@ -507,6 +491,14 @@ invisible(lapply(1:sample_size, plot_violator))
 
 ```
 
+------------------------------------------------------------------------
+
+# Error Handling
+
+------------------------------------------------------------------------
+
+### Scrape for Errors
+
 *Scrape output files for errors*
 
 ```{r}
@@ -523,6 +515,8 @@ source(here('Child_Docs', 'out_scraping.R'))
 
 
 ```
+
+### Tabulate Error Rates
 
 *Create Visual Summary of Errors per Condition*
 
@@ -571,7 +565,7 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 
 ```
 
-*Merge Errors with Main Data*
+### Merge Errors with Main Data File
 
 ```{r}
 #| label: "merge-errors"
@@ -582,6 +576,8 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 # Step 2: Process the data using the child script
 source(here('Child_Docs', 'merge_errors.R'))
 ```
+
+### Scrape File Name Components
 
 *Create Column Names from the File Name*
 
@@ -633,6 +629,8 @@ final_data_with_actuals <- final_data_with_actuals %>%
   )
 ```
 
+### Calculate Violations
+
 *Calculate Violation Percentages per Condition*
 
 ```{r}
@@ -672,7 +670,7 @@ violation_summary <- final_data_with_actuals %>%
   )
 ```
 
-*Summarize & Visualize Label Switching Percentage Results*
+### Summarize & Visualize Label Switching Percentage Results
 
 ```{r}
 #| label: "summarize-violations"
@@ -738,11 +736,11 @@ final_table
 
 ------------------------------------------------------------------------
 
-# Part 2: Re Run Simulation
+# Re-Run Simulations
 
 ------------------------------------------------------------------------
 
-#### Re-Run Simulation with Dynamic Replication Conditions
+### Re-Conduct Simulation with Dynamic Replication Conditions
 
 ```{r, eval=FALSE}
 #| label: "rilta-rilta2-simulation"
@@ -970,7 +968,7 @@ stopCluster(cl)
 
 ------------------------------------------------------------------------
 
-## Check for Label Switching and Errors
+## Check for Label Switching and Errors - Part 2
 
 > In this section: we re conduct the steps for aggregating the label switching and errors to guarantee that we will have at minimum 500 replications per condition.
 
@@ -1296,6 +1294,14 @@ violation_summary_table <- gt(data = violation_summary_df) %>%
 violation_summary_table
 ```
 
+------------------------------------------------------------------------
+
+# Final Data Preparation
+
+------------------------------------------------------------------------
+
+## Filter Cases with Violations and Errors
+
 *Filter out cases with any violations, leaving only the clean data.*
 
 ```{r}
@@ -1310,7 +1316,9 @@ filtered_data_with_no_violations <- final_data_with_actuals[
   final_data_with_actuals$Any_Violation == 0 & final_data_with_actuals$ErrorFlag == 0, ]
 ```
 
-*Randomly select 500 replications per condition*
+### Randomly Sample 500 Replications
+
+*Take random sample of replications to achieve n = 500*
 
 ```{r}
 #| label: "select-500-random-replication"
@@ -1345,7 +1353,7 @@ if (all(initial_counts$Initial_Count >= 500)) {
 
 ------------------------------------------------------------------------
 
-### **Prepare Final Data for Visualization**
+### Calculate Monte Carlo Values
 
 *Calculate Monte Carlo values for `TRANS11`, including population values, averages, standard errors, Mean Squared Error (MSE), coverage, and power.*
 
@@ -1359,6 +1367,8 @@ if (all(initial_counts$Initial_Count >= 500)) {
 # Compute Monte Carlo Values
 source(here('Child_Docs', 'compute_mc_lambda.R'))
 ```
+
+### Calculate Bias and Dichotomous Variables
 
 *Calculate dichotomous variables for Power and Coverage, compute Parameter and SE Bias, and prepare subsets for movers and stayers.*
 
@@ -1406,7 +1416,13 @@ mc_values <- mc_values %>%
 
 ```
 
-*Subset the Monte Carlo values data for transitions with movers and stayers based on the population value.*
+------------------------------------------------------------------------
+
+## Prepare Data for Visualization
+
+### Subset Data for Bias Plots
+
+*Subset the Monte Carlo data into mover transition probabilities (.2, .3, .4) and stayer transition probabilities (.6, .7, .8) based on population values*
 
 ```{r}
 #| label: "subset-data-for-bias-plots"
@@ -1467,7 +1483,7 @@ subset_stayer <- subset_stayer %>%
 
 ```
 
-*Create function to generate plots*
+### Prepare Function for Bias Plots
 
 ```{r}
 #| label: "plot-bias"
@@ -1561,8 +1577,6 @@ create_plot <- function(data, title_suffix) {
 
 ```
 
-------------------------------------------------------------------------
-
 ### Render Bias Figures
 
 ```{r}
@@ -1594,6 +1608,8 @@ ggsave(here("2 Time Points", "zFIGURES", "x2t_rilta_rilta_plots", "plot_stayer.s
 ```
 
 ------------------------------------------------------------------------
+
+## **Prepare Data for Heat Maps**
 
 *Prepare data for heat map creation by ensuring correct formatting for population values, and subsetting the data based on class proportions and sample sizes.*
 
@@ -1672,7 +1688,7 @@ subset_07 <- subset_list[[5]]  # Subset for population value .700
 subset_08 <- subset_list[[6]]  # Subset for population value .800
 ```
 
-*Create heat map function to prepare for heat map creation*
+### Prepare Function for Heat Map Creation
 
 ```{r}
 

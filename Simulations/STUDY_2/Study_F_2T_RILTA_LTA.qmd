@@ -1,65 +1,112 @@
 ---
-title: "Final Study (k = 3) LTA Generated, LTA Analyzed: Two Timepoints"
+title: "Understanding the Performance of Random Intercepts Latent Transition Analysis (RI-LTA): A Monte Carlo Simulation Study using MplusAutomation"
+subtitle: "Study 2.3: RILTA Generated, LTA Analyzed with 3 Classes and  2 Timepoints"
+author: "Delwin Carter"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+
 format:
   html:
-    code-fold: true
+    toc: true
+    toc-title: "Overview"
+    toc-depth: 3
+    toc-float:
+      collapsed: false
+      smooth-scroll: true
+    theme: flatly
+    fig-format: svg
+    font:
+      main: "Avenir Next LT Pro, Arial, sans-serif"
+    page-layout: full
+    code-tools: true
+
 editor: visual
-author: "Delwin Carter"
-page-layout: full
-fig-format: svg
+
 knitr:
   opts_chunk:
-    out.width: "90%"
-    fig.align: center
+    echo: true
+    out.width: "100%"
+    fig.align: "center"
 ---
 
-```{r, message=FALSE, warning=FALSE}
+------------------------------------------------------------------------
+
+::: {layout-ncol="2"}
+![](images/LVG%20FINAL.png){width="300"}
+
+![](images/UCSB_Gauchos_logo_PNG2.png){width="300"}
+:::
+
+------------------------------------------------------------------------
+
+## Study 2.3: RILTA Generated, RILTA Analyzed
+
+------------------------------------------------------------------------
+
+![](images/LTA_LTA-01.png){width="324"}
+
+------------------------------------------------------------------------
+
+Load Packages
+
+```{r}
 #| label: "load-libraries"
 #| echo: true
 #| message: false
 #| warning: false
-# Load necessary libraries
-#knitr::opts_chunk$set(echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE)
+
 library(tidyverse)
-library(glue)
 library(MplusAutomation)
 library(here)
 library(gt)
 library(janitor)
-library(ggplot2)
+library(glue)
+library(ggtext)
+library(rlang)
+library(knitr)
 library(parallel)
 library(tools)
-
-
+library(webshot2)
+library(flextable)
+library(officer)
 ```
 
-# RILTA Generated, LTA Analyzed
+------------------------------------------------------------------------
 
-## Introduction
+# Simulation
 
-In this section, we will simulate three models by generating them as Random Intercepts Latent Transition Models and analyze them as a Latent Transition Models.
+------------------------------------------------------------------------
 
-![](images/RILTA_LTA.png){width="350"}
+## Part 1: Conduct Simulation
 
-## Model 1:
+> In this section, I am conducting a simulation where I am generating data as Latent Transition Analysis and analyzing it as Latent Transition Analysis to fully explore the model's performance. The simulation consists of over with 48 conditions including 3 different models, four sample sizes (N = 500, 1000, 2000, 4000)n six transition probabilities linked to logits (*betas;* 3.179, 0.407), corresponding to probabilities of .8 and .2., and 2 mixing proportions (even; 33.3%,, 33.3%, 33.3%), (uneven; 10%, 30%, 60%). These conditions are iterated over programmatically using MplusAutomation to set up and execute the models. To speed up the process, I employ parallel processing, which distributes computations across multiple CPU cores, enabling efficient completion of the simulations across all scenarios.
+
+Conditions:
 
 Sample Size: N = 500, 1000, 2500, 5000
+
+Mixing Proportion: Even (33.3%,, 33.3%, 33.3%), Uneven (10%, 30%, 60%)
 
 Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
 
 ![](images/clipboard-2891141057.png){width="352"}
 
-RI Loadings: lambda = .3, .5, .7, 9
+RI Loadings: Lambda = (Incremental; .3, .5, .7, 9) and (Varied; A, B, C, D)
+
+Segment 1: Models 1 - 3 = Incremental Lambdas
 
 ![](images/clipboard-2109977150.png){width="554"}
 
-Thresholds= Model 1
+Segment 2: Models 1A - 1D
 
-![](images/clipboard-3674477926.png){width="344"}
+Segment 3: Models 2A - 2D
 
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
+Segment 4; Models 3A - 3D
 
-#### Conditions Matrix for Model 1 - Model 3
+![](images/clipboard-236077840.png){width="556"}
+
+------------------------------------------------------------------------
+
+### Setting up the Simulation Conditions
 
 ```{r}
 #| label: "simulation-conditions-1"
@@ -87,9 +134,56 @@ p1 %>%
 
 ```
 
-#### Simulation Setup 
+```{r}
+#| label: "simulation-conditions-1"
+#| echo: true
+#| message: false
+#| warning: false
 
-We will now run a Monte Carlo simulation for Model 2. The simulation will iterate over different combinations of sample sizes, transition probabilities, lamdas, and mixing proportion components. The following code sets up the cluster for parallel processing and defines the function to run the simulation.
+# Define all simulation conditions
+p1 <- expand.grid(N = c(500, 1000, 2500, 5000),
+                  TPs = c(3.179, 0.407),
+                  lambda = c(0.3, 0.5, 0.7, 0.9), 
+                  mix = c(1, 2, 3))
+
+# Subsets for each computer (uncomment the line for the desired computer)
+
+# Laptop: 24 conditions (N = 5000, all TPs, lambda, mix) - 11 cores available
+p1 <- p1[p1$N == 5000, ]
+
+# Desktop 1: 14 conditions (N = 500, TPs = 3.179, lambda = 0.3, 0.5, 0.7 + N = 1000, TPs = 0.407, mix = 1) - 5 cores available
+#p1 <- p1[(p1$N == 500 & p1$TPs == 3.179 & p1$lambda %in% c(0.3, 0.5, 0.7)) | 
+#         (p1$N == 1000 & p1$TPs == 0.407 & p1$mix == 1), ]
+
+# Desktop 2: 14 conditions (N = 500, TPs = 0.407 + N = 1000, TPs = 3.179, mix = 1, lambda = 0.3, 0.5) - 5 cores available
+#p1 <- p1[(p1$N == 500 & p1$TPs == 0.407) | 
+#         (p1$N == 1000 & p1$TPs == 3.179 & p1$mix == 1 & p1$lambda %in% c(0.3, 0.5)), ]
+
+# Desktop 3: 14 conditions (N = 1000, TPs = 3.179, mix = 2, 3 + N = 2500, TPs = 0.407, mix = 1, lambda = 0.3, 0.5 + N = 1000, TPs = 0.407, mix = 1) - 5 cores available
+#p1 <- p1[(p1$N == 1000 & p1$TPs == 3.179 & p1$mix %in% c(2, 3)) | 
+#         (p1$N == 2500 & p1$TPs == 0.407 & p1$mix == 1 & p1$lambda %in% c(0.3, 0.5)) | 
+#         (p1$N == 1000 & p1$TPs == 0.407 & p1$mix == 1), ]
+
+# Desktop 4: 14 conditions (N = 1000, TPs = 0.407, mix = 2, 3 + N = 2500, TPs = 3.179, mix = 1, lambda = 0.3, 0.5 + N = 2500, TPs = 0.407, mix = 2, lambda = 0.3, 0.5, 0.7) - 5 cores available
+#p1 <- p1[(p1$N == 1000 & p1$TPs == 0.407 & p1$mix %in% c(2, 3)) | 
+#         (p1$N == 2500 & p1$TPs == 3.179 & p1$mix == 1 & p1$lambda %in% c(0.3, 0.5)) | 
+#         (p1$N == 2500 & p1$TPs == 0.407 & p1$mix == 2 & p1$lambda %in% c(0.3, 0.5, 0.7)), ]
+
+# Desktop 5: 14 conditions (N = 2500, TPs = 3.179, mix = 2, 3 + N = 2500, TPs = 0.407, mix = 3, lambda = 0.3, 0.5 + N = 2500, TPs = 0.407, mix = 1, lambda = 0.7, 0.9) - 5 cores available
+#p1 <- p1[(p1$N == 2500 & p1$TPs == 3.179 & p1$mix %in% c(2, 3)) | 
+#         (p1$N == 2500 & p1$TPs == 0.407 & p1$mix == 3 & p1$lambda %in% c(0.3, 0.5)) | 
+#         (p1$N == 2500 & p1$TPs == 0.407 & p1$mix == 1 & p1$lambda %in% c(0.7, 0.9)), ]
+```
+
+# Segment 1: Models 1 - 3
+
+## Model 1:
+
+Thresholds= Model 1
+
+![](images/clipboard-1751288251.png){width="353"}
+
+\_Figure 1: Probability Plot for Model 1\_
 
 ```{r,eval = FALSE}
 #| label: "rilta-lta-simulation-Model 1"
@@ -97,7 +191,6 @@ We will now run a Monte Carlo simulation for Model 2. The simulation will iterat
 #| message: false
 #| warning: false
 #| code-fold: true
-
 
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
@@ -110,8 +203,8 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
   MODELPOPULATION <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
       c2#1 on c1#1*{TPs};
@@ -119,11 +212,11 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
       
-       f by u11-u15*{lambda} (p1-p5)
-            u21-u25*{lambda} (p1-p5);
-        f@1;
-        [f@0];
-        
+   f by u11-u15*{lambda} (p1-p5)
+        u21-u25*{lambda} (p1-p5);
+    f@1;
+    [f@0];
+    
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -140,11 +233,44 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+   f by u11-u15*{lambda} (p1-p5)
+        u21-u25*{lambda} (p1-p5);
+    f@1;
+    [f@0];
+    
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) { 
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -152,12 +278,12 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-
-       f by u11-u15*{lambda} (p1-p5)
-            u21-u25*{lambda} (p1-p5);
-        f@1;
-        [f@0];
-        
+      
+     f by u11-u15*{lambda} (p1-p5)
+          u21-u25*{lambda} (p1-p5);
+    f@1;
+    [f@0];
+    
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -176,18 +302,18 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
     ")
   }
 
-  # Step 2.2: Construct the MODEL argument based on the value of 'mix'
+  # Construct the MODEL argument based on the value of mix
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -205,18 +331,17 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -227,6 +352,34 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
       [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
 
       MODEL c2: 	
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL c2:  
       %c2#1%
       [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
       %c2#2%
@@ -249,7 +402,6 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
 
-      
     ")
   } else if (TPs == 0.407) {
     glue("
@@ -262,7 +414,6 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
       trans21 = exp(a1+b21)/(exp(a1+b21)+exp(a2+b22)+1);
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
-      
       
     ")
   }
@@ -281,13 +432,17 @@ rilta_lta_func <- function(N, TPs, mix, lambda) {
       !SAVE = repM1*.dat;
       RESULTS = RILTA_LTA_M1_N_{N}_TP_{TPs}_M_{mix}_L_{lambda}.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -322,30 +477,15 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 2
+## Model 2:
 
-### Conditions:
+Thresholds: Model 2
 
-Sample Size: N = 500, 1000, 2500, 5000
+![](images/clipboard-3529114057.png){width="318"}
 
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = .3, .5, .7. 9
-
-![](images/clipboard-2109977150.png){width="476"}
-
-Thresholds= Example 2
-
-![](images/clipboard-3697136395.png){width="285"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-We will now run a Monte Carlo simulation for Model 2. This simulation will iterate over different combinations of sample sizes, transition probabilities, and mixture components using the logits form the probability plot of Model 2. The following code sets up the cluster for parallel processing and defines the function to run the simulation.
+\_Figure 2: Probability Plot of Model 2\_
 
 ```{r, eval = FALSE}
-
 #| label: "rilta-lta-simulation-Model 2"
 #| echo: true
 #| message: false
@@ -355,12 +495,43 @@ We will now run a Monte Carlo simulation for Model 2. This simulation will itera
 num_cores <- detectCores() - 1  # Detect number of cores
 cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
-
-
 rilta_lta_func2 <- function(N, TPs, mix, lambda) {
   
-    # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+   f by u11-u15*{lambda} (p1-p5)
+        u21-u25*{lambda} (p1-p5);
+    f@1;
+    [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+    ")
+  } else if (mix == 2) {
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -371,37 +542,32 @@ rilta_lta_func2 <- function(N, TPs, mix, lambda) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-       
-       f by u11-u15*{lambda} (p1-p5)
-            u21-u25*{lambda} (p1-p5);
-        f@1;
-        [f@0];
-        
-        MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
-       ")
+      
+   f by u11-u15*{lambda} (p1-p5)
+        u21-u25*{lambda} (p1-p5);
+    f@1;
+    [f@0];
     
-  } else if (mix == 2) { 
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+    ")
+  } else if (mix == 3) {
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -410,45 +576,41 @@ rilta_lta_func2 <- function(N, TPs, mix, lambda) {
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
       
-       f by u11-u15*{lambda} (p1-p5)
-            u21-u25*{lambda} (p1-p5);
-        f@1;
-        [f@0];
-        
-     MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+   f by u11-u15*{lambda} (p1-p5)
+        u21-u25*{lambda} (p1-p5);
+    f@1;
+    [f@0];
 
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
-       ")
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+    ")
   }
 
   # Construct the MODEL argument based on the value of mix
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
      MODEL c1:
         %c1#1%
@@ -474,15 +636,15 @@ rilta_lta_func2 <- function(N, TPs, mix, lambda) {
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	      
-
+      c2#2 on c1#2*1.793147 (b22);
+        
      MODEL c1:
         %c1#1%
      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
@@ -503,6 +665,34 @@ rilta_lta_func2 <- function(N, TPs, mix, lambda) {
         %c2#3%
      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
 	      ")      
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+    ")
   }
   
   # Construct the MODELCONSTRAINT argument based on the value of TPs
@@ -531,8 +721,6 @@ rilta_lta_func2 <- function(N, TPs, mix, lambda) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
-      
     ")
   }
   
@@ -552,12 +740,17 @@ rilta_lta_func2 <- function(N, TPs, mix, lambda) {
       RESULTS = RILTA_LTA_M2_N_{N}_TP_{TPs}_M_{mix}_L_{lambda}.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -582,8 +775,6 @@ invisible(clusterEvalQ(cl, {
   library(here)
 }))
 
-
-
 result_list <- parLapply(cl, 1:nrow(p1), function(i) {
   rilta_lta_func2(p1$N[i], p1$TPs[i], p1$mix[i], p1$lambda[i])
 })
@@ -591,27 +782,13 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 3
+## Model 3:
 
-### Conditions:
+Thresholds: Model 3
 
-Sample Size: N = 500, 1000, 2500, 5000
+![](images/clipboard-1996559007.png){width="344"}
 
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = .3, .5, .7, .9
-
-![](images/clipboard-2109977150.png){width="495" height="175"}
-
-Thresholds= Example 3
-
-![](images/clipboard-2467009665.png){width="347"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-We will now run a Monte Carlo simulation for Model 3. This simulation will iterate over different combinations of sample sizes, transition probabilities, and mixture components using the logits form the probability plot for Model 3. The following code sets up the cluster for parallel processing and defines the function to run the simulation.
+\_Figure 3: Probability Plot for Model 3\_
 
 ```{r, eval = FALSE}
 
@@ -627,8 +804,41 @@ cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
 rilta_lta_func3 <- function(N, TPs, mix, lambda) {
   
-    # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument for Model 3 based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+
+   f by u11-u15*{lambda} (p1-p5)
+        u21-u25*{lambda} (p1-p5);
+    f@1;
+    [f@0];
+  
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 2) { 
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -639,37 +849,32 @@ rilta_lta_func3 <- function(N, TPs, mix, lambda) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11-u15*{lambda} (p1-p5)
-            u21-u25*{lambda} (p1-p5);
-        f@1;
-        [f@0];
-          
-        MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
 
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+   f by u11-u15*{lambda} (p1-p5)
+        u21-u25*{lambda} (p1-p5);
+    f@1;
+    [f@0];
+      
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
-    
-  } else if (mix == 2) { 
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 3) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -677,46 +882,42 @@ rilta_lta_func3 <- function(N, TPs, mix, lambda) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11-u15*{lambda} (p1-p5)
-            u21-u25*{lambda} (p1-p5);
-        f@1;
-        [f@0];
-              
-     MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
-
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      
+   f by u11-u15*{lambda} (p1-p5)
+        u21-u25*{lambda} (p1-p5);
+    f@1;
+    [f@0];
+      
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
 
   # Construct the MODEL argument based on the value of mix
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
      MODEL c1:
         %c1#1%
@@ -742,15 +943,15 @@ rilta_lta_func3 <- function(N, TPs, mix, lambda) {
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	      
-
+      c2#2 on c1#2*1.793147 (b22);
+ 
      MODEL c1:
         %c1#1%
      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
@@ -771,9 +972,36 @@ rilta_lta_func3 <- function(N, TPs, mix, lambda) {
         %c2#3%
      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
 	      ")      
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      
+      MODEL c2: 	
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
     
-  
   # Construct the MODELCONSTRAINT argument based on the value of TPs
   MODELCONSTRAINT <- if (TPs == 3.179) {
     glue("
@@ -818,13 +1046,17 @@ rilta_lta_func3 <- function(N, TPs, mix, lambda) {
       !SAVE = repM3*.dat;
       RESULTS = RILTA_LTA_M3_N_{N}_TP_{TPs}_M_{mix}_L_{lambda}.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -853,37 +1085,17 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
   rilta_lta_func3(p1$N[i], p1$TPs[i], p1$mix[i], p1$lambda[i])
 })
 
-
 stopCluster(cl)
 ```
 
-## Model 4: Varied Lambda Pattern A
+# Segment 2: Models 1A - 1D
 
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5000
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = Pattern A
-
-![](images/clipboard-236077840.png){width="516"}
-
-Thresholds= Model 1
-
-![](images/clipboard-1358058122.png){width="359"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-#### Condition Matrix for Model 4 - Model 15
+Set up Conditions
 
 ```{r}
-
 p1 <- expand.grid(N = c(500, 1000, 2500, 5000),
 TPs = c(3.179, 0.407),
-mix = c(1, 2))
+mix = c(1, 2, 3))
 
 # Display the matrix using gt
 p1 %>%
@@ -899,25 +1111,27 @@ p1 %>%
 
 ```
 
+## Model 1A: Varied Lambda Pattern A
+
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 #| label: "rilta-lta-simulation-Model 4"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
+
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
 cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
-
 rilta_lta_func4 <- function(N, TPs, mix) {
   
-  # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument based on the value of 'mix'
   MODELPOPULATION <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
       c2#1 on c1#1*{TPs};
@@ -925,13 +1139,11 @@ rilta_lta_func4 <- function(N, TPs, mix) {
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
       
-      	
        f by u11*.1 u12*.1 u13*.1 u14*.2 u15*1 (p1-p5)
             u21*.1 u22*.1 u23*.1 u24*.2 u25*1 (p1-p5);
         f@1;
         [f@0];
-        
-        
+            
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -948,11 +1160,43 @@ rilta_lta_func4 <- function(N, TPs, mix) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*1 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*1 (p1-p5);
+        f@1;
+        [f@0];
+            
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) { 
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -960,14 +1204,12 @@ rilta_lta_func4 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-
-      	
+      
        f by u11*.1 u12*.1 u13*.1 u14*.2 u15*1 (p1-p5)
             u21*.1 u22*.1 u23*.1 u24*.2 u25*1 (p1-p5);
         f@1;
         [f@0];
-        
-        
+            
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -990,14 +1232,14 @@ rilta_lta_func4 <- function(N, TPs, mix) {
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -1015,18 +1257,17 @@ rilta_lta_func4 <- function(N, TPs, mix) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -1037,6 +1278,34 @@ rilta_lta_func4 <- function(N, TPs, mix) {
       [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
 
       MODEL c2: 	
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL c2:  
       %c2#1%
       [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
       %c2#2%
@@ -1059,7 +1328,6 @@ rilta_lta_func4 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   } else if (TPs == 0.407) {
     glue("
@@ -1073,7 +1341,6 @@ rilta_lta_func4 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   }
 
@@ -1091,13 +1358,17 @@ rilta_lta_func4 <- function(N, TPs, mix) {
       !SAVE = repM4*.dat;
       RESULTS = RILTA_LTA_M1_N_{N}_TP_{TPs}_M_{mix}_L_A.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -1128,25 +1399,7 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 5: Varied Lambda Pattern B
-
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = Pattern B
-
-![](images/clipboard-236077840.png){width="483"}
-
-Thresholds= Model 1
-
-![](images/clipboard-1358058122.png){width="361"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
+## Model 1B: Varied Lambda Pattern B
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 #| label: "rilta-lta-simulation-Model 5"
@@ -1154,30 +1407,31 @@ Thresholds= Model 1
 #| message: false
 #| warning: false
 #| code-fold: true
+
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
 cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
 rilta_lta_func5 <- function(N, TPs, mix) {
   
-  # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument based on the value of 'mix'
   MODELPOPULATION <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
       c2#1 on c1#1*{TPs};
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-        	
-       f by u11*.3 u12*.2 u13*.3 u14*.7 u15*1 (p1-p5)
-            u21*.3 u22*.2 u23*.3 u24*.7 u25*1 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*2 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*2 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -1194,11 +1448,43 @@ rilta_lta_func5 <- function(N, TPs, mix) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*2 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*2 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) { 
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -1206,14 +1492,12 @@ rilta_lta_func5 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-
-      	
-       f by u11*.3 u12*.2 u13*.3 u14*.7 u15*1 (p1-p5)
-            u21*.3 u22*.2 u23*.3 u24*.7 u25*1 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*2 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*2 (p1-p5);
         f@1;
         [f@0];
-        
-        
+
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -1231,19 +1515,18 @@ rilta_lta_func5 <- function(N, TPs, mix) {
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
   }
-
   # Construct the MODEL argument based on the value of mix
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -1261,18 +1544,17 @@ rilta_lta_func5 <- function(N, TPs, mix) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -1283,6 +1565,34 @@ rilta_lta_func5 <- function(N, TPs, mix) {
       [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
 
       MODEL c2: 	
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL c2:  
       %c2#1%
       [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
       %c2#2%
@@ -1304,8 +1614,6 @@ rilta_lta_func5 <- function(N, TPs, mix) {
       trans21 = exp(a1+b21)/(exp(a1+b21)+exp(a2+b22)+1);
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
-      
-    
       
     ")
   } else if (TPs == 0.407) {
@@ -1337,13 +1645,17 @@ rilta_lta_func5 <- function(N, TPs, mix) {
       !SAVE = repM5*.dat;
       RESULTS = RILTA_LTA_M1_N_{N}_TP_{TPs}_M_{mix}_L_B.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -1374,25 +1686,7 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 6: Varied Lambda Pattern C
-
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = Pattern C
-
-![](images/clipboard-236077840.png){width="621"}
-
-Thresholds: Model 1
-
-![](images/clipboard-1358058122.png){width="384"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
+## Model 1C: Varied Lambda Pattern C
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
@@ -1401,31 +1695,31 @@ Thresholds: Model 1
 #| message: false
 #| warning: false
 #| code-fold: true
-#| 
+
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
 cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
 rilta_lta_func6 <- function(N, TPs, mix) {
   
-  # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument based on the value of 'mix'
   MODELPOPULATION <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
       c2#1 on c1#1*{TPs};
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*1.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*1.4 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*3 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*3 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -1442,11 +1736,43 @@ rilta_lta_func6 <- function(N, TPs, mix) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*3 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*3 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) { 
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -1454,12 +1780,12 @@ rilta_lta_func6 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*1.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*1.4 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*3 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*3 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -1482,14 +1808,14 @@ rilta_lta_func6 <- function(N, TPs, mix) {
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -1507,18 +1833,17 @@ rilta_lta_func6 <- function(N, TPs, mix) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -1529,6 +1854,34 @@ rilta_lta_func6 <- function(N, TPs, mix) {
       [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
 
       MODEL c2: 	
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL c2:  
       %c2#1%
       [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
       %c2#2%
@@ -1565,7 +1918,6 @@ rilta_lta_func6 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
- 
     ")
   }
 
@@ -1583,13 +1935,17 @@ rilta_lta_func6 <- function(N, TPs, mix) {
       !SAVE = repM6*.dat;
       RESULTS = RILTA_LTA_M1_N_{N}_TP_{TPs}_M_{mix}_L_C.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -1620,58 +1976,39 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 7: Varied Lambda Pattern D
-
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = PATTERN D
-
-![](images/clipboard-236077840.png){width="550"}
-
-Thresholds= Model 1
-
-![](images/clipboard-1358058122.png){width="318"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
+## Model 1D: Varied Lambda Pattern D
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
 #| label: "rilta-lta-simulation-Model 7"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-#| 
+
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
 cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
 rilta_lta_func7 <- function(N, TPs, mix) {
   
-  # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument based on the value of 'mix'
   MODELPOPULATION <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
       c2#1 on c1#1*{TPs};
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*2.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*2.4 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*4 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*4 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -1688,11 +2025,43 @@ rilta_lta_func7 <- function(N, TPs, mix) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*4 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*4 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) { 
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -1700,12 +2069,12 @@ rilta_lta_func7 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*2.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*.4 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*4 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*4 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
       %c1#1%
       [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
@@ -1723,19 +2092,19 @@ rilta_lta_func7 <- function(N, TPs, mix) {
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
   }
-
+  
   # Construct the MODEL argument based on the value of mix
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -1753,18 +2122,17 @@ rilta_lta_func7 <- function(N, TPs, mix) {
       %c2#3%
       [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
     ")
-    
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
       %c1#1%
@@ -1775,6 +2143,34 @@ rilta_lta_func7 <- function(N, TPs, mix) {
       [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
 
       MODEL c2: 	
+      %c2#1%
+      [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+      %c2#2%
+      [u21$1*1 u22$1*1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+      %c2#3%
+      [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p131-p135);
+    ")
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+      %c1#2%
+      [u11$1*1 u12$1*1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+      %c1#3%
+      [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p131-p135);
+
+      MODEL c2:  
       %c2#1%
       [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
       %c2#2%
@@ -1797,7 +2193,6 @@ rilta_lta_func7 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   } else if (TPs == 0.407) {
     glue("
@@ -1811,7 +2206,6 @@ rilta_lta_func7 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   }
 
@@ -1829,13 +2223,17 @@ rilta_lta_func7 <- function(N, TPs, mix) {
       !SAVE = repM7*.dat;
       RESULTS = RILTA_LTA_M1_N_{N}_TP_{TPs}_M_{mix}_L_D.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -1866,43 +2264,58 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 8: Varied Lambda Pattern A
+# Segment 3: Models 2A - 2D
 
-### Conditions:
+## Model 2A: Varied Lambda Pattern A
 
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = Pattern A
-
-![](images/clipboard-236077840.png){width="587"}
-
-Thresholds= Model 2
-
-![](images/clipboard-3697136395.png){width="226"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
+```{r,eval = FALSE}
 #| label: "rilta-lta-simulation-Model 8"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-#| 
+
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
 cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
-
 rilta_lta_func8 <- function(N, TPs, mix) {
   
-  # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*1 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*1 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+    ")
+  } else if (mix == 2) {
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -1913,37 +2326,32 @@ rilta_lta_func8 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
+      
        f by u11*.1 u12*.1 u13*.1 u14*.2 u15*1 (p1-p5)
             u21*.1 u22*.1 u23*.1 u24*.2 u25*1 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
-    
-  } else if (mix == 2) { 
+  } else if (mix == 3) {
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -1951,31 +2359,27 @@ rilta_lta_func8 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
+      
        f by u11*.1 u12*.1 u13*.1 u14*.2 u15*1 (p1-p5)
             u21*.1 u22*.1 u23*.1 u24*.2 u25*1 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
   }
 
@@ -1983,6 +2387,39 @@ rilta_lta_func8 <- function(N, TPs, mix) {
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+     MODEL c1:
+        %c1#1%
+     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+
+        %c1#2%
+     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+     
+        %c1#3%
+     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+
+    MODEL c2: 	
+        %c2#1%
+     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+
+        %c2#2%
+     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+     
+        %c2#3%
+     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+	      ")      
+      
+  } else if (mix == 2) { 
+    glue("	
+      %OVERALL%
       [c1#1*0] ;
       [c1#2*0] ;
       [c2#1*-1.1] (a1);
@@ -1990,9 +2427,9 @@ rilta_lta_func8 <- function(N, TPs, mix) {
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
-
-      MODEL c1:
+      c2#2 on c1#2*1.793147 (b22);
+        
+     MODEL c1:
         %c1#1%
      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
 
@@ -2002,7 +2439,7 @@ rilta_lta_func8 <- function(N, TPs, mix) {
         %c1#3%
      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
 
-      MODEL c2: 	
+    MODEL c2: 	
         %c2#1%
      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
 
@@ -2011,39 +2448,34 @@ rilta_lta_func8 <- function(N, TPs, mix) {
      
         %c2#3%
      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
-    ")
-    
-  } else if (mix == 2) { 
+	      ")      
+  } else if (mix == 3) {
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL c2: 	
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
   }
 
@@ -2073,7 +2505,6 @@ rilta_lta_func8 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   }
 
@@ -2091,13 +2522,17 @@ rilta_lta_func8 <- function(N, TPs, mix) {
       !SAVE = repM8*.dat;
       RESULTS = RILTA_LTA_M2_N_{N}_TP_{TPs}_M_{mix}_L_A.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -2129,42 +2564,56 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 9: Varied Lambda Pattern B
+## Model 2B: Varied Lambda Pattern B
 
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = Pattern B
-
-![](images/clipboard-236077840.png){width="581"}
-
-Thresholds= Model 2
-
-![](images/clipboard-3697136395.png){width="266"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
+```{r, eval = FALSE}
 #| label: "rilta-lta-simulation-Model 9"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-#| 
+
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
 cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
 rilta_lta_func9 <- function(N, TPs, mix) {
   
-  # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*2 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*2 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+    ")
+  } else if (mix == 2) {
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -2175,37 +2624,32 @@ rilta_lta_func9 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.3 u12*.2 u13*.3 u14*.7 u15*1 (p1-p5)
-            u21*.3 u22*.2 u23*.3 u24*.7 u25*1 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*2 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*2 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
-    
-  } else if (mix == 2) { 
+  } else if (mix == 3) {
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -2213,31 +2657,27 @@ rilta_lta_func9 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.3 u12*.2 u13*.3 u14*.7 u15*1 (p1-p5)
-            u21*.3 u22*.2 u23*.3 u24*.7 u25*1 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*2 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*2 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
   }
 
@@ -2245,6 +2685,39 @@ rilta_lta_func9 <- function(N, TPs, mix) {
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+     MODEL c1:
+        %c1#1%
+     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+
+        %c1#2%
+     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+     
+        %c1#3%
+     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+
+    MODEL c2: 	
+        %c2#1%
+     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+
+        %c2#2%
+     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+     
+        %c2#3%
+     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+	      ")      
+      
+  } else if (mix == 2) { 
+    glue("	
+      %OVERALL%
       [c1#1*0] ;
       [c1#2*0] ;
       [c2#1*-1.1] (a1);
@@ -2252,9 +2725,9 @@ rilta_lta_func9 <- function(N, TPs, mix) {
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
-
-      MODEL c1:
+      c2#2 on c1#2*1.793147 (b22);
+        
+     MODEL c1:
         %c1#1%
      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
 
@@ -2264,7 +2737,7 @@ rilta_lta_func9 <- function(N, TPs, mix) {
         %c1#3%
      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
 
-      MODEL c2: 	
+    MODEL c2: 	
         %c2#1%
      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
 
@@ -2273,39 +2746,34 @@ rilta_lta_func9 <- function(N, TPs, mix) {
      
         %c2#3%
      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
-    ")
-    
-  } else if (mix == 2) { 
+	      ")      
+  } else if (mix == 3) {
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL c2: 	
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
   }
 
@@ -2335,7 +2803,6 @@ rilta_lta_func9 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   }
 
@@ -2353,12 +2820,17 @@ rilta_lta_func9 <- function(N, TPs, mix) {
       !SAVE = repM9*.dat;
       RESULTS = RILTA_LTA_M2_N_{N}_TP_{TPs}_M_{mix}_L_B.csv;"),
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
+      INTEGRATION = STANDARD(20);
       processors = 24;
-      STARTS 50 10;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -2390,42 +2862,56 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 10: Varied Lambda Pattern C
+## Model 2C: Varied Lambda Pattern C
 
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = Pattern C
-
-![](images/clipboard-236077840.png){width="581"}
-
-Thresholds= Model 2
-
-![](images/clipboard-3697136395.png){width="295"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
+```{r, eval = FALSE}
 #| label: "rilta-lta-simulation-Model 10"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-#| 
+
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
 cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
 rilta_lta_func10 <- function(N, TPs, mix) {
   
-  # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*3 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*3 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+    ")
+  } else if (mix == 2) {
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -2436,37 +2922,32 @@ rilta_lta_func10 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*1.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*1.4 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*3 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*3 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
-    
-  } else if (mix == 2) { 
+  } else if (mix == 3) {
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -2474,31 +2955,27 @@ rilta_lta_func10 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*1.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*1.4 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*3 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*3 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
   }
 
@@ -2506,6 +2983,39 @@ rilta_lta_func10 <- function(N, TPs, mix) {
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+     MODEL c1:
+        %c1#1%
+     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+
+        %c1#2%
+     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+     
+        %c1#3%
+     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+
+    MODEL c2: 	
+        %c2#1%
+     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+
+        %c2#2%
+     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+     
+        %c2#3%
+     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+	      ")      
+      
+  } else if (mix == 2) { 
+    glue("	
+      %OVERALL%
       [c1#1*0] ;
       [c1#2*0] ;
       [c2#1*-1.1] (a1);
@@ -2513,9 +3023,9 @@ rilta_lta_func10 <- function(N, TPs, mix) {
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
-
-      MODEL c1:
+      c2#2 on c1#2*1.793147 (b22);
+        
+     MODEL c1:
         %c1#1%
      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
 
@@ -2525,7 +3035,7 @@ rilta_lta_func10 <- function(N, TPs, mix) {
         %c1#3%
      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
 
-      MODEL c2: 	
+    MODEL c2: 	
         %c2#1%
      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
 
@@ -2534,39 +3044,34 @@ rilta_lta_func10 <- function(N, TPs, mix) {
      
         %c2#3%
      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
-    ")
-    
-  } else if (mix == 2) { 
+	      ")      
+  } else if (mix == 3) {
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL c2: 	
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
   }
 
@@ -2583,7 +3088,6 @@ rilta_lta_func10 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   } else if (TPs == 0.407) {
     glue("
@@ -2597,7 +3101,6 @@ rilta_lta_func10 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   }
 
@@ -2615,12 +3118,17 @@ rilta_lta_func10 <- function(N, TPs, mix) {
       !SAVE = repM10*.dat;
       RESULTS = RILTA_LTA_M2_N_{N}_TP_{TPs}_M_{mix}_L_C.csv;"),
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -2652,42 +3160,56 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 11: Varied Lambda Pattern D
+## Model 2D: Varied Lambda Pattern D
 
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = PATTERN D
-
-![](images/clipboard-236077840.png){width="525"}
-
-Thresholds= Model 2
-
-![](images/clipboard-3697136395.png){width="287"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
+```{r, eval = FALSE}
 #| label: "rilta-lta-simulation-Model 11"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-#| 
+
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
 cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
 rilta_lta_func11 <- function(N, TPs, mix) {
   
-  # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*4 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*4 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+    ")
+  } else if (mix == 2) {
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -2698,37 +3220,32 @@ rilta_lta_func11 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*2.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*2.4 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*4 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*4 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
-    
-  } else if (mix == 2) { 
+  } else if (mix == 3) {
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -2736,31 +3253,27 @@ rilta_lta_func11 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*2.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*2.4 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*4 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*4 (p1-p5);
         f@1;
         [f@0];
-        
+
       MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL POPULATION-c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
   }
 
@@ -2768,6 +3281,39 @@ rilta_lta_func11 <- function(N, TPs, mix) {
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+     MODEL c1:
+        %c1#1%
+     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+
+        %c1#2%
+     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+     
+        %c1#3%
+     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+
+    MODEL c2: 	
+        %c2#1%
+     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+
+        %c2#2%
+     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+     
+        %c2#3%
+     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+	      ")      
+      
+  } else if (mix == 2) { 
+    glue("	
+      %OVERALL%
       [c1#1*0] ;
       [c1#2*0] ;
       [c2#1*-1.1] (a1);
@@ -2775,9 +3321,9 @@ rilta_lta_func11 <- function(N, TPs, mix) {
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
-
-      MODEL c1:
+      c2#2 on c1#2*1.793147 (b22);
+        
+     MODEL c1:
         %c1#1%
      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
 
@@ -2787,7 +3333,7 @@ rilta_lta_func11 <- function(N, TPs, mix) {
         %c1#3%
      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
 
-      MODEL c2: 	
+    MODEL c2: 	
         %c2#1%
      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
 
@@ -2796,39 +3342,34 @@ rilta_lta_func11 <- function(N, TPs, mix) {
      
         %c2#3%
      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
-    ")
-    
-  } else if (mix == 2) { 
+	      ")      
+  } else if (mix == 3) {
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
       MODEL c1:
-        %c1#1%
-     [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
-
-        %c1#2%
-     [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
-
-      MODEL c2: 	
-        %c2#1%
-     [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
-
-        %c2#2%
-     [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+      %c1#1%
+      [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+      %c1#2%
+      [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+      %c1#3%
+      [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+      
+      MODEL c2:
+      %c2#1%
+      [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+      %c2#2%
+      [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+      %c2#3%
+      [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
     ")
   }
 
@@ -2845,7 +3386,6 @@ rilta_lta_func11 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   } else if (TPs == 0.407) {
     glue("
@@ -2859,7 +3399,6 @@ rilta_lta_func11 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   }
 
@@ -2877,12 +3416,17 @@ rilta_lta_func11 <- function(N, TPs, mix) {
       !SAVE = repM11*.dat;
       RESULTS = RILTA_LTA_M2_N_{N}_TP_{TPs}_M_{mix}_L_D.csv;"),
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -2914,28 +3458,11 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 stopCluster(cl)
 ```
 
-## Model 12: Varied Lambda Pattern A
+# Segment 4: Models 3A - 3D
 
-### Conditions:
+## Model 3A: Varied Lambda Pattern A
 
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = Pattern A
-
-![](images/clipboard-236077840.png){width="574"}
-
-Thresholds= Model 3
-
-![](images/clipboard-260898834.png){width="328"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
+```{r, eval = FALSE}
 #| label: "rilta-lta-simulation-Model 12"
 #| echo: true
 #| message: false
@@ -2948,8 +3475,41 @@ cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
 rilta_lta_func12 <- function(N, TPs, mix) {
   
-    # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument for Model 3 based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*1 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*1 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 2) { 
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -2960,37 +3520,32 @@ rilta_lta_func12 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
+
        f by u11*.1 u12*.1 u13*.1 u14*.2 u15*1 (p1-p5)
             u21*.1 u22*.1 u23*.1 u24*.2 u25*1 (p1-p5);
         f@1;
         [f@0];
-          
-        MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
 
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
-    
-  } else if (mix == 2) { 
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 3) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -2998,46 +3553,42 @@ rilta_lta_func12 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
+      
        f by u11*.1 u12*.1 u13*.1 u14*.2 u15*1 (p1-p5)
             u21*.1 u22*.1 u23*.1 u24*.2 u25*1 (p1-p5);
         f@1;
         [f@0];
-              
-     MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
 
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
 
   # Construct the MODEL argument based on the value of mix
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
      MODEL c1:
         %c1#1%
@@ -3063,15 +3614,15 @@ rilta_lta_func12 <- function(N, TPs, mix) {
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	      
-
+      c2#2 on c1#2*1.793147 (b22);
+ 
      MODEL c1:
         %c1#1%
      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
@@ -3092,9 +3643,36 @@ rilta_lta_func12 <- function(N, TPs, mix) {
         %c2#3%
      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
 	      ")      
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      
+      MODEL c2: 	
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
     
-  
   # Construct the MODELCONSTRAINT argument based on the value of TPs
   MODELCONSTRAINT <- if (TPs == 3.179) {
     glue("
@@ -3108,7 +3686,6 @@ rilta_lta_func12 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   } else if (TPs == 0.407) {
     glue("
@@ -3122,7 +3699,6 @@ rilta_lta_func12 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   }
   
@@ -3141,13 +3717,17 @@ rilta_lta_func12 <- function(N, TPs, mix) {
       !SAVE = repM12*.dat;
       RESULTS = RILTA_LTA_M3_N_{N}_TP_{TPs}_M_{mix}_L_A.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
-    Algorithm = INTEGRATION;
-      STARTS = 50 10;
+      ANALYSIS =
+      "TYPE = MIXTURE;
+      algorithm = integration;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -3177,37 +3757,16 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
 })
 
 stopCluster(cl)
-
 ```
 
-## Model 13: Varied Lambda Pattern B
+## Model 3B: Varied Lambda Pattern B
 
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = Pattern B
-
-![](images/clipboard-236077840.png){width="648"}
-
-Thresholds= Model 3
-
-![](images/clipboard-260898834.png){width="363"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
+```{r, eval = FALSE}
 #| label: "rilta-lta-simulation-Model 13"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-
 
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
@@ -3215,8 +3774,41 @@ cl <- makeCluster(num_cores, type = "PSOCK")    # Create the cluster with PSOCK
 
 rilta_lta_func13 <- function(N, TPs, mix) {
   
-    # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument for Model 3 based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*2 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*2 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 2) { 
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -3227,37 +3819,32 @@ rilta_lta_func13 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.3 u12*.2 u13*.3 u14*.7 u15*1 (p1-p5)
-            u21*.3 u22*.2 u23*.3 u24*.7 u25*1 (p1-p5);
+
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*2 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*2 (p1-p5);
         f@1;
         [f@0];
-          
-        MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
-
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+ 
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
-    
-  } else if (mix == 2) { 
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 3) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -3265,46 +3852,42 @@ rilta_lta_func13 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.3 u12*.2 u13*.3 u14*.7 u15*1 (p1-p5)
-            u21*.3 u22*.2 u23*.3 u24*.7 u25*1 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*2 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*2 (p1-p5);
         f@1;
         [f@0];
-              
-     MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
 
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
 
   # Construct the MODEL argument based on the value of mix
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
      MODEL c1:
         %c1#1%
@@ -3330,15 +3913,15 @@ rilta_lta_func13 <- function(N, TPs, mix) {
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	      
-
+      c2#2 on c1#2*1.793147 (b22);
+ 
      MODEL c1:
         %c1#1%
      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
@@ -3359,9 +3942,36 @@ rilta_lta_func13 <- function(N, TPs, mix) {
         %c2#3%
      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
 	      ")      
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      
+      MODEL c2: 	
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
     
-  
   # Construct the MODELCONSTRAINT argument based on the value of TPs
   MODELCONSTRAINT <- if (TPs == 3.179) {
     glue("
@@ -3406,13 +4016,17 @@ rilta_lta_func13 <- function(N, TPs, mix) {
       !SAVE = repM13*.dat;
       RESULTS = RILTA_LTA_M3_N_{N}_TP_{TPs}_M_{mix}_L_B.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -3441,38 +4055,17 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
   rilta_lta_func13(p1$N[i], p1$TPs[i], p1$mix[i])
 })
 
-
 stopCluster(cl)
 ```
 
-## Model 14: Varied Lambda Pattern C
+## Model 3C: Varied Lambda Pattern C
 
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = Pattern C
-
-![](images/clipboard-236077840.png){width="739"}
-
-Thresholds= Model 3
-
-![](images/clipboard-260898834.png){width="312"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
+```{r, eval = FALSE}
 #| label: "rilta-lta-simulation-Model 14"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-
 
 # Step 1: Create the cluster (use PSOCK for Windows)
 num_cores <- detectCores() - 1  # Detect number of cores
@@ -3480,9 +4073,41 @@ cl <- makeCluster(num_cores, type = "FORK")    # Create the cluster with PSOCK
 
 rilta_lta_func14 <- function(N, TPs, mix) {
   
-    # Construct the MODELPOPULATION argument based on the value of mix
-      # Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument for Model 3 based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*3 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*3 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 2) { 
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -3493,37 +4118,32 @@ rilta_lta_func14 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*1.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*1.4 (p1-p5);
+
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*3 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*3 (p1-p5);
         f@1;
         [f@0];
-          
-        MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
 
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
-    
-  } else if (mix == 2) { 
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 3) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -3531,46 +4151,42 @@ rilta_lta_func14 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.3 u12*.2 u13*.3 u14*.7 u15*1 (p1-p5)
-            u21*.3 u22*.2 u23*.3 u24*.7 u25*1 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*3 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*3 (p1-p5);
         f@1;
         [f@0];
-              
-     MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
 
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
 
   # Construct the MODEL argument based on the value of mix
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
      MODEL c1:
         %c1#1%
@@ -3596,15 +4212,15 @@ rilta_lta_func14 <- function(N, TPs, mix) {
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	      
-
+      c2#2 on c1#2*1.793147 (b22);
+ 
      MODEL c1:
         %c1#1%
      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
@@ -3625,9 +4241,36 @@ rilta_lta_func14 <- function(N, TPs, mix) {
         %c2#3%
      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
 	      ")      
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      
+      MODEL c2: 	
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
     
-  
   # Construct the MODELCONSTRAINT argument based on the value of TPs
   MODELCONSTRAINT <- if (TPs == 3.179) {
     glue("
@@ -3672,13 +4315,17 @@ rilta_lta_func14 <- function(N, TPs, mix) {
       !SAVE = repM14*.dat;
       RESULTS = RILTA_LTA_M3_N_{N}_TP_{TPs}_M_{mix}_L_C.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -3707,32 +4354,12 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
   rilta_lta_func14(p1$N[i], p1$TPs[i], p1$mix[i])
 })
 
-
 stopCluster(cl)
 ```
 
-## Model 15: Varied Lambda Pattern D
+## Model 3D: Varied Lambda Pattern D
 
-### Conditions:
-
-Sample Size: N = 500, 1000, 2500, 5500
-
-Transition logit (Probability): TPs = 3.179 (Stayer), 0.407 (Mover)
-
-![](images/clipboard-2891141057.png){width="352"}
-
-RI Loadings: lambda = PATTERN D
-
-![](images/clipboard-236077840.png){width="653"}
-
-Thresholds= Model 3
-
-![](images/clipboard-260898834.png){width="281"}
-
-**Class Prevalence: Equal v. Unequal 1 = .33.3, .33.3, 33.3 ; 2 = .60, .30, .10**
-
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
-
+```{r, eval = FALSE}
 #| label: "rilta-lta-simulation-Model 15"
 #| echo: true
 #| message: false
@@ -3745,8 +4372,41 @@ cl <- makeCluster(num_cores, type = "FORK") # Create the cluster with FORK or PS
 
 rilta_lta_func15 <- function(N, TPs, mix) {
   
-    # Step 2: Construct the MODELPOPULATION argument based on the value of mix
+  # Step 2.1: Construct the MODELPOPULATION argument for Model 3 based on 'mix'
   MODELPOPULATION <- if (mix == 1) { 
+    glue("	
+      %OVERALL%
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
+      [c2#1*-1.1] ; 
+      [c2#2*-1.1] ; 
+      c2#1 on c1#1*{TPs};
+      c2#1 on c1#2*1.1; 
+      c2#2 on c1#1*1.1; 
+      c2#2 on c1#2*1.793147;
+
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*4 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*4 (p1-p5);
+        f@1;
+        [f@0];
+
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+
+      MODEL POPULATION-c2:  
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 2) { 
     glue("	
       %OVERALL%
       [c1#1*0] ;
@@ -3757,37 +4417,32 @@ rilta_lta_func15 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*2.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*2.4 (p1-p5);
+
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*4 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*4 (p1-p5);
         f@1;
         [f@0];
-          
-        MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
 
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
-    
-  } else if (mix == 2) { 
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
+  } else if (mix == 3) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
+      [c1#1*1.792] ;
       [c1#2*1.099] ;
       [c2#1*-1.1] ; 
       [c2#2*-1.1] ; 
@@ -3795,46 +4450,42 @@ rilta_lta_func15 <- function(N, TPs, mix) {
       c2#1 on c1#2*1.1; 
       c2#2 on c1#1*1.1; 
       c2#2 on c1#2*1.793147;
-      	
-       f by u11*.5 u12*.5 u13*.5 u14*.6 u15*2.4 (p1-p5)
-            u21*.5 u22*.5 u23*.5 u24*.6 u25*2.4 (p1-p5);
+      
+       f by u11*.1 u12*.1 u13*.1 u14*.2 u15*4 (p1-p5)
+            u21*.1 u22*.1 u23*.1 u24*.2 u25*4 (p1-p5);
         f@1;
         [f@0];
-              
-     MODEL POPULATION-c1:
-        %c1#1%
-     [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
 
-        %c1#2%
-     [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
-     
-        %c1#3%
-     [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      MODEL POPULATION-c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
 
       MODEL POPULATION-c2:  
-        %c2#1%
-     [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
-
-        %c2#2%
-     [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
-     
-        %c2#3%
-     [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
-       ")
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
 
   # Construct the MODEL argument based on the value of mix
   MODEL <- if (mix == 1) { 
     glue("	
       %OVERALL%
-      [c1#1*0] ;
-      [c1#2*0] ;
+      [c1#1*-1.897] ;
+      [c1#2*-0.798] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	
+      c2#2 on c1#2*1.793147 (b22);
 
      MODEL c1:
         %c1#1%
@@ -3860,15 +4511,15 @@ rilta_lta_func15 <- function(N, TPs, mix) {
   } else if (mix == 2) { 
     glue("	
       %OVERALL%
-      [c1#1*1.897] ;
-      [c1#2*1.099] ;
+      [c1#1*0] ;
+      [c1#2*0] ;
       [c2#1*-1.1] (a1);
       [c2#2*-1.1] (a2); 
       c2#1 on c1#1*{TPs} (b11); 
       c2#1 on c1#2*1.1 (b21); 
       c2#2 on c1#1*1.1 (b12); 
-      c2#2 on c1#2*1.793147 (b22);	      
-
+      c2#2 on c1#2*1.793147 (b22);
+ 
      MODEL c1:
         %c1#1%
      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
@@ -3889,9 +4540,36 @@ rilta_lta_func15 <- function(N, TPs, mix) {
         %c2#3%
      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
 	      ")      
+  } else if (mix == 3) {
+    glue("	
+      %OVERALL%
+      [c1#1*1.792] ;
+      [c1#2*1.099] ;
+      [c2#1*-1.1] (a1);
+      [c2#2*-1.1] (a2); 
+      c2#1 on c1#1*{TPs} (b11); 
+      c2#1 on c1#2*1.1 (b21); 
+      c2#2 on c1#1*1.1 (b12); 
+      c2#2 on c1#2*1.793147 (b22);
+
+      MODEL c1:
+      %c1#1%
+      [u11$1*5 u12$1*2.38 u13$1*1.385 u14$1*4.59 u15$1*4.59] (p111-p115);
+      %c1#2%
+      [u11$1*.62 u12$1*.81 u13$1*.82 u14$1*.28 u15$1*1.39] (p121-p125);
+      %c1#3%
+      [u11$1*-1.45 u12$1*-2.44 u13$1*-5 u14$1*-1.70 u15$1*-.71] (p131-p135);
+      
+      MODEL c2: 	
+      %c2#1%
+      [u21$1*5 u22$1*2.38 u23$1*1.385 u24$1*4.59 u25$1*4.59] (p111-p115);
+      %c2#2%
+      [u21$1*.62 u22$1*.81 u23$1*.82 u24$1*.28 u25$1*1.39] (p121-p125);
+      %c2#3%
+      [u21$1*-1.45 u22$1*-2.44 u23$1*-5 u24$1*-1.70 u25$1*-.71] (p131-p135);
+    ")
   }
     
-  
   # Construct the MODELCONSTRAINT argument based on the value of TPs
   MODELCONSTRAINT <- if (TPs == 3.179) {
     glue("
@@ -3905,7 +4583,6 @@ rilta_lta_func15 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
-
     ")
   } else if (TPs == 0.407) {
     glue("
@@ -3919,7 +4596,6 @@ rilta_lta_func15 <- function(N, TPs, mix) {
       trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
       trans23 = 1-(trans21+trans22);
       
- 
     ")
   }
   
@@ -3938,13 +4614,17 @@ rilta_lta_func15 <- function(N, TPs, mix) {
       !SAVE = repM15*.dat;
       RESULTS = RILTA_LTA_M3_N_{N}_TP_{TPs}_M_{mix}_L_D.csv;"),
     
-    
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -3973,17 +4653,22 @@ result_list <- parLapply(cl, 1:nrow(p1), function(i) {
   rilta_lta_func15(p1$N[i], p1$TPs[i], p1$mix[i])
 })
 
-
 stopCluster(cl)
 ```
 
-# CHECK FOR LABEL SWITCHING
+------------------------------------------------------------------------
 
-### Step 1: Combine All CSV Files into One Data Frame
+# Data Processing and Verification
 
-#### **Objective:** 
+------------------------------------------------------------------------
 
-*Load all CSV files and combine them into a single data frame.*
+## Check for Label Switching and Errors
+
+> In this section: .csv files are first merged into a single data frame, from which specific parameters are extracted. Logit values are then converted to probabilities, and known class values are incorporated into the data frame. A subset of cases involving label switching is selected randomly and plotted for visual review. Output files are scanned for errors, which are subsequently merged back into the original data file. Additional columns derived from the file name are added, and the percentage of violations is calculated. Both errors and label switching violations are visually represented, and the total number of corrected replications is reported.
+
+### Scrape Mplus CSV Files
+
+*First, Load all CSV files and combine them into a single data frame.*
 
 ```{r}
 #| label: "combine-csv-files-parallel"
@@ -4000,11 +4685,9 @@ csv_directory <- here('Simulations', 'STUDY_2', '3_RILTA_GEN_LTA_ANALYZED')
 source(here('Child_Docs', 'data_scraping.R'))
 ```
 
-### Step 2: Scrape Rows and Process Data
+### Slice Data / Extract Parameters
 
-#### **Objective:** 
-
-*Extract the appropriate rows from each 9-row chunk) and prepare the data for further processing.*
+*Extract data from the appropriate rows from each 9-row chunk and prepare the data for further processing.*
 
 ```{r}
 
@@ -4020,11 +4703,9 @@ source(here('Child_Docs', 'step2_f_LTA.R'))
 #Generates final_combined_data df
 ```
 
-### Step 3: Convert Logits to Probabilities, Add Actual (Population) Values, and flag violators of label switching
+### Wrangle Data
 
-#### **Objective:** 
-
-*Convert the logits to probabilities and flag label switching cases*
+*Convert the logits to probabilities and add the known actual values to each row.*
 
 ```{r}
 #| label: "convert-logits-and-flag-vialotors"
@@ -4039,9 +4720,7 @@ source(here('Child_Docs', 'step_3_3k.R'))
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
-### **Step 4: Plot Random Sample of Violators for Visual Inspection**
-
-#### **Objective**
+### Generate Plots of Label Switching
 
 *Generate plots of randomly sampled violators for visual inspection using parallel processing.*
 
@@ -4118,13 +4797,15 @@ invisible(lapply(1:nrow(sampled_violators), plot_violator))
 
 ```
 
-### **Step 5: Summarize Violations**
+------------------------------------------------------------------------
 
-#### **Objective**
+### Error Handling
 
-*Calculate the percentage of violations for each file, handling missing values appropriately.*
+------------------------------------------------------------------------
 
-#### Scrape Output Files for Errors for specific replications
+### Scrape for Errors
+
+*Scrape output files for errors*
 
 ```{r}
 #| label: "summarize-errors"
@@ -4133,166 +4814,65 @@ invisible(lapply(1:nrow(sampled_violators), plot_violator))
 #| warning: false
 #| code-fold: true
 
-library(parallel)
+# Step 1: Set the correct output directory for .out files
+output_folder <- here('Simulations', 'STUDY_2', '3_RILTA_GEN_LTA_ANALYZED_REP')
 
-extract_errors_from_file <- function(filepath, total_replications) {
-  lines <- readLines(filepath)
-  results <- vector("list", total_replications)
-  error_keywords <- c("NON-POSITIVE DEFINITE", "SADDLE")
+# Step 2: Source the child document that processes .out files
+source(here('Child_Docs', 'out_scraping.R'))
 
-  # Initialize results for every replication
-  for (rep in 1:total_replications) {
-    results[[rep]] <- tibble(
-      FileName = basename(filepath),
-      Replication = rep,
-      Message = "None",
-      MessageType = "None"
-    )
-  }
-
-  current_replication <- NULL
-  for (line in lines) {
-    if (str_detect(line, "REPLICATION")) {
-      current_replication <- as.integer(str_extract(line, "\\d+"))
-    }
-
-    if (!is.null(current_replication) && current_replication <= total_replications &&
-        any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
-      results[[current_replication]] <- tibble(
-        FileName = basename(filepath),
-        Replication = current_replication,
-        Message = str_trim(line),
-        MessageType = "Error"
-      )
-    }
-  }
-
-  return(bind_rows(results))
-}
-
-# Step 2: Extract Completed Replications
-extract_completed_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  completed_line <- lines[grepl("Completed", lines, ignore.case = TRUE)]
-  completed <- as.integer(str_match(completed_line, "Completed\\s+(\\d+)")[, 2])
-  if (length(completed) == 0) completed <- 0
-  tibble(FileName = basename(filepath), CompletedReplications = completed)
-}
-
-
-# Step 3: Extract Requested Replications
-extract_requested_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  requested_line <- lines[grepl("Requested", lines, ignore.case = TRUE)]
-  requested <- as.integer(str_match(requested_line, "Requested\\s+(\\d+)")[, 2])
-  if (length(requested) == 0) requested <- 0
-  tibble(FileName = basename(filepath), RequestedReplications = requested)
-}
-
-calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
-  summary <- error_summary %>%
-    group_by(FileName) %>%
-    summarise(
-      ErrorReplications = n_distinct(Replication[MessageType == "Error"]),
-      .groups = "drop"
-    )
-
-  full_summary <- requested_replications %>%
-    left_join(completed_replications, by = "FileName") %>%
-    left_join(summary, by = "FileName") %>%
-    mutate(
-      ErrorReplications = coalesce(ErrorReplications, 0),
-      GoodReplications = CompletedReplications - ErrorReplications,
-      ErrorRate = if_else(CompletedReplications > 0, (ErrorReplications / CompletedReplications) * 100, 0)
-    ) %>%
-    select(FileName, RequestedReplications, CompletedReplications, ErrorReplications, GoodReplications, ErrorRate)
-
-  full_summary
-}
-
-# Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- here('Simulations', 'STUDY_2', '3_RILTA_GEN_LTA_ANALYZED')  # Adjust to your folder path
-file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
-
-# Step 5: Detect OS and Set Up Cluster
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-num_cores <- detectCores() - 1  # Use all but one core
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Export necessary libraries and functions to the cluster
-invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
-invisible(clusterEvalQ(cl, library(tidyverse)))
-
-# Step 6: Parallel Processing
-# Calculate completed replications first
-completed_rep_list <- parLapply(cl, file_list, extract_completed_replications)
-
-# Extract errors while passing the total number of completed replications to the function
-error_summary <- bind_rows(mapply(function(filepath, completed_data) {
-  extract_errors_from_file(filepath, completed_data$CompletedReplications)
-}, file_list, completed_rep_list, SIMPLIFY = FALSE))
-
-completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
-requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
-
-# Stop the cluster
-stopCluster(cl)
-
-# Step 7: Calculate Replication Summary
-replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
-
-# Step 8: Create and Display the Table with Error Rate
+# ===================================================== #
+#  ✅ SECTION 1 Generate Replication Summary Table
+# ===================================================== #
 replication_summary_table <- replication_summary %>%
   gt() %>%
   tab_header(
     title = "Replication Summary",
     subtitle = paste0("Folder: ", output_folder)
   ) %>%
-  fmt_number(columns = c(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
+  fmt_number(
+    columns = c("Total", "Replicated_Yes", "Replicated_No", "Error_Count"),
+    decimals = 0
+  ) %>%
   cols_label(
     FileName = "File Name",
-    CompletedReplications = "Completed Replications",
-    RequestedReplications = "Requested Replications",
-    ErrorReplications = "Replications with Errors",
-    GoodReplications = "Good Replications",
-    ErrorRate = "Error Rate (%)"
+    Total = "Total Replications",
+    Replicated_Yes = "LL Replicated",
+    Replicated_No = "LL Not Replicated",
+    Error_Count = "Errors"
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = everything()
   ) %>%
   tab_options(
     table.font.size = "small",
     heading.title.font.size = "medium",
-    heading.subtitle.font.size = "small"
+    heading.subtitle.font.size = "small",
+    table.width = pct(80)
   )
 
 # Display the table
 replication_summary_table
 
-completed_replications <- completed_replications %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-error_summary <- error_summary %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-replication_summary <- replication_summary %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
+# ===================================================== #
+#  ✅ SECTION 2 Row Count Validation
+# ===================================================== #
 cat("Rows in final_data_with_actuals:", nrow(final_data_with_actuals), "\n")
-# Output the final number of rows to confirm data handling
-cat("Number of rows in error_summary: ", nrow(error_summary), "\n")
-cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
+cat("Rows in final_results:", nrow(final_results), "\n")
+cat("Rows in replication_summary:", nrow(replication_summary), "\n")
+print(if (any(replication_summary$LL_Not_Replicated > 0, na.rm = TRUE)) {
+  "⚠️ WARNING: Some LL values were NOT replicated! Check the Replication Summary table."
+} else {
+  "✅ All LL values were successfully replicated."
+})
+all.equal(final_data_with_actuals$ll_csv, final_results$ll_out, tolerance = 1e-4)
+
 
 ```
 
-#### Step 5: Part 1 Merge errors with main data
+#### Merge Errors with Main Data File
+
+*Combine error information with main data file*
 
 ```{r}
 #| label: "merge-errors"
@@ -4301,31 +4881,50 @@ cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
 #| warning: false
 #| code-fold: true
 
-# Ensure consistent column formats and remove .out and .csv extensions
-error_summary <- error_summary %>%
-  mutate(
-    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
-    Replication = as.character(Replication) # Convert Replication to character
-  )
-
 final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(
-    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
-    Replication = as.character(Replication) # Convert Replication to character
-  )
-
-# Add a new column to flag errors
-error_summary <- error_summary %>%
-  mutate(ErrorFlag = if_else(Message == "None", 0, 1))
-
-
-# Merge ErrorFlag into final_data_with_actuals
-final_data_with_actuals <- final_data_with_actuals %>%
-  left_join(error_summary %>% select(FileName, Replication, ErrorFlag),
+  left_join(final_results %>% select(FileName, Replication, ll_out, ErrorFlag),
             by = c("FileName", "Replication"))
 ```
 
-#### Step 5: Part 2 Create Column Names from the Filename
+Visualize differences between ll_out and ll_csv
+
+```{r}
+ll_check <- final_data_with_actuals %>%
+  mutate(diff = round(ll_out - ll_csv, 3)) %>%  # Round before counting
+  count(diff)
+
+ll_check_table <- ll_check %>%
+  gt() %>%
+  tab_header(
+    title = "LL Difference Summary",
+    subtitle = "Comparison of LL values between CSV and OUT files"
+  ) %>%
+  cols_label(
+    diff = "LL Difference",
+    n = "Count"
+  ) %>%
+  fmt_number(
+    columns = diff,
+    decimals = 3
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = everything()
+  ) %>%
+  tab_options(
+    table.font.size = "small",
+    heading.title.font.size = "medium",
+    heading.subtitle.font.size = "small",
+    table.width = pct(50)
+  )
+
+# Display the table
+ll_check_table
+```
+
+### Scrape File Name Components
+
+*Create Column Names from the file name*
 
 ```{r}
 #| label: "prepare-data-for-plotting-bias"
@@ -4385,7 +4984,9 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-#### Step 5: Part 3 Calculate Violation Percentages per Condition
+### Calculate Violations
+
+*Calculate Violation Percentages per Condition*
 
 ```{r}
 #| label: "calculate-violations"
@@ -4429,7 +5030,7 @@ violation_summary <- final_data_with_actuals %>%
 
 ```
 
-#### Step 5: Part 4 Summarize Violations
+### Create APA Flextable of Label Switching, Errors, and Replications Needed for PART 2
 
 ```{r}
 
@@ -4690,15 +5291,27 @@ model15_table
 
 ```
 
-# PART 2:
+Save Tables
 
-#### Objective
+```{r}
+#| label: "render-violation-tables"
+#| echo: true
+#| message: false
+#| warning: false
 
-Rerun Analysis *with VARIED NUMBER OF REPLICATIONS to meet the 500 number threshold*
+invisible(save_as_image(violation_summary_table, path = here('Simulations', 'STUDY_1', "2 Time Points", "zErrors", "l_l_e&v_1.svg"))
+   )
+```
 
-## Model 1: Simulation Setup 
+------------------------------------------------------------------------
 
-We will now run a Monte Carlo simulation for Model 2. The simulation will iterate over different combinations of sample sizes, transition probabilities, lamdas, and mixing proportion components. The following code sets up the cluster for parallel processing and defines the function to run the simulation.
+# PART 2 Re-Run Simulations
+
+------------------------------------------------------------------------
+
+### Re-Run Simulation with Dynamic Replication Conditions
+
+## Model 1
 
 ```{r,eval = FALSE}
 #| label: "rilta-lta-simulation-Model 1b"
@@ -4887,12 +5500,17 @@ rilta_lta_func <- function(N_numeric, TPs, Lambda, Mix, Adjusted_Replications_Ne
       RESULTS = RILTA_LTA_M1_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_{Lambda}.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -4945,8 +5563,6 @@ stopCluster(cl)
 ```
 
 ## Model 2
-
-We will now run a Monte Carlo simulation for Model 2. This simulation will iterate over different combinations of sample sizes, transition probabilities, and mixture components using the logits form the probability plot of Model 2. The following code sets up the cluster for parallel processing and defines the function to run the simulation.
 
 ```{r, eval = FALSE}
 
@@ -5151,12 +5767,17 @@ rilta_lta_func2 <- function(N_numeric, TPs, Lambda, Mix, Adjusted_Replications_N
       RESULTS = RILTA_LTA_M2_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_{Lambda}.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -5207,8 +5828,6 @@ stopCluster(cl)
 ```
 
 ## Model 3
-
-We will now run a Monte Carlo simulation for Model 3. This simulation will iterate over different combinations of sample sizes, transition probabilities, and mixture components using the logits form the probability plot for Model 3. The following code sets up the cluster for parallel processing and defines the function to run the simulation.
 
 ```{r, eval = FALSE}
 
@@ -5413,12 +6032,17 @@ rilta_lta_func3 <- function(N_numeric, TPs, Lambda, Mix, Adjusted_Replications_N
       RESULTS = RILTA_LTA_M3_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_{Lambda}.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -5468,17 +6092,14 @@ result_list <- parLapply(cl, 1:nrow(model3_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 4: Varied Lambda Pattern A
+## Model 1A: Varied Lambda Pattern A
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
-#| label: "rilta-lta-simulation-Model 4b"
+#| label: "rilta-lta-simulation-Model 1A-2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-
-
-
 
   # Define the Mplus object with the dynamic replications
 rilta_lta_func4 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
@@ -5663,12 +6284,17 @@ rilta_lta_func4 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
       RESULTS = RILTA_LTA_M1_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_A.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -5716,10 +6342,10 @@ result_list <- parLapply(cl, 1:nrow(model4_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 5: Varied Lambda Pattern B
+## Model 1B: Varied Lambda Pattern B
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
-#| label: "rilta-lta-simulation-Model 5b"
+#| label: "rilta-lta-simulation-Model 1B-2"
 #| echo: true
 #| message: false
 #| warning: false
@@ -5907,12 +6533,17 @@ rilta_lta_func5 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
       RESULTS = RILTA_LTA_M1_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_B.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -5960,11 +6591,11 @@ result_list <- parLapply(cl, 1:nrow(model5_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 6: Varied Lambda Pattern C
+## Model 1C: Varied Lambda Pattern C
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 6b"
+#| label: "rilta-lta-simulation-Model 1C-2"
 #| echo: true
 #| message: false
 #| warning: false
@@ -6150,12 +6781,17 @@ rilta_lta_func6 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
       RESULTS = RILTA_LTA_M1_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_C.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -6203,11 +6839,11 @@ result_list <- parLapply(cl, 1:nrow(model6_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 7: Varied Lambda Pattern D
+## Model 1D: Varied Lambda Pattern D
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 7b"
+#| label: "rilta-lta-simulation-Model 1D-2"
 #| echo: true
 #| message: false
 #| warning: false
@@ -6393,12 +7029,17 @@ rilta_lta_func7 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
       RESULTS = RILTA_LTA_M1_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_D.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -6446,11 +7087,11 @@ result_list <- parLapply(cl, 1:nrow(model7_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 8: Varied Lambda Pattern A
+## Model 2A: Varied Lambda Pattern A
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 8b"
+#| label: "rilta-lta-simulation-Model 2A-2"
 #| echo: true
 #| message: false
 #| warning: false
@@ -6651,12 +7292,17 @@ rilta_lta_func8 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
       RESULTS = RILTA_LTA_M2_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_A.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -6704,11 +7350,11 @@ result_list <- parLapply(cl, 1:nrow(model8_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 9: Varied Lambda Pattern B
+## Model 2B: Varied Lambda Pattern B
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 9b"
+#| label: "rilta-lta-simulation-Model-2B-2"
 #| echo: true
 #| message: false
 #| warning: false
@@ -6908,12 +7554,17 @@ rilta_lta_func9 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
       !SAVE = repM9*.dat;
       RESULTS = RILTA_LTA_M2_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_B.csv;"),
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
+      INTEGRATION = STANDARD(20);
       processors = 24;
-      STARTS 50 10;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -6961,11 +7612,11 @@ result_list <- parLapply(cl, 1:nrow(model9_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 10: Varied Lambda Pattern C
+## Model 2C: Varied Lambda Pattern C
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 10b"
+#| label: "rilta-lta-simulation-Model-2C-2"
 #| echo: true
 #| message: false
 #| warning: false
@@ -7165,12 +7816,17 @@ rilta_lta_func10 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) 
       !SAVE = repM10*.dat;
       RESULTS = RILTA_LTA_M2_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_C.csv;"),
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -7218,16 +7874,15 @@ result_list <- parLapply(cl, 1:nrow(model10_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 11: Varied Lambda Pattern D
+## Model 2D: Varied Lambda Pattern D
 
-```{r,message=FALSE, warning=FALSE, eval = FALSE}
+```{r,eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 11b"
+#| label: "rilta-lta-simulation-Model-2D-2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-
 
   # Define the Mplus object with the dynamic replications
 rilta_lta_func11 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
@@ -7423,12 +8078,17 @@ rilta_lta_func11 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) 
       !SAVE = repM11*.dat;
       RESULTS = RILTA_LTA_M2_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_D.csv;"),
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
     
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -7476,16 +8136,15 @@ result_list <- parLapply(cl, 1:nrow(model11_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 12: Varied Lambda Pattern A
+## Model 3A: Varied Lambda Pattern A
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 12b"
+#| label: "rilta-lta-simulation-Model-3A-2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-
 
   # Define the Mplus object with the dynamic replications
 rilta_lta_func12 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
@@ -7684,12 +8343,17 @@ rilta_lta_func12 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) 
       RESULTS = RILTA_LTA_M3_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_A.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
-    Algorithm = INTEGRATION;
-      STARTS = 50 10;
+      ANALYSIS =
+      "TYPE = MIXTURE;
+      algorithm = integration;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -7737,16 +8401,15 @@ result_list <- parLapply(cl, 1:nrow(model12_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 13: Varied Lambda Pattern B
+## Model 3B: Varied Lambda Pattern B
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 13b"
+#| label: "rilta-lta-simulation-Model-3B-2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-
 
   # Define the Mplus object with the dynamic replications
 rilta_lta_func13 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
@@ -7943,12 +8606,17 @@ rilta_lta_func13 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) 
       RESULTS = RILTA_LTA_M3_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_B.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -7996,16 +8664,15 @@ result_list <- parLapply(cl, 1:nrow(model13_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 14: Varied Lambda Pattern C
+## Model 3C: Varied Lambda Pattern C
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 14b"
+#| label: "rilta-lta-simulation-Model-3C-2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
-
 
   # Define the Mplus object with the dynamic replications
 rilta_lta_func14 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) {
@@ -8202,12 +8869,17 @@ rilta_lta_func14 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) 
       RESULTS = RILTA_LTA_M3_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_C.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -8255,11 +8927,11 @@ result_list <- parLapply(cl, 1:nrow(model14_data), function(i) {
 stopCluster(cl)
 ```
 
-## Model 15: Varied Lambda Pattern D
+## Model 3D: Varied Lambda Pattern D
 
 ```{r,message=FALSE, warning=FALSE, eval = FALSE}
 
-#| label: "rilta-lta-simulation-Model 15b"
+#| label: "rilta-lta-simulation-Model-3D-2"
 #| echo: true
 #| message: false
 #| warning: false
@@ -8462,12 +9134,17 @@ rilta_lta_func15 <- function(N_numeric, TPs, Mix, Adjusted_Replications_Needed) 
       RESULTS = RILTA_LTA_M3_N_{N_numeric}_TP_{TPs}_M_{Mix}_L_D.csv;"),
     
     
-    ANALYSIS = "TYPE = MIXTURE;
+      ANALYSIS =
+      "TYPE = MIXTURE;
       algorithm = integration;
-      STARTS = 50 10;
+      INTEGRATION = STANDARD(20);
       processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
       logcriterion=0.00001;
       mconv=0.00001;",
+    
+    OUTPUT = "TECH9",
 
     MODELPOPULATION = MODELPOPULATION,
     MODEL = MODEL,
@@ -8515,11 +9192,13 @@ result_list <- parLapply(cl, 1:nrow(model15_data), function(i) {
 stopCluster(cl)
 ```
 
-# CHECK FOR LABEL SWITCHING
+------------------------------------------------------------------------
 
-### Step 6: Combine All CSV Files into One Data Frame
+# Check for Label Switching and Errors - Part 2
 
-#### **Objective:** 
+> In this section: we re conduct the steps for aggregating the label switching and errors to guarantee that we will have at minimum 500 replications per condition.
+
+------------------------------------------------------------------------
 
 *Load all CSV files and combine them into a single data frame.*
 
@@ -8538,10 +9217,6 @@ csv_directory <- here('Simulations', 'STUDY_2', '3_RILTA_GEN_LTA_ANALYZED_REP')
 source(here('Child_Docs', 'data_scraping.R'))
 ```
 
-### Step 7: Scrape Rows and Process Data
-
-#### **Objective:** 
-
 *Extract the appropriate rows from each 9-row chunk) and prepare the data for further processing.*
 
 ```{r}
@@ -8555,27 +9230,9 @@ source(here('Child_Docs', 'data_scraping.R'))
 # Step 2: Process the data using the child script
 source(here('Child_Docs', 'step2_f_LTA.R'))
 
-
-# Assuming the data frame is named final_data_with_actuals
-# Count of non-missing values
-non_missing_trans_11 <- sum(!is.na(final_data_with_actuals$Trans_11))
-non_missing_se_11 <- sum(!is.na(final_data_with_actuals$SE_11))
-
-# Count of missing values
-missing_trans_11 <- sum(is.na(final_data_with_actuals$Trans_11))
-missing_se_11 <- sum(is.na(final_data_with_actuals$SE_11))
-
-# Output the counts
-cat("Trans_11 - Non-missing:", non_missing_trans_11, "Missing:", missing_trans_11, "\n")
-cat("SE_11 - Non-missing:", non_missing_se_11, "Missing:", missing_se_11, "\n")
-
 ```
 
-### Step 8: Convert Logits to Probabilities and Add Actual (Population) Values
-
-#### **Objective:** 
-
-*Convert the logits to probabilities and flag label switching cases*
+*Convert the logits to probabilities and add the known actual values to each row.*
 
 ```{r}
 #| label: "convert-logits-and-flags2"
@@ -8590,213 +9247,127 @@ source(here('Child_Docs', 'step_3.R'))
 # The objects `final_data_with_actuals` and `violators` should now be in the global environment
 ```
 
-### **Step 9: Summarize Violations**
-
-#### **Objective**
-
-*Calculate the percentage of violations for each file, handling missing values appropriately.*
-
-#### Scrape Output Files for Errors for specific replications
+*Scrape Output Files for Errors*
 
 ```{r}
-#| label: "summarize-errors2"
 #| echo: true
 #| message: false
 #| warning: false
 #| code-fold: true
 
-library(parallel)
+# Step 1: Set the correct output directory for .out files
+output_folder <- here('Simulations', 'STUDY_2', '3_RILTA_GEN_LTA_ANALYZED_REP')
 
-extract_errors_from_file <- function(filepath, total_replications) {
-  lines <- readLines(filepath)
-  results <- vector("list", total_replications)
-  error_keywords <- c("NON-POSITIVE DEFINITE", "SADDLE")
+# Step 2: Source the child document that processes .out files
+source(here('Child_Docs', 'out_scraping.R'))
 
-  # Initialize results for every replication
-  for (rep in 1:total_replications) {
-    results[[rep]] <- tibble(
-      FileName = basename(filepath),
-      Replication = rep,
-      Message = "None",
-      MessageType = "None"
-    )
-  }
-
-  current_replication <- NULL
-  for (line in lines) {
-    if (str_detect(line, "REPLICATION")) {
-      current_replication <- as.integer(str_extract(line, "\\d+"))
-    }
-
-    if (!is.null(current_replication) && current_replication <= total_replications &&
-        any(sapply(error_keywords, grepl, line, ignore.case = TRUE))) {
-      results[[current_replication]] <- tibble(
-        FileName = basename(filepath),
-        Replication = current_replication,
-        Message = str_trim(line),
-        MessageType = "Error"
-      )
-    }
-  }
-
-  return(bind_rows(results))
-}
-
-# Step 2: Extract Completed Replications
-extract_completed_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  completed_line <- lines[grepl("Completed", lines, ignore.case = TRUE)]
-  completed <- as.integer(str_match(completed_line, "Completed\\s+(\\d+)")[, 2])
-  if (length(completed) == 0) completed <- 0
-  tibble(FileName = basename(filepath), CompletedReplications = completed)
-}
-
-# Step 3: Extract Requested Replications
-extract_requested_replications <- function(filepath) {
-  lines <- readLines(filepath)
-  requested_line <- lines[grepl("Requested", lines, ignore.case = TRUE)]
-  requested <- as.integer(str_match(requested_line, "Requested\\s+(\\d+)")[, 2])
-  if (length(requested) == 0) requested <- 0
-  tibble(FileName = basename(filepath), RequestedReplications = requested)
-}
-
-calculate_replication_summary <- function(error_summary, completed_replications, requested_replications) {
-  summary <- error_summary %>%
-    group_by(FileName) %>%
-    summarise(
-      ErrorReplications = n_distinct(Replication[MessageType == "Error"]),
-      .groups = "drop"
-    )
-
-  full_summary <- requested_replications %>%
-    left_join(completed_replications, by = "FileName") %>%
-    left_join(summary, by = "FileName") %>%
-    mutate(
-      ErrorReplications = coalesce(ErrorReplications, 0),
-      GoodReplications = CompletedReplications - ErrorReplications,
-      ErrorRate = if_else(CompletedReplications > 0, (ErrorReplications / CompletedReplications) * 100, 0)
-    ) %>%
-    select(FileName, RequestedReplications, CompletedReplications, ErrorReplications, GoodReplications, ErrorRate)
-
-  full_summary
-}
-
-# Step 4: Parallelized Processing (Windows/Mac/Linux Compatible)
-output_folder <- "3_RILTA_GEN_LTA_ANALYZED_REP"  # Adjust to your folder path
-file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
-
-# Step 5: Detect OS and Set Up Cluster
-cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
-num_cores <- detectCores() - 1  # Use all but one core
-cl <- makeCluster(num_cores, type = cluster_type)
-
-# Export necessary libraries and functions to the cluster
-invisible(clusterExport(cl, c("extract_errors_from_file", "extract_completed_replications", "extract_requested_replications")))
-invisible(clusterEvalQ(cl, library(tidyverse)))
-
-# Step 6: Parallel Processing
-# Calculate completed replications first
-completed_rep_list <- parLapply(cl, file_list, extract_completed_replications)
-
-# Extract errors while passing the total number of completed replications to the function
-error_summary <- bind_rows(mapply(function(filepath, completed_data) {
-  extract_errors_from_file(filepath, completed_data$CompletedReplications)
-}, file_list, completed_rep_list, SIMPLIFY = FALSE))
-
-completed_replications <- bind_rows(parLapply(cl, file_list, extract_completed_replications))
-requested_replications <- bind_rows(parLapply(cl, file_list, extract_requested_replications))
-
-# Stop the cluster
-stopCluster(cl)
-
-# Step 7: Calculate Replication Summary
-replication_summary <- calculate_replication_summary(error_summary, completed_replications, requested_replications)
-
-# Step 8: Create and Display the Table with Error Rate
+# ===================================================== #
+#  ✅ SECTION 1 Generate Replication Summary Table
+# ===================================================== #
 replication_summary_table <- replication_summary %>%
   gt() %>%
   tab_header(
     title = "Replication Summary",
     subtitle = paste0("Folder: ", output_folder)
   ) %>%
-  fmt_number(columns = c(CompletedReplications, RequestedReplications, ErrorReplications, GoodReplications, ErrorRate), decimals = 2) %>%
+  fmt_number(
+    columns = c("Total", "Replicated_Yes", "Replicated_No", "Error_Count"),
+    decimals = 0
+  ) %>%
   cols_label(
     FileName = "File Name",
-    CompletedReplications = "Completed Replications",
-    RequestedReplications = "Requested Replications",
-    ErrorReplications = "Replications with Errors",
-    GoodReplications = "Good Replications",
-    ErrorRate = "Error Rate (%)"
+    Total = "Total Replications",
+    Replicated_Yes = "LL Replicated",
+    Replicated_No = "LL Not Replicated",
+    Error_Count = "Errors"
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = everything()
   ) %>%
   tab_options(
     table.font.size = "small",
     heading.title.font.size = "medium",
-    heading.subtitle.font.size = "small"
+    heading.subtitle.font.size = "small",
+    table.width = pct(80)
   )
 
 # Display the table
 replication_summary_table
 
-completed_replications <- completed_replications %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-error_summary <- error_summary %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
-replication_summary <- replication_summary %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
-
+# ===================================================== #
+#  ✅ SECTION 2 Row Count Validation
+# ===================================================== #
 cat("Rows in final_data_with_actuals:", nrow(final_data_with_actuals), "\n")
-# Output the final number of rows to confirm data handling
-cat("Number of rows in error_summary: ", nrow(error_summary), "\n")
-cat("Number of rows in replication_summary: ", nrow(replication_summary), "\n")
+cat("Rows in final_results:", nrow(final_results), "\n")
+cat("Rows in replication_summary:", nrow(replication_summary), "\n")
+print(if (any(replication_summary$LL_Not_Replicated > 0, na.rm = TRUE)) {
+  "⚠️ WARNING: Some LL values were NOT replicated! Check the Replication Summary table."
+} else {
+  "✅ All LL values were successfully replicated."
+})
+all.equal(final_data_with_actuals$ll_csv, final_results$ll_out, tolerance = 1e-4)
+
 
 ```
 
-#### Step 9: Part 1 Merge errors with main data
+*Combine error information with main data file*
 
 ```{r}
 #| label: "merge-errors2"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
-
-# Ensure consistent column formats and remove .out and .csv extensions
-error_summary <- error_summary %>%
-  mutate(
-    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
-    Replication = as.character(Replication) # Convert Replication to character
-  )
 
 final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(
-    FileName = tolower(str_trim(gsub("\\.out$|\\.csv$", "", FileName))), # Remove extensions and standardize FileName
-    Replication = as.character(Replication) # Convert Replication to character
-  )
-
-# Add a new column to flag errors
-error_summary <- error_summary %>%
-  mutate(ErrorFlag = if_else(Message == "None", 0, 1))
-
-
-# Merge ErrorFlag into final_data_with_actuals
-final_data_with_actuals <- final_data_with_actuals %>%
-  left_join(error_summary %>% select(FileName, Replication, ErrorFlag),
+  left_join(final_results %>% select(FileName, Replication, ll_out, ErrorFlag),
             by = c("FileName", "Replication"))
 ```
 
-#### Step 9: Part 2 Create Column Names from the Filename
+*Visualize differences between ll_out and ll_csv*
+
+```{r}
+# Create a dataframe with only rows where ll_out and ll_csv differ
+ll_mismatch <- final_data_with_actuals %>%
+  mutate(diff = round(ll_out - ll_csv, 3)) %>%
+  filter(diff != 0) %>%
+  select(FileName, Replication, ll_out, ll_csv, diff)
+
+
+ll_check <- final_data_with_actuals %>%
+  mutate(diff = round(ll_out - ll_csv, 3)) %>%  # Round before counting
+  count(diff)
+
+ll_check_table <- ll_check %>%
+  gt() %>%
+  tab_header(
+    title = "LL Difference Summary",
+    subtitle = "Comparison of LL values between CSV and OUT files"
+  ) %>%
+  cols_label(
+    diff = "LL Difference",
+    n = "Count"
+  ) %>%
+  fmt_number(
+    columns = diff,
+    decimals = 3
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = everything()
+  ) %>%
+  tab_options(
+    table.font.size = "small",
+    heading.title.font.size = "medium",
+    heading.subtitle.font.size = "small",
+    table.width = pct(50)
+  )
+
+# Display the table
+ll_check_table
+```
+
+*Create Column Names from the File Name*
 
 ```{r}
 #| label: "prepare-data-for-plotting-bias2"
@@ -8856,7 +9427,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 ```
 
-#### Step 9: Part 3 Calculate Violation Percentages per Condition
+*Calculate Violation Percentages per Condition*
 
 ```{r}
 #| label: "calculate-violations2"
@@ -8900,7 +9471,7 @@ violation_summary <- final_data_with_actuals %>%
 
 ```
 
-#### Step 9: Part 4 Summarize Violations
+*Summarize & Visualize Label Switching Percentage Results*
 
 ```{r}
 
@@ -9031,9 +9602,203 @@ model15_table
 
 ```
 
-### **Step 10: Delete Cases that Violate**
+Save the Table
 
-#### **Objective**
+```{r}
+#| label: "render-violation-tables2"
+#| echo: true
+#| message: false
+#| warning: false
+
+invisible(save_as_image(violation_summary_table, path = here('Simulations', 'STUDY_1', "2 Time Points", "zErrors", "zl_l_e&v_2.svg")
+   ))
+```
+
+Prepare data for Submission Table
+
+```{r}
+#| label: "prepare-data-final-table"
+#| echo: true
+#| message: false
+#| warning: false
+
+# Step 1: Rename columns in violation_summary2 (except join keys)
+violation_summary2 <- violation_summary2 %>%
+  rename_with(~ paste0(.x, "_2"), 
+              -c(FileName, Population, N, N_numeric))
+
+# Step 2: Merge both datasets on common keys
+violation_summary_final <- violation_summary %>%
+  left_join(violation_summary2, by = c("FileName", "Population", "N", "N_numeric")) %>%
+  mutate(
+    Total_Rows = Total_Rows,
+    Violation_Rate = Percentage_Violations,  
+    Error_Rate = ErrorRate,
+    Final_Violation_Rate = Percentage_Violations_2,
+    Final_Error_Rate = ErrorRate_2,
+    Reps_Needed_for_Success = Replications_Needed,
+    Successful_Replications = GoodReplications_2,
+    Status = if_else(Successful_Replications >= 500, "✅ Fixed", "⚠️ Additional Runs Required")
+  ) %>%
+  select(
+    N_numeric, Population, Total_Rows, Violation_Rate, Error_Rate, Reps_Needed_for_Success, 
+    Final_Violation_Rate, Final_Error_Rate, Successful_Replications, Status
+  ) %>%
+arrange(factor(N_numeric, levels = c(500, 1000, 2000, 4000)), Population) %>%
+mutate(N_numeric = trimws(as.numeric(N_numeric)))
+
+
+```
+
+Create flextable Function for Final Table
+
+```{r}
+create_flextable <- function(data) {
+  
+  # Keep only the required columns
+  data <- data %>%
+    select(
+      N_numeric,  
+      Population,  
+      Total_Rows,
+      Violation_Rate,
+      Error_Rate,
+      Reps_Needed_for_Success,
+      Final_Violation_Rate,
+      Final_Error_Rate,
+      Successful_Replications
+    ) %>%
+    as.data.frame()  
+
+  # Create the flextable
+  ft <- flextable(data) %>%
+    set_header_labels(
+      N_numeric = "N",
+      Population = "T11",  
+      Total_Rows = "N Reps",
+      Violation_Rate = "V %",
+      Error_Rate = "\u03B5 %",  
+      Reps_Needed_for_Success = "Reps Needed",
+      Final_Violation_Rate = "V %",
+      Final_Error_Rate = "\u03B5 %",
+      Successful_Replications = "Successful Reps"
+    )
+
+  # Apply special formatting to headers
+  ft <- compose(ft, part = "header", j = "N_numeric", value = as_paragraph(as_i("N")))
+  ft <- compose(ft, part = "header", j = "Population", value = as_paragraph(as_i("T"), as_sub("11")))
+  ft <- compose(ft, part = "header", j = "Total_Rows", value = as_paragraph(as_i("N"), "\n", "Reps"))
+  ft <- compose(ft, part = "header", j = "Violation_Rate", value = as_paragraph(as_i("V"), "%"))
+  ft <- compose(ft, part = "header", j = "Error_Rate", value = as_paragraph("\u03B5", "%"))
+  ft <- compose(ft, part = "header", j = "Final_Violation_Rate", value = as_paragraph(as_i("V"), "%"))
+  ft <- compose(ft, part = "header", j = "Final_Error_Rate", value = as_paragraph("\u03B5", "%"))
+  ft <- compose(ft, part = "header", j = "Reps_Needed_for_Success", value = as_paragraph("Reps", "\n", "Needed"))
+  ft <- compose(ft, part = "header", j = "Successful_Replications", value = as_paragraph("Successful", "\n", "Reps"))
+
+  # **Correct vertical centering: Merge "N = _" across 6-row blocks**
+  ft <- merge_v(ft, j = "N_numeric")  
+
+  # **Ensure "N = ..." appears only ONCE in the center of the 6-row block**
+  ft <- compose(
+    ft,
+    part = "body",
+    j = "N_numeric",
+    i = seq(1, nrow(data), by = 6),  # ✅ This controls correct positioning
+    value = as_paragraph(
+      as_i("N"),  
+      " =\u2009",  # THIN SPACE (Unicode U+2009)
+      as_character(format(N_numeric, big.mark = ",", scientific = FALSE))  
+    )
+  )
+
+  # **Fully remove duplicate N values in merged rows**
+  ft <- compose(
+    ft,
+    part = "body",
+    j = "N_numeric",
+    i = setdiff(1:nrow(data), seq(1, nrow(data), by = 6)),  
+    value = as_paragraph("")
+  )
+
+  # **Align vertically centered**
+  ft <- valign(ft, j = "N_numeric", valign = "center", part = "body")
+
+  # Center all text
+  ft <- align(ft, align = "center", part = "all")
+
+  # Set column widths
+  ft <- width(ft, j = "N_numeric", width = .9)
+  ft <- width(ft, j = "Population", width = 0.6)  
+  ft <- width(ft, j = "Total_Rows", width = 0.6) 
+  ft <- width(ft, j = "Violation_Rate", width = 0.6)
+  ft <- width(ft, j = "Error_Rate", width = 0.4)
+  ft <- width(ft, j = "Reps_Needed_for_Success", width = .7)
+  ft <- width(ft, j = "Final_Violation_Rate", width = 0.6)
+  ft <- width(ft, j = "Final_Error_Rate", width = 0.4)
+  ft <- width(ft, j = "Successful_Replications", width = .6)
+
+  # Apply percentage formatting
+  ft <- colformat_num(
+    ft,
+    j = c("Violation_Rate", "Error_Rate", "Final_Violation_Rate", "Final_Error_Rate"),  
+    suffix = "%"  
+  )
+  
+ft <- add_header_row(
+  ft,
+  values = c(" ", "Initial Reps", "Final Reps", " "),
+  colwidths = c(2, 3, 3, 1)
+)
+
+  # Define a transparent border
+  no_border <- fp_border(color = "transparent", width = 0)
+
+  # **Remove ONLY the bottom border under the first three columns (the blank subheader)**
+  ft <- hline(ft, i = 1, j = 1:2, border = no_border, part = "header")
+  ft <- hline(ft, i = 1, j = 9, border = no_border, part = "header")
+
+  # Autofit table layout
+  ft <- set_table_properties(ft, layout = "fixed")
+
+  # Apply font settings
+  ft <- font(ft, fontname = "Avenir Next", part = "all")
+
+  # Get total number of rows
+total_rows <- nrow(data)
+
+# Create a logical vector marking every 6 rows for coloring
+color_rows <- rep(FALSE, total_rows)  
+for (i in seq(1, total_rows, by = 12)) {  
+  color_rows[i:(i+5)] <- TRUE  # ✅ Color every 6-row block
+}
+
+# Apply background color
+ft <- bg(ft, i = color_rows, bg = "#f0f0f0", part = "body")
+
+  return(ft)
+}
+
+# Generate formatted flextable
+violation_summary_final_table <- create_flextable(violation_summary_final)
+violation_summary_final_table
+
+```
+
+Save FINAL table
+
+```{r}
+
+invisible(save_as_image(violation_summary_final_table, path = here('Simulations', 'STUDY_1', "2 Time Points", "zErrors", "zl_l_e&v_FINAL.svg")
+   ))
+```
+
+------------------------------------------------------------------------
+
+# Final Data Preparation
+
+------------------------------------------------------------------------
+
+## Filter Cases with Violations and Errors
 
 *Filter out cases with any violations, leaving only the clean data.*
 
@@ -9047,11 +9812,21 @@ model15_table
 # Filter out cases with no violations and no errors
 filtered_data_with_no_violations <- final_data_with_actuals[
   final_data_with_actuals$Any_Violation == 0 & final_data_with_actuals$ErrorFlag == 0, ]
+
+# Check the number of remaining rows after filtering
+cat("Remaining rows after filtering:", nrow(filtered_data_with_no_violations), "\n")
+
+# Verify if there are any remaining violations or errors
+cat("Any remaining violations:", sum(filtered_data_with_no_violations$Any_Violation), "\n")
+cat("Any remaining errors:", sum(filtered_data_with_no_violations$ErrorFlag), "\n")
+
 ```
 
-#### Step 10: Part 1
+------------------------------------------------------------------------
 
-Take random sample of replications to achieve n = 500
+## Calculate Monte Carlo Values via Bootstrapping
+
+*Calculate Monte Carlo values for `TRANS11`, including population values, averages, standard errors, Mean Squared Error (MSE), coverage, power, and dichotomous variables for Power and Coverage,*
 
 ```{r}
 #| label: "Select-random-sample-replications"
@@ -9060,31 +9835,121 @@ Take random sample of replications to achieve n = 500
 #| warning: false
 #| code-fold: true
 
+library(dplyr)
+library(purrr)
 
-# Set seed for reproducibility
-set.seed(07252005)
-
-# Group data by FileName and sample 500 rows per condition (if possible)
-cleaned_data <- filtered_data_with_no_violations %>%
-  group_by(FileName) %>%
-  slice_sample(n = 500, replace = FALSE) %>%  # Randomly sample 500 rows (without replacement)
-  ungroup()
-
-# Verify the number of rows per condition
-condition_counts <- cleaned_data %>%
-  group_by(FileName) %>%
-  summarize(Count = n(), .groups = "drop")
-
-# Print conditions with more or less than 500 rows (sanity check)
-sanity_check <- condition_counts %>%
-  filter(Count != 500)
-
-if (nrow(sanity_check) > 0) {
-  warning("Some conditions do not have exactly 500 rows. Please verify the data and ensure extra replications are sufficient.")
-  print(sanity_check)
-} else {
-  message("All conditions have exactly 500 rows.")
+# 1. Create a function that calculates mc_values from raw replication-level data
+calc_mc_values <- function(data) {
+  # Step A: Clean and convert columns as needed
+  cleaned_data <- data %>%
+    mutate(
+      Population = as.numeric(as.character(Population)),
+      TRANS11 = as.numeric(as.character(TRANS11)),
+      SE_11 = as.numeric(as.character(SE_11))
+    )
+  
+  # Step B: Compute group-level summaries (without grouping by Transitions)
+  mc_values <- cleaned_data %>%
+    group_by(Population, N) %>%
+    summarize(
+      group_size   = n(),
+      average      = round(mean(TRANS11, na.rm = TRUE), 3),
+      average_SE   = round(mean(SE_11, na.rm = TRUE), 3),
+      population_sd= round(sd(TRANS11, na.rm = TRUE), 3),
+      MSE          = round(mean((TRANS11 - Population)^2, na.rm = TRUE), 3),
+      Coverage     = round(mean((Population >= (TRANS11 - 1.96 * SE_11)) &
+                                  (Population <= (TRANS11 + 1.96 * SE_11)), na.rm = TRUE), 3),
+      Power        = round(mean(TRANS11 / SE_11 > 1.96, na.rm = TRUE), 3),
+      Reps_Used    = n(),
+      .groups = "drop"
+    )
+  
+  # Step C: Merge in Transitions from the raw data (or from an auxiliary table if needed)
+  mc_values <- cleaned_data %>%
+    select(FileName, Population, N, Transitions) %>%
+    distinct() %>%
+    right_join(mc_values, by = c("Population", "N"))
+  
+  # Step D: Calculate bias measures
+  mc_values <- mc_values %>%
+    mutate(
+      Parameter_Bias_boot = round((average - Population) / Population * 100, 2),
+      SE_Bias_boot        = round((average_SE - population_sd) / (population_sd + 1e-6) * 100, 2)
+    )
+  
+  # (Optional: add any further transformations or dichotomizations)
+  
+  return(mc_values)
 }
+
+# 2. Create a parallelized bootstrap function that uses the above calculation on bootstrap samples
+bootstrap_mc_values <- function(data, n_bootstrap, sample_size) {
+  
+  # Step A: Detect available cores and create a parallel cluster
+  num_cores <- detectCores() - 1  # Use one less than total cores to avoid overloading the system
+  cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")  # Use FORK for Mac/Linux, PSOCK for Windows
+  cl <- makeCluster(num_cores, type = cluster_type)  # Create the cluster
+  
+  # Step B: Export necessary functions and objects to the cluster workers
+  clusterExport(cl, c("calc_mc_values", "sample_n", "%>%", "filtered_data_with_no_violations"))
+  clusterEvalQ(cl, { library(dplyr) })  # Ensure each worker loads the required package
+
+  # Step C: Group data by condition variables (Population, N, Transitions)
+  grouped_data <- data %>%
+    group_by(Population, N, Transitions) %>%
+    group_split()  # Split data so each group runs separately in parallel
+  
+  # Step D: Perform bootstrapping in parallel across worker nodes
+  boot_results <- parLapply(cl, grouped_data, function(group_data) {
+    map_dfr(1:n_bootstrap, function(i) {
+      # Step D1: Draw a bootstrap sample (with replacement) from the replications in this condition
+      boot_sample <- group_data %>% sample_n(sample_size, replace = TRUE)
+      
+      # Step D2: Calculate MC values for the bootstrap sample
+      boot_mc <- calc_mc_values(boot_sample)
+      
+      # Step D3: Add Bootstrap Iteration number
+      boot_mc %>% mutate(Bootstrap_Iteration = i)
+    })
+  }) %>%
+    bind_rows()  # Step E: Combine results from all parallel workers into a single dataframe
+
+  # Step F: Stop the parallel cluster to free system resources
+  stopCluster(cl)
+
+  # Step G: Return the final bootstrapped MC values
+  return(boot_results)
+}
+
+# 3. Run the bootstrap procedure on your raw replication-level data
+set.seed(07252005)
+boot_results <- bootstrap_mc_values(filtered_data_with_no_violations, n_bootstrap = 1000, sample_size = 500)
+
+# 4. Aggregate the bootstrap results to get mean bootstrap estimates per condition:
+bootstrap_aggregates <- boot_results %>%
+  group_by(Population, N, Transitions) %>%
+  summarize(
+    Parameter_Bias = mean(Parameter_Bias_boot, na.rm = TRUE),
+    SE_Bias       = mean(SE_Bias_boot, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# 5. Calculate your original mc_values (using the full replication set) for comparison:
+original_mc_values <- calc_mc_values(filtered_data_with_no_violations)
+
+# 6. Merge the bootstrap aggregates back to the original values (if desired)
+final_mc_values <- original_mc_values %>%
+  left_join(bootstrap_aggregates, by = c("Population", "N", "Transitions")) %>%
+  mutate(
+    Power_Dic    = ifelse(Power >= 0.8, 1, 0),
+    Coverage_Dic = ifelse(Coverage > 0.98 | Coverage < 0.91, 0, 1)
+  )
+
+# Save or inspect the results
+# Save results
+write.csv(final_mc_values, here("Simulations", "STUDY_1", "2 Time Points", "zbootstrapping", "l_l_2t_mc_final_mc_values.csv"), row.names = FALSE)
+write.csv(boot_results, here("Simulations", "STUDY_1", "2 Time Points", "zbootstrapping", "l_l_2t_boot_results.csv"), row.names = FALSE)
+
 ```
 
 ### **Step 11: Compute Monte Carlo (MC) Values**
@@ -9133,17 +9998,13 @@ mc_values <- mc_values %>%
 
 ```
 
-### **Step 12: Prepare Data for Plotting Bias**
+------------------------------------------------------------------------
 
-#### **Objective**
+## Prepare Data for Visualization
 
-*Prepare the Monte Carlo summary data by adding information from the file names (Model, Sample Size, Mixing Proportion, Lambda Values) and converting these to factors for plotting.*
+### Subset Data for Bias Plots
 
-**Step 10: Calculate Dichotomous Variables and Bias**
-
-#### **Objective**
-
-*Calculate dichotomous variables for Power and Coverage, compute Parameter and SE Bias, and prepare subsets for movers and stayers.*
+*Subset the Monte Carlo data into mover transition probabilities (.2) and stayer transition probabilities (.8) based on population values*
 
 ```{r}
 #| label: "calculate-bias-dichotomous-variables"
@@ -9183,11 +10044,13 @@ mc_values <- mc_values %>%
 
 ```
 
-### **Step 13: Subset Data for Movers and Stayers**
+------------------------------------------------------------------------
 
-#### **Objective**
+## Prepare Data for Visualization
 
-*Subset the Monte Carlo values data for transitions with movers and stayers based on the population value.*
+### Subset Data for Bias Plots
+
+*Subset the Monte Carlo data into mover transition probabilities (.2) and stayer transition probabilities (.8) based on population values*
 
 ```{r}
 
@@ -9214,11 +10077,7 @@ subset_0.8_UNEVEN <- subset(subset_uneven, Population == 0.8)  # Change to 0.8_U
 
 ```
 
-### **Step 14: Combined Plot for Mover and Stayer**
-
-#### **Objective**
-
-*Create streamlined plots for both mover and stayer subsets using a common theme and labels.*
+### Prepare Function for Bias Plots
 
 ```{r}
 
@@ -9297,27 +10156,35 @@ generate_plot <- function(data, title, y_limits) {
     theme(strip.text.y = element_text(size = 8))  # Adjust the size of row titles
 }
 
-
-
-# Generate plots
-plot_0.2even <- generate_plot(subset_0.2_EVEN, "Even Mixing Proportion with .200 Transition Probabilities", c(-40, 200))
-plot_0.2uneven <- generate_plot(subset_0.2_UNEVEN, "Uneven Mixing Proportion with .200 Transition Probabilities", c(-40, 80))
-plot_0.8even <- generate_plot(subset_0.8_EVEN, "Even Mixing Proportion with .800 Transition Probabilities", c(-40, 40))
-plot_0.8uneven <- generate_plot(subset_0.8_UNEVEN, "Uneven Mixing Proportion with .800 Transition Probabilities", c(-40, 40))
-
-# Print the plots
-print(plot_0.2even)
-print(plot_0.2uneven)
-print(plot_0.8even)
-print(plot_0.8uneven)
-
 ```
 
-### **Step 15: Prepare Data for Heatmaps**
+### Render Bias Figures
 
-#### **Objective**
+```{r}
+plot_0.2even <- generate_plot(subset_0.2_EVEN, "Even Mixing Proportion with .200 Transition Probabilities", c(-40, 200))
+print(plot_0.2even)
+```
 
-*Prepare data for heatmap creation by ensuring correct formatting for population values, and subsetting the data based on class proportions and sample sizes.*
+```{r}
+plot_0.2uneven <- generate_plot(subset_0.2_UNEVEN, "Uneven Mixing Proportion with .200 Transition Probabilities", c(-40, 80))
+plot_0.2uneven <- generate_plot(subset_0.2_UNEVEN, "Uneven Mixing Proportion with .200 Transition Probabilities", c(-40, 80))
+```
+
+```{r}
+plot_0.8even <- generate_plot(subset_0.8_EVEN, "Even Mixing Proportion with .800 Transition Probabilities", c(-40, 40))
+print(plot_0.8even)
+```
+
+```{r}
+plot_0.8uneven <- generate_plot(subset_0.8_UNEVEN, "Uneven Mixing Proportion with .800 Transition Probabilities", c(-40, 40))
+print(plot_0.8uneven)
+```
+
+------------------------------------------------------------------------
+
+### **Prepare Data for Heat Maps**
+
+*Prepare data for heat map creation by ensuring correct formatting for population values, and subsetting the data based on class proportions and sample sizes.*
 
 ```{r}
 #| label: "prepare-data-for-heatmaps"
@@ -9442,11 +10309,7 @@ new_subset_list <- list(
 
 ```
 
-### **Step 16: Heatmap Creation and Rendering**
-
-#### **Objective**
-
-*Create heatmaps using the `gt` package and render each table separately for different subsets of the data.*
+### Prepare Function for Heat Map Creation
 
 ```{r}
 #| label: "heatmap-creation"
@@ -9568,7 +10431,7 @@ create_table <- function(subset, transition_probability) {
 
 ```
 
-#### **Step 17: Rendering the Tables**
+### Render Heat maps
 
 ```{r}
 

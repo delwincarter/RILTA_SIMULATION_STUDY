@@ -1,0 +1,96 @@
+TITLE:
+Generate RILTA_LTA_M2_N_5000_TP_3.179_M_2_L_0.7
+MONTECARLO:
+NAMES = u11-u15 u21-u25;
+GENERATE = u11-u15 u21-u25(1);
+CATEGORICAL = u11-u15 u21-u25;
+GENCLASSES = c1(3) c2(3);
+CLASSES = c1(3) c2(3);
+NOBSERVATIONS = 5000;
+SEED = 07252005;
+NREPS = 500;
+!SAVE = repM2*.dat;
+RESULTS = RILTA_LTA_M2_N_5000_TP_3.179_M_2_L_0.7.csv;
+MODEL POPULATION:
+   %OVERALL%
+   [c1#1*0] ;
+   [c1#2*0] ;
+   [c2#1*-1.1] ; 
+   [c2#2*-1.1] ; 
+   c2#1 on c1#1*3.179;
+   c2#1 on c1#2*1.1; 
+   c2#2 on c1#1*1.1; 
+   c2#2 on c1#2*1.793147;
+   
+f by u11-u15*0.7 (p1-p5)
+     u21-u25*0.7 (p1-p5);
+ f@1;
+ [f@0];
+ 
+   MODEL POPULATION-c1:
+   %c1#1%
+   [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+   %c1#2%
+   [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+   %c1#3%
+   [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+   
+   MODEL POPULATION-c2:
+   %c2#1%
+   [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+   %c2#2%
+   [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+   %c2#3%
+   [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+ANALYSIS:
+TYPE = MIXTURE;
+      algorithm = integration;
+      INTEGRATION = STANDARD(20);
+      processors = 24;
+      miterations = 1000; 
+      starts= 250 100;
+      logcriterion=0.00001;
+      mconv=0.00001;
+MODEL:
+  %OVERALL%
+  [c1#1*0] ;
+  [c1#2*0] ;
+  [c2#1*-1.1] (a1);
+  [c2#2*-1.1] (a2); 
+  c2#1 on c1#1*3.179 (b11); 
+  c2#1 on c1#2*1.1 (b21); 
+  c2#2 on c1#1*1.1 (b12); 
+  c2#2 on c1#2*1.793147 (b22);
+    
+ MODEL c1:
+    %c1#1%
+ [u11$1*-5 u12$1*-1.21 u13$1*-1.45 u14$1*-1.55 u15$1*-5] (p111-p115);
+
+    %c1#2%
+ [u11$1*5 u12$1*-5 u13$1*.94 u14$1*-.02 u15$1*-.89] (p121-p125);
+ 
+    %c1#3%
+ [u11$1*-5 u12$1*1.55 u13$1*4.17 u14$1*-.16 u15$1*-1.99] (p131-p135);
+
+MODEL c2: 	
+    %c2#1%
+ [u21$1*-5 u22$1*-1.21 u23$1*-1.45 u24$1*-1.55 u25$1*-5] (p111-p115);
+
+    %c2#2%
+ [u21$1*5 u22$1*-5 u23$1*.94 u24$1*-.02 u25$1*-.89] (p121-p125);
+ 
+    %c2#3%
+ [u21$1*-5 u22$1*1.55 u23$1*4.17 u24$1*-.16 u25$1*-1.99] (p131-p135);
+MODEL CONSTRAINT:
+  New(
+    trans11*.8 trans12*.1 trans13*.1 
+    trans21*.25 trans22*.5 trans23*.25);
+  trans11 = exp(a1+b11)/(exp(a1+b11)+exp(a2+b12)+1);
+  trans12 = exp(a2+b12)/(exp(a1+b11)+exp(a2+b12)+1);
+  trans13 = 1-(trans11+trans12);
+  trans21 = exp(a1+b21)/(exp(a1+b21)+exp(a2+b22)+1);
+  trans22 = exp(a2+b22)/(exp(a1+b21)+exp(a2+b22)+1);
+  trans23 = 1-(trans21+trans22);
+  
+OUTPUT:
+TECH9

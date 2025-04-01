@@ -1,0 +1,76 @@
+TITLE:
+Generate RILTA_LTA_N_2000_TP_1.385_TH_1_Lambda_1
+MONTECARLO:
+  NAMES = u11-u15 u21-u25;
+  GENERATE = u11-u15 u21-u25(1);
+  CATEGORICAL = u11-u15 u21-u25;
+  GENCLASSES = c1(2) c2(2);
+  CLASSES = c1(2) c2(2);
+  NOBSERVATIONS = 2000;
+  SEED = 07252005;
+  NREPS = 806;  ! Dynamic number of replications
+  !SAVE = repM1*.dat;
+  RESULTS = RILTA_LTA_N_2000_TP_1.385_TH_1_Lambda_1.csv;
+MODEL POPULATION:
+  %OVERALL%
+  [c1#1-c2#1*0];
+  c2#1 on c1#1*1.385;
+  f by u11-u15*1 (p1-p5)
+       u21-u25*1 (p1-p5);
+  f@1;
+  [f@0];
+
+  MODEL POPULATION-c1:
+    %c1#1%
+ [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+
+    %c1#2%
+ [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+
+  MODEL POPULATION-c2:  
+    %c2#1%
+ [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+
+    %c2#2%
+ [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+ANALYSIS:
+TYPE = MIXTURE;
+      algorithm = integration;
+      processors = 24;
+      miterations = 1000; 
+      starts= 200 40;
+      logcriterion=0.00001;
+      mconv=0.00001;
+MODEL:
+  %OVERALL%
+  [c1#1-c2#1*0](par1-par2);
+  c2#1 on c1#1*1.385 (par11);
+
+ MODEL c1:
+    %c1#1%
+ [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+
+    %c1#2%
+ [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+
+MODEL c2: 	
+    %c2#1%
+ [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+
+    %c2#2%
+ [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+MODEL CONSTRAINT:
+New(
+trans11*.80 trans12*.20 trans21*.5 trans22*.5
+prob11*.5 prob12*.5 prob21*.65 prob22*.35);
+trans11 = 1/(1+exp(-(par2+par11)));
+trans12 = 1-trans11;
+trans21 = 1/(1+exp(-par2));
+trans22 = 1- trans21;
+!marginal probabilities at T1 and T2:
+prob11 = 1/(1+exp(-par1));
+prob12 = 1 - prob11;
+prob21 = prob11*trans11+prob12*trans21;
+prob22 = 1- prob21;
+OUTPUT:
+TECH9

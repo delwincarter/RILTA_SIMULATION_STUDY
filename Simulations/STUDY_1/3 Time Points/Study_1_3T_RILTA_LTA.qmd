@@ -14,10 +14,11 @@ format:
       smooth-scroll: true
     theme: flatly
     fig-format: svg
-    font:
-      main: "Avenir Next LT Pro, Arial, sans-serif"
     page-layout: full
     code-tools: true
+    df-print: paged
+    font:
+      main: "Avenir Next"
 
 editor: visual
 
@@ -580,7 +581,7 @@ cat("Rows in replication_summary:", nrow(replication_summary), "\n")
 
 final_data_with_actuals <- final_data_with_actuals %>%
   left_join(
-    final_results %>% select(FileName, Replication, ll_out, LL_Replicated, ErrorFlag), 
+    final_results %>% dplyr::select(FileName, Replication, ll_out, LL_Replicated, ErrorFlag), 
     by = c("FileName", "Replication")
   ) %>%
   mutate(
@@ -641,7 +642,7 @@ Create DF of LL differences from .out and .csv files for inspection at the repli
 ll_mismatch <- final_data_with_actuals %>%
   mutate(diff = round(ll_out - ll_csv, 3)) %>%
   filter(diff != 0) %>%
-  select(FileName, Replication, ll_out, ll_csv, diff)
+  dplyr::select(FileName, Replication, ll_out, ll_csv, diff)
 
 
 ```
@@ -724,38 +725,39 @@ final_data_with_actuals <- final_data_with_actuals %>%
 #| warning: false
 #| code-fold: false
 
+
 violation_summary <- final_data_with_actuals %>%
   mutate(
-    N_numeric = as.numeric(gsub("N = ", "", as.character(N))),  
-    N_numeric = ifelse(is.na(N_numeric), 0, N_numeric),  
-    Lambda = as.numeric(Lambda)  # Keep Lambda as it’s in the original
+    N_numeric = as.numeric(gsub("N = ", "", as.character(N))),
+    N_numeric = ifelse(is.na(N_numeric), 0, N_numeric),
+    Lambda = as.numeric(Lambda)
   ) %>%
   group_by(FileName, Population, N, N_numeric, Lambda) %>%
   summarize(
-    Total_Rows = n(),  
-    Total_Violations = sum(Any_Violation, na.rm = TRUE),  
-    Total_Errors = sum(ErrorFlag, na.rm = TRUE),  
-    Total_LL_Failures = sum(LL_Replicated == 0, na.rm = TRUE),  
-    Total_True_Violations = sum(True_Violation, na.rm = TRUE),  
-    Percentage_Violations = round((Total_Violations / Total_Rows) * 100, 1),  
-    True_Violation_Perc = round((Total_True_Violations / Total_Rows) * 100, 1),  
-    ErrorRate = round((Total_Errors / Total_Rows) * 100, 1),  
-    LL_Failure_Perc = round((Total_LL_Failures / Total_Rows) * 100, 1),  
+    Total_Rows = n(),
+    Total_Violations = sum(Any_Violation, na.rm = TRUE),
+    Total_Errors = sum(ErrorFlag, na.rm = TRUE),
+    Total_LL_Failures = sum(LL_Replicated == 0, na.rm = TRUE),
+    Total_True_Violations = sum(True_Violation, na.rm = TRUE),
+    Percentage_Violations = round((Total_Violations / Total_Rows) * 100, 1),
+    True_Violation_Perc = round((Total_True_Violations / Total_Rows) * 100, 1),
+    ErrorRate = round((Total_Errors / Total_Rows) * 100, 1),
+    LL_Failure_Perc = round((Total_LL_Failures / Total_Rows) * 100, 1),
     .groups = "drop"
   ) %>%
   mutate(
     GoodReplications = Total_Rows - Total_True_Violations,
     GoodReplications = ifelse(GoodReplications < 0, 0, GoodReplications),
     Reanalysis_Needed = if_else(GoodReplications >= 500, "No", "Yes"),
-Adjusted_Replications_Needed = case_when(
-  True_Violation_Perc >= 100 ~ NA_real_,  
-  TRUE ~ ceiling(500 / (1 - (True_Violation_Perc / 100)) + 50)
-),
-Adjusted_Replications_Needed = if_else(
-  is.na(Adjusted_Replications_Needed) | Adjusted_Replications_Needed < 500, 
-  500, 
-  Adjusted_Replications_Needed
-),
+    Adjusted_Replications_Needed = case_when(
+      True_Violation_Perc >= 100 ~ NA_real_,
+      TRUE ~ ceiling(500 / (1 - (True_Violation_Perc / 100 + 0.11)) + 55)
+    ),
+    Adjusted_Replications_Needed = if_else(
+      is.na(Adjusted_Replications_Needed) | Adjusted_Replications_Needed < 500,
+      500,
+      Adjusted_Replications_Needed
+    ),
     TPs = case_when(
       Population == ".800" ~ 1.385,
       Population == ".700" ~ 0.85,
@@ -769,43 +771,85 @@ Adjusted_Replications_Needed = if_else(
   arrange(
     factor(N_numeric, levels = c(500, 1000, 2000, 4000)),
     Lambda
-  ) %>%  
-  select(
-    FileName, Population, TPs, Lambda, N, N_numeric,  
-    Total_Rows, Total_Violations, Total_True_Violations, True_Violation_Perc,  
-    Percentage_Violations,  
-    Total_Errors, ErrorRate,  
-    Total_LL_Failures, LL_Failure_Perc,  
-    GoodReplications, Reanalysis_Needed,  
+  ) %>%
+  dplyr::select(
+    FileName, Population, TPs, Lambda, N, N_numeric,
+    Total_Rows, Total_Violations, Total_True_Violations, True_Violation_Perc,
+    Percentage_Violations,
+    Total_Errors, ErrorRate,
+    Total_LL_Failures, LL_Failure_Perc,
+    GoodReplications, Reanalysis_Needed,
     Adjusted_Replications_Needed
   ) %>%
-  arrange(N_numeric, Lambda) %>%
-  mutate(N_numeric = trimws(as.numeric(N_numeric)))
+  mutate(
+    N_numeric = trimws(as.numeric(N_numeric)),
+    Population = as.character(Population)  # ✅ <- THE FIX: preserve correct Population labels
+  )
 
- # Split the violation_summary dataframe into two based on N_numeric values
-#violation_summary1 <- violation_summary %>% 
- #filter(N_numeric %in% c(1000, 2000))
+# ✅ Save to CSV with correct Population values
+write.csv(
+  violation_summary,
+  here("Simulations", "STUDY_1", "3 Time Points", "zdata", "violation_summary_r_l_3t.csv"),
+  row.names = FALSE
+)
 
-violation_summary2 <- violation_summary %>% 
- filter(N_numeric %in% c(500, 4000))
+```
 
-#violation_summary3 <- violation_summary %>% 
- #filter(N_numeric == 4000)
+```{r}
+# Read in the previously saved summary file
+violation_summary <- read.csv(here("Simulations", "STUDY_1", "3 Time Points", "zdata", "violation_summary_r_l_3t.csv"))
+
+# Main Computer (N_numeric = 4000 all TPs; N_numeric = 2000, TPs = 1.385, 0.850; 48 conditions)
+#violation_summary <- violation_summary[(violation_summary$N_numeric == 4000 | (violation_summary$N_numeric == 2000 & violation_summary$TPs %in% c(1.385, 0.850))), ]
+
+# Old Rig 1 (N_numeric = 500, TPs = 1.385, 0.850, 0.410; 18 conditions)
+#violation_summary <- violation_summary[violation_summary$N_numeric == 500 & violation_summary$TPs %in% c(1.385, 0.850, 0.410), ]
+
+# Old Rig 2 (N_numeric = 500, TPs = -0.410, -0.850, -1.385; 18 conditions)
+#violation_summary <- violation_summary[violation_summary$N_numeric == 500 & violation_summary$TPs %in% c(-0.410, -0.850, -1.385), ]
+
+# Old Rig 3 (N_numeric = 1000, TPs = 1.385, 0.850, 0.410; 18 conditions)
+violation_summary <- violation_summary[violation_summary$N_numeric == 1000 & violation_summary$TPs %in% c(1.385, 0.850, 0.410), ]
+
+# Old Rig 4 (N_numeric = 1000, TPs = -0.410, -0.850, -1.385; 18 conditions)
+#violation_summary <- violation_summary[violation_summary$N_numeric == 1000 & violation_summary$TPs %in% c(-0.410, -0.850, -1.385), ]
+
+# Old Rig 5 (N_numeric = 2000, TPs = -0.410, -0.850, -1.385, 0.410; 24 conditions)
+#violation_summary <- violation_summary[violation_summary$N_numeric == 2000 & violation_summary$TPs %in% c(-0.410, -0.850, -1.385, 0.410), ]
 ```
 
 *Prepare Subsets by Transition Probability for Label Switching and Error Visualization*
 
 ```{r}
+#| label: "read-fix-subset-population"
+#| echo: true
+#| message: false
+#| warning: false
 
-# Ensure Population remains a factor but subset correctly
-subset_200 <- violation_summary %>% filter(Population == factor(".200", levels = levels(violation_summary$Population)))
-subset_300 <- violation_summary %>% filter(Population == factor(".300", levels = levels(violation_summary$Population)))
-subset_400 <- violation_summary %>% filter(Population == factor(".400", levels = levels(violation_summary$Population)))
-subset_600 <- violation_summary %>% filter(Population == factor(".600", levels = levels(violation_summary$Population)))
-subset_700 <- violation_summary %>% filter(Population == factor(".700", levels = levels(violation_summary$Population)))
-subset_800 <- violation_summary %>% filter(Population == factor(".800", levels = levels(violation_summary$Population)))
+# Read in the previously saved summary file
+violation_summary <- read.csv(here("Simulations", "STUDY_1", "3 Time Points", "zdata", "violation_summary_r_l_3t.csv"))
 
-# Store subsets in a list for easy access
+# 🔧 Fix Population labels (convert numeric to proper character labels)
+violation_summary <- violation_summary %>%
+  mutate(Population = case_when(
+    Population == 0.2 ~ ".200",
+    Population == 0.3 ~ ".300",
+    Population == 0.4 ~ ".400",
+    Population == 0.6 ~ ".600",
+    Population == 0.7 ~ ".700",
+    Population == 0.8 ~ ".800",
+    TRUE ~ as.character(Population)
+  ))
+
+# ✅ Subset by Population label
+subset_200 <- violation_summary %>% filter(Population == ".200")
+subset_300 <- violation_summary %>% filter(Population == ".300")
+subset_400 <- violation_summary %>% filter(Population == ".400")
+subset_600 <- violation_summary %>% filter(Population == ".600")
+subset_700 <- violation_summary %>% filter(Population == ".700")
+subset_800 <- violation_summary %>% filter(Population == ".800")
+
+# Group into a list if needed
 transition_subsets <- list(
   "TP_200" = subset_200,
   "TP_300" = subset_300,
@@ -814,6 +858,7 @@ transition_subsets <- list(
   "TP_700" = subset_700,
   "TP_800" = subset_800
 )
+
 ```
 
 ### Summarize & Visualize Label Switching Percentage Results
@@ -828,14 +873,17 @@ create_flextable <- function(data) {
   
   # Ensure only the required columns are used
   data <- data %>%
-    select(
+    dplyr::select(
       N_numeric,  
       Lambda,  # Replacing Population with Lambda
-      Total_Rows,
       Total_Violations,
       Percentage_Violations,
       Total_Errors,
       ErrorRate,
+      Total_LL_Failures,
+      LL_Failure_Perc,
+      Total_True_Violations,
+      True_Violation_Perc,
       Adjusted_Replications_Needed
     ) %>%
     as.data.frame()  # Ensures proper structure before passing to flextable
@@ -845,39 +893,60 @@ create_flextable <- function(data) {
     set_header_labels(
       N_numeric = "N",
       Lambda = "\u03BB",  # Lambda symbol (λ)
-      Total_Rows = "N Reps",
       Total_Violations = "V",
       Percentage_Violations = "V %",
       Total_Errors = "\u03B5",  # Epsilon
       ErrorRate = "\u03B5 %",
-      Adjusted_Replications_Needed = "\u2206 Reps Req'd"  # Delta Symbol
+      Total_LL_Failures = "\u2112\u2097",  # ℒₗ
+      LL_Failure_Perc = "\u2112\u2097 %",  # ℒₗ%
+      Total_True_Violations = "\u03C4\u1D65",  # Tau subscript v (𝜏ᵥ)
+      True_Violation_Perc = "\u03C4\u1D65 %",
+      Adjusted_Replications_Needed = "\u2206 Reps Req’d"  # Delta Symbol
     )
 
   # Apply special formatting to headers
   ft <- compose(ft, part = "header", j = "N_numeric", value = as_paragraph(as_i("N")))
   ft <- compose(ft, part = "header", j = "Lambda", value = as_paragraph(as_i("\u03BB")))  # Lambda symbol
-  ft <- compose(ft, part = "header", j = "Total_Rows", value = as_paragraph(as_i("N"), "\n", "Reps"))
+
+  # 🔹 Label Switching Violations
   ft <- compose(ft, part = "header", j = "Total_Violations", value = as_paragraph(as_i("V")))
   ft <- compose(ft, part = "header", j = "Percentage_Violations", value = as_paragraph(as_i("V"), "%"))
-  ft <- compose(ft, part = "header", j = "Total_Errors", value = as_paragraph("\u03B5"))
-  ft <- compose(ft, part = "header", j = "ErrorRate", value = as_paragraph("\u03B5", "%"))
-  ft <- compose(ft, part = "header", j = "Adjusted_Replications_Needed", value = as_paragraph("\u2206", "\n", "Reps", "\n", "Req'd"))
+
+  # 🔹 Mplus Errors
+  ft <- compose(ft, part = "header", j = "Total_Errors", value = as_paragraph(as_i("\u03B5")))  
+  ft <- compose(ft, part = "header", j = "ErrorRate", value = as_paragraph(as_i("\u03B5"), "%"))
+
+  # 🔹 NEW: LL Replication Failures (ℒₗ)
+  ft <- compose(ft, part = "header", j = "Total_LL_Failures", value = as_paragraph(as_i("\u2112"), as_sub("r")))
+  ft <- compose(ft, part = "header", j = "LL_Failure_Perc", value = as_paragraph(as_i("\u2112"), as_sub("r"), "%"))
+
+# 🔹 True Violations (𝜏ᵥ)
+ft <- compose(ft, part = "header", j = "Total_True_Violations", value = as_paragraph(as_i("\u03C4"), as_sub(as_i("v"))))  
+ft <- compose(ft, part = "header", j = "True_Violation_Perc", value = as_paragraph(as_i("\u03C4"), as_sub(as_i("v")), "%"))  
+
+  ft <- compose(ft, part = "header", j = "Adjusted_Replications_Needed", value = as_paragraph(as_i("\u2206"), "\n", as_i("Reps"), "\n", "Req'd"))
 
   # Apply width settings
   ft <- width(ft, j = "N_numeric", width = 1.)
   ft <- width(ft, j = "Lambda", width = 0.6)
-  ft <- width(ft, j = "Total_Rows", width = 0.6)
   ft <- width(ft, j = "Total_Violations", width = 0.6)
   ft <- width(ft, j = "Percentage_Violations", width = 0.6)
   ft <- width(ft, j = "Total_Errors", width = 0.5)
-  ft <- width(ft, j = "ErrorRate", width = 0.6)
+  ft <- width(ft, j = "ErrorRate", width = 0.5)
+  ft <- width(ft, j = "Total_LL_Failures", width = 0.5)
+  ft <- width(ft, j = "LL_Failure_Perc", width = 0.5)
+  ft <- width(ft, j = "Total_True_Violations", width = 0.6)
+  ft <- width(ft, j = "True_Violation_Perc", width = 0.6)
   ft <- width(ft, j = "Adjusted_Replications_Needed", width = 0.6)
 
-ft <- colformat_num(
+ ft <- colformat_num(
   ft,
-  j = c("Percentage_Violations", "ErrorRate"),  
+  j = c("Percentage_Violations", "ErrorRate", "LL_Failure_Perc", "True_Violation_Perc" ),  
   suffix = "%"  # ✅ Adds percentage symbol
 )
+  # Add padding below the subheaders
+#ft <- ft %>%
+ # padding(part = "header", padding = c(0, 0, 6, 0))  # Adjust as needed for top, right, bottom, and left padding
 
   # Enable autofit
   ft <- set_table_properties(ft, layout = "fixed")
@@ -886,7 +955,7 @@ ft <- colformat_num(
   ft <- align(ft, align = "center", part = "all")
 
   # Align header text at the bottom of the cells
-  ft <- valign(ft, part = "header", valign = "bottom")
+  #ft <- valign(ft, part = "header", valign = "bottom")
 
   # Merge vertically identical rows in the "N_numeric" column
   ft <- merge_v(ft, j = "N_numeric")
@@ -894,7 +963,6 @@ ft <- colformat_num(
   # Apply font to the entire table
   ft <- font(ft, fontname = "Avenir Next", part = "all")
 
-  # Format `N_numeric` properly with thin space
   ft <- compose(
     ft,
     part = "body",
@@ -903,22 +971,21 @@ ft <- colformat_num(
     value = as_paragraph(
       as_i("N"),  
       " =\u2009",  # THIN SPACE (Unicode U+2009)
-      as_character(format(N_numeric, big.mark = ",", scientific = FALSE))  # Keeps proper formatting
+      as.character(format(N_numeric, big.mark = ",", scientific = FALSE))  # Keeps proper formatting
     )
   )
 
-  # Add subheader row (adjusted for 8 columns)
+  # Add subheader row
   ft <- add_header_row(
     ft,
-    values = c(" ", "Violations", "Errors", "Adjustments"),  
-    colwidths = c(3, 2, 2, 2)  # Adjusted to match 8 total columns
-  )
+    values = c("N Reps = 500", "Violations", "Errors", "LL Replication", "True Violations", "Adjustments"),  
+    colwidths = c(2, 2, 2, 2, 2, 1))
 
   # Define a transparent border
   no_border <- fp_border(color = "transparent", width = 0)
 
-  # **Remove ONLY the bottom border under the first two columns (the blank subheader)**
-  ft <- hline(ft, i = 1, j = 1:3, border = no_border, part = "header")
+  # **Remove ONLY the bottom border under the first three columns (the blank subheader)**
+  ft <- hline(ft, i = 1, j = 1:2, border = no_border, part = "header")
 
   # Adding color with a correct method
   total_rows <- nrow(data)  # Get the total number of rows in your data
@@ -971,10 +1038,6 @@ save_as_image(ft_800, here("Simulations", "STUDY_1", "3 Time Points","zErrors", 
 
 ------------------------------------------------------------------------
 
-# 
-
-------------------------------------------------------------------------
-
 # Re-Run Simulations
 
 ------------------------------------------------------------------------
@@ -1010,7 +1073,7 @@ rilta_lta_func <- function(N_numeric, TPs, Lambda, Adjusted_Replications_Needed)
       "TYPE = MIXTURE;
       algorithm = integration;
       processors = 24;
-      starts= 200 50;
+      starts= 600 250;
       logcriterion=0.00001;
       mconv=0.00001;",
     
@@ -1100,7 +1163,7 @@ rilta_lta_func <- function(N_numeric, TPs, Lambda, Adjusted_Replications_Needed)
         prob22 = 1- prob21;
         ")
       } 
-             else if (TPs == 0.85) {
+             else if (TPs == .85) {
         glue("
         New(
         trans11*.70 trans12*.30 trans21*.5 trans22*.5
@@ -1116,7 +1179,7 @@ rilta_lta_func <- function(N_numeric, TPs, Lambda, Adjusted_Replications_Needed)
         prob22 = 1- prob21;
         ")
               } 
-            else  if (TPs == 0.41) {
+            else  if (TPs == .41) {
         glue("
         New(
         trans11*.60 trans12*.40 trans21*.5 trans22*.5
@@ -1132,7 +1195,7 @@ rilta_lta_func <- function(N_numeric, TPs, Lambda, Adjusted_Replications_Needed)
         prob22 = 1- prob21;
         ")
               } 
-             else if (TPs == -0.41) {
+             else if (TPs == -.41) {
         glue("
         New(
         trans11*.40 trans12*.60 trans21*.5 trans22*.5
@@ -1148,7 +1211,7 @@ rilta_lta_func <- function(N_numeric, TPs, Lambda, Adjusted_Replications_Needed)
         prob22 = 1- prob21;
         ")
               } 
-             else if (TPs == -0.85) {
+             else if (TPs == -.85) {
         glue("
         New(
         trans11*.30 trans12*.70 trans21*.5 trans22*.5
@@ -1202,7 +1265,7 @@ cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")
 
 cl <- makeCluster(num_cores, type = cluster_type)
 # Export necessary objects to the cluster
-clusterExport(cl, c("rilta_lta_func", "violation_summary2", "here", "glue", "mplusModeler", "mplusObject"))
+clusterExport(cl, c("rilta_lta_func", "violation_summary", "here", "glue", "mplusModeler", "mplusObject"))
 
 # Ensure required libraries are loaded on each node
 clusterEvalQ(cl, {
@@ -1211,12 +1274,12 @@ clusterEvalQ(cl, {
   library(here)
 })
 
-result_list <- parLapply(cl, 1:nrow(violation_summary2), function(i) {
+result_list <- parLapply(cl, 1:nrow(violation_summary), function(i) {
   rilta_lta_func(
-    violation_summary2$N_numeric[i], 
-    violation_summary2$TPs[i],  
-    violation_summary2$Lambda[i], 
-    violation_summary2$Adjusted_Replications_Needed[i]
+    violation_summary$N_numeric[i], 
+    violation_summary$TPs[i],  
+    violation_summary$Lambda[i], 
+    violation_summary$Adjusted_Replications_Needed[i]
   )
 })
 
@@ -1301,9 +1364,9 @@ source(here('Child_Docs', 'step_3.R'))
 #| warning: false
 
 # Step 1: Set the correct output directory for .out files
-output_folder <- here('Simulations', 'STUDY_1', '3 Time Points', '7_3T_RILTA_GEN_LTA_ANALYZED_REP')
+output_folder <- here('Simulations', 'STUDY_1', '2 Time Points', '3_2T_RILTA_GEN_LTA_ANALYZED_REP')
 
-# Step 2: Source the child document that processes .out files
+## Step 2: Source the child document that processes .out files
 source(here('Child_Docs', 'out_scraping.R'))
 
 # ===================================================== #
@@ -1347,8 +1410,45 @@ cat("Rows in final_data_with_actuals:", nrow(final_data_with_actuals), "\n")
 cat("Rows in final_results:", nrow(final_results), "\n")
 cat("Rows in replication_summary:", nrow(replication_summary), "\n")
 
+###CHECK EXTRA ROWS
+# Identify extra rows that are in final_results but not in final_data_with_actuals
+extra_rows <- anti_join(final_results, final_data_with_actuals, by = c("FileName", "Replication"))
 
-extract_all_info(file_list[1])
+# Check if all extra rows have ErrorFlag == 1
+all_errors <- all(extra_rows$ErrorFlag == 1, na.rm = TRUE)
+
+# Message instead of printing raw data
+if (all_errors) {
+  message("✅ All extra rows have errors (ErrorFlag == 1).")
+} else {
+  message("⚠️ Some extra rows do NOT have errors. Manual inspection needed.")
+}
+
+```
+
+```{r}
+#| label: "delete-extra-rows"
+#| echo: true
+#| message: false
+#| warning: false
+#| code-fold: true
+
+# Identify extra rows that are in final_results but not in final_data_with_actuals
+extra_rows <- anti_join(final_results, final_data_with_actuals, by = c("FileName", "Replication"))
+
+# Filter to keep only extra rows where ErrorFlag == 1
+rows_to_delete <- extra_rows %>% filter(ErrorFlag == 1)
+
+# Delete only the extra rows with errors
+if (nrow(rows_to_delete) > 0) {
+  final_results <- anti_join(final_results, rows_to_delete, by = c("FileName", "Replication"))
+  cat("✅ Deleted", nrow(rows_to_delete), "extra rows with errors.\n")
+} else {
+  cat("✅ No extra rows with errors were found. No deletions made.\n")
+}
+
+cat("Rows in final_data_with_actuals:", nrow(final_data_with_actuals), "\n")
+cat("Rows in final_results:", nrow(final_results), "\n")
 
 ```
 
@@ -1364,7 +1464,7 @@ extract_all_info(file_list[1])
 
 final_data_with_actuals <- final_data_with_actuals %>%
   left_join(
-    final_results %>% select(FileName, Replication, ll_out, LL_Replicated, ErrorFlag), 
+    final_results %>% dplyr::select(FileName, Replication, ll_out, LL_Replicated, ErrorFlag), 
     by = c("FileName", "Replication")
   ) %>%
   mutate(
@@ -1425,7 +1525,7 @@ Create DF of LL differences from .out and .csv files for inspection at the repli
 ll_mismatch <- final_data_with_actuals %>%
   mutate(diff = round(ll_out - ll_csv, 3)) %>%
   filter(diff != 0) %>%
-  select(FileName, Replication, ll_out, ll_csv, diff)
+  dplyr::select(FileName, Replication, ll_out, ll_csv, diff)
 
 
 ```
@@ -1498,17 +1598,19 @@ Lambda = case_when(
 violation_summary2 <- final_data_with_actuals %>%
   mutate(
     N_numeric = as.numeric(gsub("N = ", "", as.character(N))),
-    N_numeric = ifelse(is.na(N_numeric), 0, N_numeric),
-    Lambda = as.numeric(Lambda)  # Keep Lambda since it’s here
+    N_numeric = ifelse(is.na(N_numeric), 0, N_numeric)
   ) %>%
-  group_by(FileName, Population, N, Lambda, N_numeric) %>%
+  group_by(FileName, Population, N, N_numeric, Lambda) %>%
   summarize(
-    Total_Rows = n(),                                
+    Total_Rows = n(),
+    Total_Violations = sum(Any_Violation, na.rm = TRUE),   
+    Total_Errors = sum(ErrorFlag, na.rm = TRUE),           
+    Total_LL_Failures = sum(LL_Replicated == 0, na.rm = TRUE),  
     Total_True_Violations = sum(True_Violation, na.rm = TRUE),  
+    Percentage_Violations = round((Total_Violations / Total_Rows) * 100, 1),  
     True_Violation_Perc = round((Total_True_Violations / Total_Rows) * 100, 1),  
-    Total_Violations = sum(Any_Violation, na.rm = TRUE),  # For reporting only
-    Total_Errors = sum(ErrorFlag, na.rm = TRUE),         # For reporting only
-    ErrorRate = round((Total_Errors / Total_Rows) * 100, 1),  # For reporting only
+    ErrorRate = round((Total_Errors / Total_Rows) * 100, 1),  
+    LL_Failure_Perc = round((Total_LL_Failures / Total_Rows) * 100, 1),  
     .groups = "drop"
   ) %>%
   mutate(
@@ -1534,33 +1636,64 @@ Adjusted_Replications_Needed = if_else(
       TRUE ~ NA_real_
     )
   ) %>%
-  arrange(factor(N_numeric, levels = c(500, 1000, 2000, 4000)), as.numeric(Population)) %>%
+  arrange(
+    factor(N_numeric, levels = c(500, 1000, 2000, 4000)), 
+    Lambda, 
+    as.numeric(Population)
+  ) %>%
   mutate(
     N = factor(N, levels = c("N = 500", "N = 1000", "N = 2000", "N = 4000")),
     Population = factor(Population, levels = c(".200", ".300", ".400", ".600", ".700", ".800"))
   ) %>%
-  select(
+  dplyr::select(
     FileName, Population, TPs, N, N_numeric, Lambda,  
-    Total_Rows, Total_Violations, Total_Errors,
-    ErrorRate, True_Violation_Perc, GoodReplications,
-    Adjusted_Replications_Needed,
-    Reanalysis_Needed
+    Total_Rows,  
+    Total_Violations, Percentage_Violations,  
+    Total_Errors, ErrorRate,  
+    Total_LL_Failures, LL_Failure_Perc,  
+    Total_True_Violations, True_Violation_Perc,  
+    GoodReplications,  
+    Reanalysis_Needed,
+    Adjusted_Replications_Needed
   ) %>%
   arrange(N_numeric, Lambda, Population) %>%
   mutate(N_numeric = trimws(as.numeric(N_numeric)))
+
+# Write CSV
+write.csv(violation_summary2, here("Simulations", "STUDY_1", "3 Time Points", 'zdata', "violation_summary2_r_l_3t.csv"), row.names = FALSE)
+
 ```
 
 ```{r}
+#| label: "subset-violation-summary2"
+#| echo: true
+#| message: false
+#| warning: false
 
-# Ensure Population remains a factor but subset correctly
-subset_200 <- violation_summary %>% filter(Population == factor(".200", levels = levels(violation_summary$Population)))
-subset_300 <- violation_summary %>% filter(Population == factor(".300", levels = levels(violation_summary$Population)))
-subset_400 <- violation_summary %>% filter(Population == factor(".400", levels = levels(violation_summary$Population)))
-subset_600 <- violation_summary %>% filter(Population == factor(".600", levels = levels(violation_summary$Population)))
-subset_700 <- violation_summary %>% filter(Population == factor(".700", levels = levels(violation_summary$Population)))
-subset_800 <- violation_summary %>% filter(Population == factor(".800", levels = levels(violation_summary$Population)))
+# Read in the second-stage summary file
+violation_summary2 <- read.csv(here("Simulations", "STUDY_1", "3 Time Points", "zdata", "violation_summary2_r_l_3t.csv"))
 
-# Store subsets in a list for easy access
+# 🔧 Recode Population numeric → proper character labels
+violation_summary2 <- violation_summary2 %>%
+  mutate(Population = case_when(
+    Population == 0.2 ~ ".200",
+    Population == 0.3 ~ ".300",
+    Population == 0.4 ~ ".400",
+    Population == 0.6 ~ ".600",
+    Population == 0.7 ~ ".700",
+    Population == 0.8 ~ ".800",
+    TRUE ~ as.character(Population)
+  ))
+
+# ✅ Subset each transition group
+subset_200 <- violation_summary2 %>% filter(Population == ".200")
+subset_300 <- violation_summary2 %>% filter(Population == ".300")
+subset_400 <- violation_summary2 %>% filter(Population == ".400")
+subset_600 <- violation_summary2 %>% filter(Population == ".600")
+subset_700 <- violation_summary2 %>% filter(Population == ".700")
+subset_800 <- violation_summary2 %>% filter(Population == ".800")
+
+# Store in list for looping or table generation
 transition_subsets <- list(
   "TP_200" = subset_200,
   "TP_300" = subset_300,
@@ -1569,23 +1702,32 @@ transition_subsets <- list(
   "TP_700" = subset_700,
   "TP_800" = subset_800
 )
+
 ```
 
 *Summarize & Visualize Label Switching Percentage Results*
 
 ```{r}
+#| label: "summarize-violations-errors2"
+#| echo: true
+#| message: false
+#| warning: false
+
 create_flextable <- function(data) {
   
   # Ensure only the required columns are used
   data <- data %>%
-    select(
+    dplyr::select(
       N_numeric,  
       Lambda,  # Replace Population with Lambda
-      Total_Rows,
       Total_Violations,
       Percentage_Violations,
       Total_Errors,
       ErrorRate,
+      Total_LL_Failures,
+      LL_Failure_Perc,
+      Total_True_Violations,
+      True_Violation_Perc,
       GoodReplications,
       Reanalysis_Needed
     ) %>%
@@ -1596,41 +1738,50 @@ create_flextable <- function(data) {
     set_header_labels(
       N_numeric = "N",
       Lambda = "\u03BB",  # Display Lambda symbol
-      Total_Rows = "N Reps",
       Total_Violations = "V",
       Percentage_Violations = "V %",
       Total_Errors = "\u03B5",  # Epsilon
       ErrorRate = "\u03B5 %",
+      Total_LL_Failures = "\u2112\u2097",  # ℒₗ
+      LL_Failure_Perc = "\u2112\u2097 %",  # ℒₗ%
+      Total_True_Violations = "\u03C4\u1D65",  # Tau subscript v (𝜏ᵥ)
+      True_Violation_Perc = "\u03C4\u1D65 %",
       GoodReplications = "Good Reps",
       Reanalysis_Needed = "Reanalysis Needed?"
     )
 
   # Apply special formatting to headers
   ft <- compose(ft, part = "header", j = "N_numeric", value = as_paragraph(as_i("N")))
-  ft <- compose(ft, part = "header", j = "Lambda", value = as_paragraph(as_i("\u03BB")))
-  ft <- compose(ft, part = "header", j = "Total_Rows", value = as_paragraph(as_i("N"), "\n", "Reps"))
+  ft <- compose(ft, part = "header", j = "Lambda", value = as_paragraph(as_i("\u03BB")))  
   ft <- compose(ft, part = "header", j = "Total_Violations", value = as_paragraph(as_i("V")))
   ft <- compose(ft, part = "header", j = "Percentage_Violations", value = as_paragraph(as_i("V"), "%"))
-  ft <- compose(ft, part = "header", j = "Total_Errors", value = as_paragraph("\u03B5"))
-  ft <- compose(ft, part = "header", j = "ErrorRate", value = as_paragraph("\u03B5", "%"))
+  ft <- compose(ft, part = "header", j = "Total_Errors", value = as_paragraph(as_i("\u03B5")))  
+  ft <- compose(ft, part = "header", j = "ErrorRate", value = as_paragraph(as_i("\u03B5"), "%"))
+  ft <- compose(ft, part = "header", j = "Total_LL_Failures", value = as_paragraph(as_i("\u2112"), as_sub("r")))
+  ft <- compose(ft, part = "header", j = "LL_Failure_Perc", value = as_paragraph(as_i("\u2112"), as_sub("r"), "%"))
+  ft <- compose(ft, part = "header", j = "Total_True_Violations", value = as_paragraph(as_i("\u03C4"), as_sub(as_i("v"))))  
+  ft <- compose(ft, part = "header", j = "True_Violation_Perc", value = as_paragraph(as_i("\u03C4"), as_sub(as_i("v")), "%"))  
   ft <- compose(ft, part = "header", j = "GoodReplications", value = as_paragraph("Good", "\n", "Reps"))
   ft <- compose(ft, part = "header", j = "Reanalysis_Needed", value = as_paragraph("Reanalysis", "\n", "Needed?"))
 
   # Apply width settings
   ft <- width(ft, j = "N_numeric", width = 1.0)
-  ft <- width(ft, j = "Lambda", width = 0.6)  # Adjust for Lambda
-  ft <- width(ft, j = "Total_Rows", width = 0.6)
+  ft <- width(ft, j = "Lambda", width = 0.6)  
   ft <- width(ft, j = "Total_Violations", width = 0.6)
   ft <- width(ft, j = "Percentage_Violations", width = 0.6)
   ft <- width(ft, j = "Total_Errors", width = 0.5)
   ft <- width(ft, j = "ErrorRate", width = 0.5)
+  ft <- width(ft, j = "Total_LL_Failures", width = 0.6)
+  ft <- width(ft, j = "LL_Failure_Perc", width = 0.6)
+  ft <- width(ft, j = "Total_True_Violations", width = 0.6)
+  ft <- width(ft, j = "True_Violation_Perc", width = 0.6)
   ft <- width(ft, j = "GoodReplications", width = 0.6)
   ft <- width(ft, j = "Reanalysis_Needed", width = 0.7)
 
   # Format numeric columns
   ft <- colformat_num(
     ft,
-    j = c("Percentage_Violations", "ErrorRate"),  
+    j = c("Percentage_Violations", "ErrorRate", "LL_Failure_Perc", "True_Violation_Perc"),  
     suffix = "%"  # ✅ Adds percentage symbol
   )
   
@@ -1639,9 +1790,6 @@ create_flextable <- function(data) {
 
   # Center all cells
   ft <- align(ft, align = "center", part = "all")
-
-  # Align header text at the bottom of the cells
-  ft <- valign(ft, part = "header", valign = "bottom")
 
   # Merge vertically identical rows in the "N_numeric" column
   ft <- merge_v(ft, j = "N_numeric")
@@ -1658,37 +1806,36 @@ create_flextable <- function(data) {
     value = as_paragraph(
       as_i("N"),  
       " =\u2009",  # THIN SPACE (Unicode U+2009)
-      as_character(format(N_numeric, big.mark = ",", scientific = FALSE))  # Keeps proper formatting
+      as.character(format(N_numeric, big.mark = ",", scientific = FALSE))  # Keeps proper formatting
     )
   )
 
   # Add subheader row
   ft <- add_header_row(
     ft,
-    values = c(" ", "Violations", "Errors", "Success?"),
-    colwidths = c(3, 2, 2, 2)  
+    values = c("N Reps = Varies", "Violations", "Errors", "LL Replication", "True Violations", "Success?"),
+    colwidths = c(2, 2, 2, 2, 2, 2)  
   )
 
   # Define a transparent border
   no_border <- fp_border(color = "transparent", width = 0)
 
   # **Remove ONLY the bottom border under the first three columns (the blank subheader)**
-  ft <- hline(ft, i = 1, j = 1:3, border = no_border, part = "header")
+  ft <- hline(ft, i = 1, j = 1:2, border = no_border, part = "header")
 
   # Background color adjustments
-total_rows <- nrow(data)  # Get the total number of rows in your data
-color_rows <- rep(FALSE, total_rows)  # Initialize logical vector
-
-for (i in seq(7, total_rows, by = 12)) {  # ✅ Shifted to start with 6 white
-  color_rows[i:(i+5)] <- TRUE  # Apply color to every 6 rows
-}
+  total_rows <- nrow(data)  # Get the total number of rows in your data
+  color_rows <- rep(FALSE, total_rows)  # Initialize a logical vector for coloring rows
+  for (i in seq(1, total_rows, by = 12)) {
+    color_rows[i:(i+5)] <- TRUE  # Apply color to every 6 rows
+  }
 
   # Apply background color with a lighter shade of gray
   ft <- bg(ft, i = color_rows, bg = "#f0f0f0", part = "body")
 
   return(ft)
 }
-
+  
 # Generate formatted flextables for each subset
 ft_200 <- create_flextable(subset_200)
 ft_300 <- create_flextable(subset_300)
@@ -1704,6 +1851,7 @@ ft_400
 ft_600
 ft_700
 ft_800
+
 ```
 
 ```{r}
@@ -1719,6 +1867,649 @@ save_as_image(ft_400, here("Simulations", "STUDY_1", "3 Time Points", "zErrors",
 save_as_image(ft_600, here("Simulations", "STUDY_1", "3 Time Points", "zErrors", "z3t_r_l_e&v_600_final.svg"))
 save_as_image(ft_700, here("Simulations", "STUDY_1", "3 Time Points", "zErrors", "z3t_r_l_e&v_700_final.svg"))
 save_as_image(ft_800, here("Simulations", "STUDY_1", "3 Time Points", "zErrors", "z3t_r_l_e&v_800_final.svg"))
+
+```
+
+```{r}
+#| label: "prepare-data-final-table"
+#| echo: true
+#| message: false
+#| warning: false
+
+# Prepare violation_summary2
+violation_summary2 <- read.csv(here("Simulations", "STUDY_1", "3 Time Points", "zdata", "violation_summary2_r_l_3t.csv")) %>%
+  mutate(
+    Population = case_when(
+      Population == 0.2 ~ ".200",
+      Population == 0.3 ~ ".300",
+      Population == 0.4 ~ ".400",
+      Population == 0.6 ~ ".600",
+      Population == 0.7 ~ ".700",
+      Population == 0.8 ~ ".800",
+      TRUE ~ as.character(Population)
+    ),
+    Lambda = as.numeric(Lambda),
+    N_numeric = as.integer(N_numeric)  # ✅ Ensure it's integer
+  ) %>%
+  rename_with(~ paste0(.x, "_2"), -c(Population, N, N_numeric, Lambda))  # Keep join keys
+
+# Prepare violation_summary
+violation_summary_final <- violation_summary %>%
+  mutate(
+    Lambda = as.numeric(Lambda),
+    N_numeric = as.integer(N_numeric)  # ✅ Match type with above
+  ) %>%
+  left_join(violation_summary2, by = c("Population", "N", "N_numeric", "Lambda")) %>%
+  mutate(
+    Total_Rows = Total_Rows,
+    Violation_Rate = Percentage_Violations,  
+    Final_Violation_Rate = Percentage_Violations_2,
+    LL_Failure_Rate = LL_Failure_Perc,
+    Final_LL_Failure_Rate = LL_Failure_Perc_2,
+    Error_Rate = ErrorRate,
+    Final_Error_Rate = ErrorRate_2,
+    True_Violation_Rate = True_Violation_Perc,
+    Final_True_Violation_Rate = True_Violation_Perc_2,
+    Reps_Needed_for_Success = Adjusted_Replications_Needed,
+    Successful_Replications = GoodReplications_2,
+    Status = if_else(Successful_Replications >= 500, "✅ Fixed", "⚠️ Additional Runs Required")
+  ) %>%
+  dplyr::select(
+    N_numeric, Population, Lambda, Total_Rows, 
+    Violation_Rate, LL_Failure_Rate, Error_Rate, True_Violation_Rate,
+    Final_Violation_Rate, Final_LL_Failure_Rate, Final_Error_Rate, Final_True_Violation_Rate,
+    Reps_Needed_for_Success, Successful_Replications, Status
+  ) %>%
+  arrange(factor(N_numeric, levels = c(500, 1000, 2000, 4000)), Population, Lambda)
+
+# Save result
+write.csv(violation_summary_final, here("Simulations", "STUDY_1", "3 Time Points", "zdata", "violation_summary_final_r_l_3t.csv"), row.names = FALSE)
+
+```
+
+Prepare Subsets for Visualization 2
+
+```{r}
+#| label: "creat-subsets-for-final-error-table"
+#| echo: true
+#| message: false
+#| warning: false
+
+violation_summary_final <- read.csv(
+  here("Simulations", "STUDY_1", "3 Time Points", "zdata", "violation_summary_final_r_l_3t.csv")
+)
+violation_summary_final <- violation_summary_final %>%
+  mutate(
+    Population = factor(Population, 
+      levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),
+      labels = c(".200", ".300", ".400", ".600", ".700", ".800")
+    )
+  )
+
+
+# Ensure Population remains a factor but subset correctly
+# Ensure Population is treated as factor and filter using matching factor level
+subset_200 <- filter(violation_summary_final, Population == factor(".200", levels = levels(violation_summary_final$Population)))
+subset_300 <- filter(violation_summary_final, Population == factor(".300", levels = levels(violation_summary_final$Population)))
+subset_400 <- filter(violation_summary_final, Population == factor(".400", levels = levels(violation_summary_final$Population)))
+subset_600 <- filter(violation_summary_final, Population == factor(".600", levels = levels(violation_summary_final$Population)))
+subset_700 <- filter(violation_summary_final, Population == factor(".700", levels = levels(violation_summary_final$Population)))
+subset_800 <- filter(violation_summary_final, Population == factor(".800", levels = levels(violation_summary_final$Population)))
+
+
+# Store subsets in a list for easy access
+transition_subsets <- list(
+  "TP_200" = subset_200,
+  "TP_300" = subset_300,
+  "TP_400" = subset_400,
+  "TP_600" = subset_600,
+  "TP_700" = subset_700,
+  "TP_800" = subset_800
+)
+```
+
+Create flextable Function for Final Table
+
+```{r}
+#| label: "creat-final-error-table"
+#| echo: true
+#| message: false
+#| warning: false
+
+create_flextable <- function(data, title = NULL) {
+  
+  # Keep only the required columns
+  data <- data %>%
+    dplyr::select(
+      N_numeric,
+      Lambda,  
+      #Total_Rows,
+      Violation_Rate,
+      LL_Failure_Rate,
+      Error_Rate,
+      True_Violation_Rate,   # ✅ NEW
+      Reps_Needed_for_Success,
+      Final_Violation_Rate,
+      Final_LL_Failure_Rate,
+      Final_Error_Rate,
+      Final_True_Violation_Rate,   # ✅ NEW
+      Successful_Replications
+    ) %>%
+    as.data.frame()  
+
+  # Create the flextable
+  ft <- flextable(data) %>%
+    set_header_labels(
+      N_numeric = "N",
+      Lambda = "\u03BB",  # Display Lambda symbol
+      #Total_Rows = "N Reps",
+      Violation_Rate = "V %",
+      LL_Failure_Rate = "ℒₗ %",
+      Error_Rate = "\u03B5 %",
+      True_Violation_Rate = "\u03C4ᵥ %",   # ✅ NEW
+      Reps_Needed_for_Success = "Reps Needed",
+      Final_Violation_Rate = "V %",
+      Final_LL_Failure_Rate = "ℒₗ %",
+      Final_Error_Rate = "\u03B5 %",
+      Final_True_Violation_Rate = "\u03C4ᵥ %",  # ✅ NEW
+      Successful_Replications = "Successful Reps"
+    )
+
+  # Apply special formatting to headers
+  ft <- compose(ft, part = "header", j = "N_numeric", value = as_paragraph(as_i("N")))
+  ft <- compose(ft, part = "header", j = "Lambda", value = as_paragraph(as_i("\u03BB")))  
+  #ft <- compose(ft, part = "header", j = "Total_Rows", value = as_paragraph(as_i("N"), "\n", "Reps"))
+  ft <- compose(ft, part = "header", j = "Violation_Rate", value = as_paragraph(as_i("V"), "%"))
+  ft <- compose(ft, part = "header", j = "LL_Failure_Rate", value = as_paragraph(as_i("ℒ"), as_sub("r"), "%"))
+  ft <- compose(ft, part = "header", j = "Error_Rate", value = as_paragraph(as_i("\u03B5"), "%"))
+  ft <- compose(ft, part = "header", j = "True_Violation_Rate", value = as_paragraph(as_i("\u03C4"), as_sub("v"), "%"))  # ✅ NEW
+  ft <- compose(ft, part = "header", j = "Final_Violation_Rate", value = as_paragraph(as_i("V"), "%"))
+  ft <- compose(ft, part = "header", j = "Final_LL_Failure_Rate", value = as_paragraph(as_i("ℒ"), as_sub("r"), "%"))
+  ft <- compose(ft, part = "header", j = "Final_Error_Rate", value = as_paragraph(as_i("\u03B5"), "%"))
+  ft <- compose(ft, part = "header", j = "Final_True_Violation_Rate", value = as_paragraph(as_i("\u03C4"), as_sub("v"), "%"))  # ✅ NEW
+  ft <- compose(ft, part = "header", j = "Reps_Needed_for_Success", value = as_paragraph("Reps", "\n", "Needed"))
+  ft <- compose(ft, part = "header", j = "Successful_Replications", value = as_paragraph("Final", "\n", "Reps"))
+
+    # Set column widths
+  ft <- width(ft, j = "N_numeric", width = .6)
+  ft <- width(ft, j = "Lambda", width = 0.6)  
+  #ft <- width(ft, j = "Total_Rows", width = 0.6) 
+  ft <- width(ft, j = "Violation_Rate", width = 0.6)
+  ft <- width(ft, j = "LL_Failure_Rate", width = 0.6)
+  ft <- width(ft, j = "Error_Rate", width = 0.4)
+  ft <- width(ft, j = "True_Violation_Rate", width = 0.6)  # ✅ NEW
+  ft <- width(ft, j = "Reps_Needed_for_Success", width = .8)
+  ft <- width(ft, j = "Final_Violation_Rate", width = 0.6)
+  ft <- width(ft, j = "Final_LL_Failure_Rate", width = 0.6)
+  ft <- width(ft, j = "Final_Error_Rate", width = 0.4)
+  ft <- width(ft, j = "Final_True_Violation_Rate", width = 0.6)  # ✅ NEW
+  ft <- width(ft, j = "Successful_Replications", width = .6)
+
+  # **Correct vertical centering: Merge "N = _" across 6-row blocks**
+  ft <- merge_v(ft, j = "N_numeric")  
+
+  # **Ensure "N = ..." appears only ONCE in the center of the 6-row block**
+  #ft <- compose(
+  #  ft,
+  #  part = "body",
+  #  j = "N_numeric",
+  #  i = seq(1, nrow(data), by = 6),  # Every 6th row
+  #  value = as_paragraph(
+  #    as_i("N"),  
+  #    " =\u2009",  # THIN SPACE (Unicode U+2009)
+  #    format(N_numeric, big.mark = ",", scientific = FALSE)  # Updated
+  #  )
+  #)
+
+  # **Fully remove duplicate N values in merged rows**
+  ft <- compose(
+    ft,
+    part = "body",
+    j = "N_numeric",
+    i = setdiff(1:nrow(data), seq(1, nrow(data), by = 6)),  
+    value = as_paragraph("")
+  )
+
+  # **Align vertically centered**
+  ft <- valign(ft, j = "N_numeric", valign = "center", part = "body")
+
+  # Center all text
+  ft <- align(ft, align = "center", part = "all")
+
+  # Apply percentage formatting
+  ft <- colformat_num(
+    ft,
+    j = c("Violation_Rate", "LL_Failure_Rate", "Error_Rate", "True_Violation_Rate",
+          "Final_Violation_Rate", "Final_LL_Failure_Rate", "Final_Error_Rate", "Final_True_Violation_Rate"),  
+    suffix = "%"  
+  )
+  
+  ft <- add_header_row(
+    ft,
+    values = c(" ", "Initial 500 Replications", " ", "Adjusted Replications", " "),
+    colwidths = c(2, 4, 1, 4, 1)
+  )
+
+  # Apply APA-style border fixes
+  thin <- fp_border(color = "black", width = 1)
+
+  ft <- ft %>%
+    border_remove() %>%
+    border(i = 1, j = 3:6, part = "header", border.bottom = thin) %>%
+    border(i = 1, j = 8:11, part = "header", border.bottom = thin) %>%
+    hline_top(border = thin, part = "all") %>%
+    hline_bottom(border = thin, part = "all") %>%
+    font(fontname = "Avenir Next", part = "all") %>%
+    fontsize(size = 14, part = "all") %>%
+    align(align = "center", part = "all") %>%
+    set_table_properties(layout = "fixed")
+
+  # Color every 6-row block
+  total_rows <- nrow(data)
+  color_rows <- rep(FALSE, total_rows)
+  for (i in seq(1, total_rows, by = 12)) {
+    color_rows[i:(i+5)] <- TRUE
+  }
+  ft <- bg(ft, i = color_rows, bg = "#f0f0f0", part = "body")
+
+
+if (!is.null(title)) {
+  ft <- add_header_lines(
+    ft,
+    values = as_paragraph(
+      as_i("T"),
+      as_sub("11"),
+      as_chunk(" = "),
+      as_chunk(title)
+    )
+  ) |>
+    align(i = 1, align = "center", part = "header") |>
+    fontsize(i = 1, size = 13, part = "header")  # ✅ removed bold
+}
+
+# ⬇️ NOW apply font to ALL parts including the new header line
+ft <- font(ft, fontname = "Avenir Next", part = "all")
+
+  return(ft)
+}
+
+# Generate formatted flextables for each subset
+ft_200 <- create_flextable(subset_200, title = ".200")
+ft_300 <- create_flextable(subset_300, title = ".300")
+ft_400 <- create_flextable(subset_400, title = ".400")
+ft_600 <- create_flextable(subset_600, title = ".600")
+ft_700 <- create_flextable(subset_700, title = ".700")
+ft_800 <- create_flextable(subset_800, title = ".800")
+
+
+# Render tables one by one
+ft_200
+ft_300
+ft_400
+ft_600
+ft_700
+ft_800
+
+
+```
+
+Save FINAL table
+
+```{r}
+
+#| label: "render-violation-tables"
+#| echo: true
+#| message: false
+#| warning: false
+
+# Save each flextable as an SVG file
+invisible(save_as_image(ft_200, here("Simulations", "STUDY_1", "3 Time Points", "zErrors", "zr_l_e&v_200_FINAL.svg")))
+invisible(save_as_image(ft_300, here("Simulations", "STUDY_1", "3 Time Points", "zErrors", "zr_l_e&v_300_FINAL.svg")))
+invisible(save_as_image(ft_400, here("Simulations", "STUDY_1", "3 Time Points", "zErrors", "zr_l_e&v_400_FINAL.svg")))
+invisible(save_as_image(ft_600, here("Simulations", "STUDY_1", "3 Time Points", "zErrors", "zr_l_e&v_600_FINAL.svg")))
+invisible(save_as_image(ft_700, here("Simulations", "STUDY_1", "3 Time Points", "zErrors", "zr_l_e&v_700_FINAL.svg")))
+invisible(save_as_image(ft_800, here("Simulations", "STUDY_1", "3 Time Points", "zErrors", "zr_l_e&v_800_FINAL.svg")))
+
+```
+
+# RUN True Violations ANOVA:
+
+```{r}
+#| label: "violator-anova"
+#| echo: true
+#| message: false
+#| warning: false
+#| fig.width: 6
+#| fig.height: 4
+
+# Load libraries
+library(ggplot2)
+library(emmeans)
+library(multcomp)
+library(dplyr)
+library(car)
+library(here)
+library(effectsize)
+
+# Load and process data
+violation_summary_final <- read.csv(
+  here("Simulations", "STUDY_1", "3 Time Points", "zdata", "violation_summary_final_r_l_3t.csv")
+) %>%
+  filter(!is.na(Population), !is.na(N_numeric), !is.na(Lambda)) %>%
+  mutate(
+    Population = factor(Population, levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),
+                        labels = c(".200", ".300", ".400", ".600", ".700", ".800")),
+    N_numeric = factor(N_numeric),
+    # Map numeric Lambda values (0, 0.2, ..., 1) to labels
+    Lambda = factor(
+      Lambda,
+      levels = c(0, 0.2, 0.4, 0.6, 0.8, 1),
+      labels = c("λ = 0", "λ = 0.2", "λ = 0.4", "λ = 0.6", "λ = 0.8", "λ = 1")
+    ),
+    # Create Lambda_label with formatted strings for italicized λ
+    Lambda_label = factor(
+      sapply(Lambda, function(x) {
+        value <- sub("^λ\\s*", "", as.character(x))  # Extract "= 0", "= 0.2", etc.
+        paste0("italic(λ) * '", value, "'")  # Format as "italic(λ) * '= 0'"
+      }),
+      levels = sapply(c("λ = 0", "λ = 0.2", "λ = 0.4", "λ = 0.6", "λ = 0.8", "λ = 1"), function(x) {
+        value <- sub("^λ\\s*", "", x)
+        paste0("italic(λ) * '", value, "'")
+      })
+    )
+  ) %>%
+  droplevels()
+
+# -------------------------------
+# MAIN EFFECTS: TYPE II ANOVAs
+# -------------------------------
+
+aov_main <- aov(Final_True_Violation_Rate ~ N_numeric + Population + Lambda, data = violation_summary_final)
+anova_main_type2 <- Anova(aov_main, type = "II")
+print(anova_main_type2)
+eta_squared(anova_main_type2, partial = TRUE)
+
+# -------------------------------
+# INTERACTIONS: TYPE II ANOVAs
+# -------------------------------
+
+aov_np <- aov(Final_True_Violation_Rate ~ N_numeric + Population + N_numeric:Population, data = violation_summary_final)
+aov_nl <- aov(Final_True_Violation_Rate ~ N_numeric + Lambda + N_numeric:Lambda, data = violation_summary_final)
+aov_pl <- aov(Final_True_Violation_Rate ~ Population + Lambda + Population:Lambda, data = violation_summary_final)
+
+anova_np <- Anova(aov_np, type = "II")
+anova_nl <- Anova(aov_nl, type = "II")
+anova_pl <- Anova(aov_pl, type = "II")
+
+print(anova_np)
+print(anova_nl)
+print(anova_pl)
+
+eta_squared(anova_np, partial = TRUE)
+eta_squared(anova_nl, partial = TRUE)
+eta_squared(anova_pl, partial = TRUE)
+
+# -------------------------------
+# PAIRWISE COMPARISONS: MAIN EFFECTS
+# -------------------------------
+
+lm_main <- lm(Final_True_Violation_Rate ~ N_numeric + Population + Lambda, data = violation_summary_final)
+
+# Population
+em_pop <- emmeans(lm_main, pairwise ~ Population)
+pairwise_pop <- summary(em_pop$contrasts, infer = TRUE)
+print(pairwise_pop)
+
+# N (Sample Size)
+em_n <- emmeans(lm_main, pairwise ~ N_numeric)
+pairwise_n <- summary(em_n$contrasts, infer = TRUE)
+print(pairwise_n)
+
+# Lambda
+em_lam <- emmeans(lm_main, pairwise ~ Lambda)
+pairwise_lam <- summary(em_lam$contrasts, infer = TRUE)
+print(pairwise_lam)
+
+# -------------------------------
+# FINAL PLOT
+# -------------------------------
+
+violation_plot <- ggplot(violation_summary_final, aes(x = Population, y = Final_True_Violation_Rate, fill = N_numeric)) +
+  stat_summary(fun = mean, geom = "bar", position = position_dodge(0.8), width = 0.7) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(0.8), width = 0.2) +
+  labs(
+    x = expression(italic(T)[11]),
+    y = "Final True Violation Rate (%)",
+    fill = expression(italic(N))
+  ) +
+  scale_y_continuous(limits = c(0, 100)) +
+  facet_wrap(~ Lambda_label, labeller = label_parsed, drop = FALSE) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.title = element_text(face = "plain"),
+    text = element_text(family = "Avenir Next"),
+    legend.position = "bottom",
+    legend.title = element_text(face = "plain"),
+    legend.text = element_text(size = 10)
+  )
+
+print(violation_plot)
+```
+
+Save Violator Figure
+
+```{r}
+#| label: "save-violator-figure"
+#| echo: true
+#| message: false
+#| warning: false
+
+invisible(ggsave(
+  filename = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_violation_visuals", "r_l_3t_violation_plot.svg"),
+  plot = violation_plot,
+  width = 7,
+  height = 5,
+  units = "in",
+  dpi = 300
+))
+
+```
+
+**Create Pairwise Comparisons Function**
+
+```{r}
+#| label: "function-format-pairwise"
+#| include: false
+
+format_pairwise_ft <- function(df, group_label) {
+  df <- df %>%
+    mutate(
+      Estimate   = round(as.numeric(estimate), 2),
+      SE         = round(as.numeric(SE), 2),
+      Lower_CL   = round(as.numeric(lower.CL), 2),
+      Upper_CL   = round(as.numeric(upper.CL), 2),
+      t_val      = round(as.numeric(t.ratio), 2),
+      p_val      = round(as.numeric(p.value), 3),
+      p          = ifelse(p_val < .001, "< .001", sub("^0", "", format(p_val, nsmall = 3))),
+      Effect     = paste0(
+        format(Estimate, nsmall = 2), " (",
+        format(Lower_CL, nsmall = 2), ", ",
+        format(Upper_CL, nsmall = 2), ")"
+      )
+    )
+
+  pairwise_clean <- df[, c("contrast", "Effect", "SE", "df", "t_val", "p")]
+  colnames(pairwise_clean)[colnames(pairwise_clean) == "t_val"] <- "t"
+
+  # Determine contrast formatting based on variable
+  contrast_strings <- pairwise_clean$contrast
+  is_pop     <- grepl("^Population\\.", contrast_strings)
+  is_n       <- grepl("^N_numeric", contrast_strings)
+  is_lambda  <- grepl("^λ = ", contrast_strings)
+
+  if (all(is_pop)) {
+    # Format T11 contrasts
+    left_right <- stringr::str_match(contrast_strings, "Population\\.(\\d{3}) - Population\\.(\\d{3})")
+    ft <- flextable(pairwise_clean) |>
+      compose(
+        j = "contrast",
+        part = "body",
+        value = as_paragraph(
+          as_i("T"), as_sub("11"), " = .", left_right[, 2],
+          " – ",
+          as_i("T"), as_sub("11"), " = .", left_right[, 3]
+        )
+      )
+  } else if (all(is_n)) {
+    # Format N contrasts
+    left_right <- stringr::str_match(contrast_strings, "N_numeric(\\d+) - N_numeric(\\d+)")
+    ft <- flextable(pairwise_clean) |>
+      compose(
+        j = "contrast",
+        part = "body",
+        value = as_paragraph(
+          as_i("N"), " = ", left_right[, 2],
+          " – ",
+          as_i("N"), " = ", left_right[, 3]
+        )
+      )
+  } else if (all(is_lambda)) {
+    # Format Lambda contrasts
+    left_right <- stringr::str_match(contrast_strings, "λ = ([0-9.]+) - λ = ([0-9.]+)")
+    ft <- flextable(pairwise_clean) |>
+      compose(
+        j = "contrast",
+        part = "body",
+        value = as_paragraph(
+          as_i("λ"), " = ", left_right[, 2],
+          " – ",
+          as_i("λ"), " = ", left_right[, 3]
+        )
+      )
+  } else {
+    # Default: use raw text
+    ft <- flextable(pairwise_clean)
+  }
+
+  # Shared formatting
+  ft <- ft |>
+    set_header_labels(
+      contrast = "Contrast",
+      Effect   = "Estimate (95% CI)",
+      SE       = "SE",
+      df       = "df",
+      t        = "t",
+      p        = "p"
+    ) |>
+    compose(part = "header", j = "SE", value = as_paragraph(as_i("SE"))) |>
+    compose(part = "header", j = "t",  value = as_paragraph(as_i("t"))) |>
+    compose(part = "header", j = "p",  value = as_paragraph(as_i("p"))) |>
+    compose(part = "header", j = "df", value = as_paragraph(as_i("df"))) |>
+    colformat_num(j = "SE", digits = 2, align = "decimal") |>
+    colformat_num(j = "t", digits = 2, align = "decimal") |>
+    align(j = c("contrast", "Effect", "df", "p"), align = "center", part = "all") |>
+    width(j = "contrast", width = 2.2) |>
+    width(j = "Effect", width = 2.5) |>
+    line_spacing(space = 0.9, part = "all") |>
+    padding(j = "contrast", padding.top = 1, padding.bottom = 1, part = "all")
+
+  # Bold significant p values
+  sig_rows <- which(df$p_val < 0.05)
+  ft <- bold(ft, i = sig_rows, j = "p", bold = TRUE, part = "body")
+
+  # Borders + header
+  thin <- fp_border(color = "black", width = 1)
+  ft <- ft |>
+    border_remove() |>
+    font(fontname = "Avenir Next", part = "all") |>
+    fontsize(size = 12, part = "all") |>
+    align(align = "center", part = "all") |>
+    set_table_properties(layout = "fixed") |>
+    hline(i = 1, border = thin, part = "header") |>
+    hline_top(border = thin, part = "all") |>
+    hline_bottom(border = thin, part = "all") |>
+    add_header_row(
+      values = group_label,
+      colwidths = ncol(pairwise_clean)
+    ) |>
+    merge_h(part = "header") |>
+    line_spacing(i = 1, space = 1.5, part = "header") |>
+    padding(i = 1, padding.top = 3, padding.bottom = 3, part = "header") |>
+    fontsize(i = 1, size = 12, part = "header")
+
+  return(ft)
+}
+
+```
+
+Create T11 Pairwise Tables
+
+```{r}
+#| label: "pairwise-comparisons-t11"
+#| echo: true
+#| message: false
+#| warning: false
+
+pairwise_pop_main <- summary(emmeans(lm_main, pairwise ~ Population)$contrasts, infer = TRUE)
+
+ft_population <- format_pairwise_ft(pairwise_pop_main, group_label = as_paragraph("Pairwise Comparisons for ", as_i("T"), as_sub("11")))
+ft_population
+
+
+```
+
+```{r}
+#| label: "pairwise-comparisons-n"
+#| echo: true
+#| message: false
+#| warning: false
+
+pairwise_n_main <- summary(emmeans(lm_main, pairwise ~ N_numeric)$contrasts, infer = TRUE)
+
+ft_n <- format_pairwise_ft(pairwise_n_main, group_label = as_paragraph("Pairwise Comparisons for ", as_i("N")))
+ft_n
+
+```
+
+```{r}
+#| label: "pairwise-comparisons-lambda"
+#| echo: true
+#| message: false
+#| warning: false
+
+pairwise_lambda_main <- summary(emmeans(lm_main, pairwise ~ Lambda)$contrasts, infer = TRUE)
+
+ft_lambda <- format_pairwise_ft(pairwise_lambda_main, group_label = as_paragraph("Pairwise Comparisons for ", as_i("λ")))
+ft_lambda
+
+```
+
+\
+Save Pairwise Table
+
+```{r}
+#| label: "save-comparisons-table"
+#| echo: false
+#| message: false
+#| warning: false
+
+# Save Population (T11) comparison table
+invisible(save_as_image(
+  ft_population,
+  path = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_violation_visuals", "r_l_3t_pairwise_population.svg")
+))
+
+# Save N comparison table
+invisible(save_as_image(
+  ft_n,
+  path = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_violation_visuals", "r_l_3t_pairwise_n.svg")
+))
+
+# Save Lambda comparison table
+invisible(save_as_image(
+  ft_lambda,
+  path = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_violation_visuals", "r_l_3t_pairwise_lambda.svg")
+))
 
 ```
 
@@ -1741,54 +2532,20 @@ save_as_image(ft_800, here("Simulations", "STUDY_1", "3 Time Points", "zErrors",
 
 # Filter out cases with no violations and no errors
 filtered_data_with_no_violations <- final_data_with_actuals[
-  final_data_with_actuals$Any_Violation == 0 & final_data_with_actuals$ErrorFlag == 0, ]
+  final_data_with_actuals$True_Violation == 0, ]
+
+
+# Check the number of remaining rows after filtering
+cat("Remaining rows after filtering:", nrow(filtered_data_with_no_violations), "\n")
+
+# Verify if there are any remaining violations, errors, true violations, or LL replication failures
+cat("Any remaining label switching violations:", sum(filtered_data_with_no_violations$Any_Violation, na.rm = TRUE), "\n")
+cat("Any remaining Mplus errors:", sum(filtered_data_with_no_violations$ErrorFlag, na.rm = TRUE), "\n")
+cat("Any remaining LL replication failures:", sum(filtered_data_with_no_violations$LL_Replicated == 0, na.rm = TRUE), "\n")
+cat("Any remaining true violations:", sum(filtered_data_with_no_violations$True_Violation, na.rm = TRUE), "\n")
+
+
 ```
-
-### Randomly Sample 500 Replications
-
-*Take random sample of replications to achieve n = 500*
-
-```{r}
-#| label: "select-500-random-replication"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: false
-
-# Set seed for reproducibility
-set.seed(07252005)
-
-# Check initial counts to ensure each FileName group has at least 500 rows
-initial_counts <- filtered_data_with_no_violations %>%
-  group_by(FileName) %>%
-  summarize(Initial_Count = n(), .groups = "drop") %>%
-  drop_na()  # Remove any NA values quietly within the pipeline
-
-# Identify groups with insufficient rows
-insufficient_groups <- initial_counts %>% filter(Initial_Count < 500)
-
-# Handle based on whether insufficient groups exist
-if (nrow(insufficient_groups) == 0) {
-  # Message to indicate successful operation
-  cat("All FileName groups had at least 500 rows.\n")
-  
-  # Proceed with sampling
-  sampled_data <- filtered_data_with_no_violations %>%
-    group_by(FileName) %>%
-    sample_n(size = 500, replace = FALSE) %>%
-    ungroup()
-  
-  # Print confirmation that sampling was successful
-  cat("Sampling completed successfully.\n")
-} else {
-  # Print the groups that don't meet the requirement
-  cat("Some FileName groups do not have at least 500 rows. Sampling not performed.\n")
-  cat("Groups with insufficient rows:\n")
-  print(insufficient_groups)
-}
-```
-
-------------------------------------------------------------------------
 
 ### Calculate Monte Carlo Values
 
@@ -1800,77 +2557,502 @@ if (nrow(insufficient_groups) == 0) {
 #| message: false
 #| warning: false
 #| code-fold: false
+# 1. Create a function that calculates mc_values from raw replication-level data
+calc_mc_values <- function(data) {
+  # Step A: Clean and convert columns as needed
+  cleaned_data <- data %>%
+    mutate(
+      Population = as.numeric(as.character(Population)),
+      Lambda = as.numeric(as.character(Lambda)),  # Ensure Lambda is numeric
+      TRANS11 = as.numeric(as.character(TRANS11)),
+      SE_11 = as.numeric(as.character(SE_11))
+    )
+  
+  # Step B: Compute group-level summaries (without grouping by Transitions)
+  mc_values <- cleaned_data %>%
+    group_by(Population, Lambda, N) %>%  # ✅ Include Lambda in grouping
+    summarize(
+      group_size   = n(),
+      average      = round(mean(TRANS11, na.rm = TRUE), 3),
+      average_SE   = round(mean(SE_11, na.rm = TRUE), 3),
+      population_sd= round(sd(TRANS11, na.rm = TRUE), 3),
+      MSE          = round(mean((TRANS11 - Population)^2, na.rm = TRUE), 3),
+      Coverage     = round(mean((Population >= (TRANS11 - 1.96 * SE_11)) &
+                                  (Population <= (TRANS11 + 1.96 * SE_11)), na.rm = TRUE), 3),
+      Power        = round(mean(TRANS11 / SE_11 > 1.96, na.rm = TRUE), 3),
+      Reps_Used    = n(),
+      .groups = "drop"
+    )
+  
+  # Step C: Merge in Transitions from the raw data (or from an auxiliary table if needed)
+  mc_values <- cleaned_data %>%
+    dplyr::select(FileName, Population, Lambda, N, Transitions) %>%
+    distinct() %>%
+    right_join(mc_values, by = c("Population", "Lambda", "N"))  # ✅ Join by Population, Lambda, and N
+  
+  # Step D: Calculate bias measures
+  mc_values <- mc_values %>%
+    mutate(
+      Parameter_Bias_boot = round((average - Population) / Population * 100, 2),
+      SE_Bias_boot        = round((average_SE - population_sd) / (population_sd + 1e-6) * 100, 2)
+    )
+  
+  return(mc_values)
+}
 
-# Convert necessary columns to numeric
-cleaned_data <- sampled_data %>%
-  mutate(
-    Population = as.numeric(as.character(Population)),
-    TRANS11 = as.numeric(as.character(TRANS11)),  # Convert TRANS11 to numeric
-    SE_11 = as.numeric(as.character(SE_11))  # Convert SE_11 to numeric
+# 2. Create a parallelized bootstrap function that uses the above calculation on bootstrap samples
+bootstrap_mc_values <- function(data, n_bootstrap, sample_size) {
+  
+  # Step A: Detect available cores and create a parallel cluster
+  num_cores <- detectCores() - 1  # Use one less than total cores to avoid overloading the system
+  cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")  # Use FORK for Mac/Linux, PSOCK for Windows
+  cl <- makeCluster(num_cores, type = cluster_type)  # Create the cluster
+  
+  # Step B: Export necessary functions and objects to the cluster workers
+  clusterExport(cl, c("calc_mc_values", "sample_n", "%>%", "filtered_data_with_no_violations"))
+  clusterEvalQ(cl, { library(dplyr) })  # Ensure each worker loads the required package
+
+  # Step C: Group data by condition variables (Population, Lambda, N, Transitions)
+  grouped_data <- data %>%
+    group_by(Population, Lambda, N, Transitions) %>%  # ✅ Include Lambda in grouping
+    group_split()  # Split data so each group runs separately in parallel
+  
+  # Step D: Perform bootstrapping in parallel across worker nodes
+  boot_results <- parLapply(cl, grouped_data, function(group_data) {
+    map_dfr(1:n_bootstrap, function(i) {
+      # Step D1: Draw a bootstrap sample (with replacement) from the replications in this condition
+      boot_sample <- group_data %>% sample_n(sample_size, replace = TRUE)
+      
+      # Step D2: Calculate MC values for the bootstrap sample
+      boot_mc <- calc_mc_values(boot_sample)
+      
+      # Step D3: Add Bootstrap Iteration number
+      boot_mc %>% mutate(Bootstrap_Iteration = i)
+    })
+  }) %>%
+    bind_rows()  # Step E: Combine results from all parallel workers into a single dataframe
+
+  # Step F: Stop the parallel cluster to free system resources
+  stopCluster(cl)
+
+  # Step G: Return the final bootstrapped MC values
+  return(boot_results)
+}
+
+# 3. Run the bootstrap procedure on your raw replication-level data
+set.seed(07252005)
+boot_results <- bootstrap_mc_values(filtered_data_with_no_violations, n_bootstrap = 1000, sample_size = 500)
+
+# 4. Aggregate the bootstrap results to get mean bootstrap estimates per condition:
+bootstrap_aggregates <- boot_results %>%
+  group_by(Population, Lambda, N, Transitions) %>%  # ✅ Include Lambda in grouping
+  summarize(
+    Parameter_Bias = mean(Parameter_Bias_boot, na.rm = TRUE),
+    SE_Bias       = mean(SE_Bias_boot, na.rm = TRUE),
+    .groups = "drop"
   )
 
-# Calculate the Monte Carlo values, including Population (transition probability), N, 
-# number of replications, and averages for TRANS11 and SE11
-mc_values <- cleaned_data %>%
-  group_by(FileName, Population, N, Transitions, Lambda) %>%
-  summarize(
-    average = round(mean(TRANS11, na.rm = TRUE), 3),
-    average_SE = round(mean(SE_11, na.rm = TRUE), 3),
-    population_sd = round(sd(TRANS11, na.rm = TRUE), 3),
-    MSE = round(mean((TRANS11 - Population)^2, na.rm = TRUE), 3),
-    Coverage = round(mean((Population >= (TRANS11 - 1.96 * SE_11)) & 
-                         (Population <= (TRANS11 + 1.96 * SE_11)), na.rm = TRUE), 3),
-    Power = round(mean(TRANS11 / SE_11 > 1.96, na.rm = TRUE), 3),
-    Reps_Used = n()
-  ) %>%
-  ungroup()
+# 5. Calculate your original mc_values (using the full replication set) for comparison:
+original_mc_values <- calc_mc_values(filtered_data_with_no_violations)
+
+# 6. Merge the bootstrap aggregates back to the original values (if desired)
+final_mc_values <- original_mc_values %>%
+  left_join(bootstrap_aggregates, by = c("Population", "Lambda", "N", "Transitions")) %>%  # ✅ Join by Population, Lambda, and N
+  mutate(
+    Power_Dic    = ifelse(Power >= 0.8, 1, 0),
+    Coverage_Dic = ifelse(Coverage > 0.98 | Coverage < 0.91, 0, 1)
+  )
+
+# Save or inspect the results
+# Save results
+write.csv(final_mc_values, here("Simulations", "STUDY_1", "3 Time Points", "zbootstrapping", "r_l_3t_mc_final_mc_values.csv"), row.names = FALSE)
+write.csv(boot_results, here("Simulations", "STUDY_1", "3 Time Points", "zbootstrapping", "r_l_3t_boot_results.csv"), row.names = FALSE)
+
 ```
 
-### Calculate Bias and Dichotomous Variables
-
-*Calculate dichotomous variables for Power and Coverage, compute Parameter and SE Bias, and prepare subsets for movers and stayers.*
+# RUN Parameter Bias ANOVA
 
 ```{r}
-#| label: "calculate-bias-dichotomous-variables"
+#| label: "parameter-bias-anova-rilta-lta"
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: false
+#| fig.width: 6
+#| fig.height: 4
 
-# Step 1: Calculate dichotomous variable for Power (1 if Power >= 0.8, else 0)
-mc_values <- mc_values %>%
-  mutate(Power_Dic = ifelse(Power >= 0.8, 1, 0))
+# Load libraries
+library(ggplot2)
+library(emmeans)
+library(multcomp)
+library(dplyr)
+library(car)
+library(here)
+library(effectsize)
+library(stringr)
 
-# Step 2: Calculate dichotomous variable for Coverage (0 if outside [0.91, 0.98], else 1)
-mc_values <- mc_values %>%
-  mutate(Coverage_Dic = ifelse(Coverage > 0.98 | Coverage < 0.91, 0, 1))
-
-# Step 3: Remove any groupings before further calculations
-mc_values <- mc_values %>%
-  ungroup()
-
-# Step 4: Ensure numeric columns are correctly formatted and **convert Population only for calculations**
-mc_values <- mc_values %>%
+# Load your data and preprocess Lambda for facet labels
+final_mc_values <- read.csv(
+  here("Simulations", "STUDY_1", "3 Time Points", "zbootstrapping", "r_l_3t_mc_final_mc_values.csv")
+) %>%
+  filter(!is.na(Population), !is.na(N), !is.na(Lambda)) %>%
   mutate(
-    # Keep average as numeric but **do not convert Population for display purposes**
-    average = as.numeric(average),
-    population_numeric = as.numeric(Population),  # Create a temporary numeric version of Population
-    average_se = as.numeric(average_SE),
-    population_sd = as.numeric(population_sd)
+    Population = factor(Population, levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),
+                        labels = c(".200", ".300", ".400", ".600", ".700", ".800")),
+    N_numeric = as.numeric(str_remove(N, "N = ")),
+    N = factor(str_remove(N, "N = "), levels = c("500", "1000", "2000", "4000")),
+    Lambda = factor(Lambda, labels = c("λ = 0", "λ = 0.2", "λ = 0.4", "λ = 0.6", "λ = 0.8", "λ = 1")),
+    # Create a new column with formatted labels for facet_wrap
+    Lambda_label = sapply(Lambda, function(x) {
+      value <- sub("^λ\\s*", "", x)  # Extract "= 0", "= 0.2", etc.
+      paste0("italic(λ) * '", value, "'")  # Format as "italic(λ) * '= 0'"
+    })
+  ) %>%
+  droplevels()
+
+# Run Type II ANOVAs using explicit interaction terms
+anova_np <- Anova(aov(Parameter_Bias ~ N_numeric + Population + N_numeric:Population, data = final_mc_values), type = "II")
+anova_nl <- Anova(aov(Parameter_Bias ~ N_numeric + Lambda + N_numeric:Lambda, data = final_mc_values), type = "II")
+anova_pl <- Anova(aov(Parameter_Bias ~ Population + Lambda + Population:Lambda, data = final_mc_values), type = "II")
+
+# Print each ANOVA table
+print(anova_np)
+print(anova_nl)
+print(anova_pl)
+
+# Main effects only ANOVA (for pairwise comparisons)
+anova_main <- aov(Parameter_Bias ~ N_numeric + Population + Lambda, data = final_mc_values)
+anova_main_type2 <- Anova(anova_main, type = "II")
+print(anova_main_type2)
+
+# Calculate partial eta squared values
+print(eta_squared(anova_main_type2, partial = TRUE))
+print(eta_squared(anova_np, partial = TRUE))
+print(eta_squared(anova_nl, partial = TRUE))
+print(eta_squared(anova_pl, partial = TRUE))
+
+# Pairwise comparisons: Population (collapsed over N and Lambda)
+em <- emmeans(anova_main, pairwise ~ Population)
+pairwise_results <- summary(em$contrasts, infer = TRUE)
+
+# Plot for Parameter_Bias
+bias_plot <- ggplot(final_mc_values, aes(x = Population, y = Parameter_Bias, fill = N)) +
+  stat_summary(fun = mean, geom = "bar", position = position_dodge(0.8), width = 0.7) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(0.8), width = 0.2) +
+  labs(
+    x = expression(italic(T)[11]),
+    y = "Parameter Bias (%)",
+    fill = expression(italic(N))
+  ) +
+  scale_y_continuous(breaks = seq(-20, 160, by = 20)) +
+  facet_wrap(~ Lambda_label, drop = FALSE, labeller = label_parsed) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.title = element_text(face = "plain"),
+    text = element_text(family = "Avenir Next"),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 10)
   )
 
-# Step 5: Calculate Parameter Bias and SE Bias, rounding the results to 2 decimal places
-mc_values <- mc_values %>%
-  mutate(
-    # Use population_numeric for the calculations, but **retain Population in the original format**
-    Parameter_Bias = (average - population_numeric) / population_numeric * 100,  # Bias for the parameter
-    SE_Bias = (average_se - population_sd) / population_sd * 100  # Bias for the standard error
-  ) %>%
-  mutate(across(c(Parameter_Bias, SE_Bias), ~ round(.x, 2)))  # Round to 2 decimal places
+print(bias_plot)
+```
 
-# Drop the temporary numeric population column if no longer needed
-mc_values <- mc_values %>%
-  select(-population_numeric)
+```{r}
+#| label: "save-anova-bias-figure-rilta-lta"
+#| echo: true
+#| message: false
+#| warning: false
+
+invisible(ggsave(
+  filename = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_bias_visuals", "r_l_3t_ANOVA_BIAS_plot.svg"),
+  plot = bias_plot,
+  width = 7,
+  height = 5,
+  units = "in",
+  dpi = 300
+))
+```
+
+Create ANOVA Table
+
+```{r}
+#| label: "bias-anova-table"
+#| echo: true
+#| message: false
+#| warning: false
+
+library(dplyr)
+library(flextable)
+library(broom)
+library(effectsize)
+
+# Extract and clean ANOVA results
+extract_anova_results <- function(anova_model, model_name) {
+  tidy_table <- broom::tidy(anova_model)
+  eta_table <- effectsize::eta_squared(anova_model, partial = TRUE)
+
+  merged_table <- left_join(
+    tidy_table,
+    eta_table,
+    by = c("term" = "Parameter")
+  )
+
+  df <- merged_table %>%
+    dplyr::filter(!term %in% c("Residuals", "(Intercept)")) %>%
+    dplyr::mutate(
+      ANOVA = model_name,
+      df = paste0(df, ", ", merged_table$df[merged_table$term == "Residuals"][1]),
+      Effect = dplyr::case_when(
+        term == "N_numeric" ~ "N",
+        term == "Population" ~ "T₁₁",
+        term == "Lambda" ~ "λ",
+        term == "N_numeric:Population" ~ "N:T₁₁",
+        term == "N_numeric:Lambda" ~ "N:λ",
+        term == "Population:Lambda" ~ "T₁₁:λ",
+        TRUE ~ term
+      )
+    ) %>%
+    dplyr::select(ANOVA, Effect, df, statistic, p.value, Eta2_partial) %>%
+    dplyr::rename(F = statistic, p = p.value, Partial_Eta_Sq = Eta2_partial)
+
+  return(df)
+}
+
+# Combine results
+anova_results <- dplyr::bind_rows(
+  extract_anova_results(anova_main, "Main Effects"),
+  extract_anova_results(anova_np, "N × T₁₁"),
+  extract_anova_results(anova_nl, "N × λ"),
+  extract_anova_results(anova_pl, "T₁₁ × λ")
+)
+
+# Format results
+anova_results_fmt <- anova_results %>%
+  dplyr::mutate(
+    F = round(F, 2),
+    p = sapply(p, function(x) {
+      if (is.na(x)) return("")
+      if (x < 0.001) return("<.001")
+      return(sub("^0\\.", ".", sprintf("%.3f", x)))
+    }),
+    Partial_Eta_Sq = sapply(Partial_Eta_Sq, function(x) {
+      if (is.na(x)) return("")
+      return(sub("^0\\.", ".", sprintf("%.3f", x)))
+    })
+  )
+
+# Create table
+bias_anova_table <- flextable(anova_results_fmt) %>%
+  set_caption("ANOVA Results for Parameter Bias Rate") %>%
+  set_header_labels(
+    ANOVA = "ANOVA",
+    Effect = "Effect",
+    df = "df",
+    F = "F",
+    p = "p",
+    Partial_Eta_Sq = "Partial η²"
+  ) %>%
+  compose(part = "header", j = "df", value = as_paragraph(as_i("df"))) %>%
+  compose(part = "header", j = "F", value = as_paragraph(as_i("F"))) %>%
+  compose(part = "header", j = "p", value = as_paragraph(as_i("p"))) %>%
+  compose(part = "header", j = "Partial_Eta_Sq", value = as_paragraph("Partial ", as_i("η²"))) %>%
+  compose(part = "body", j = "Effect", i = ~ Effect == "N", value = as_paragraph(as_i("N"))) %>%
+  compose(part = "body", j = "Effect", i = ~ Effect == "T₁₁", value = as_paragraph(as_i("T"), as_sub("11"))) %>%
+  compose(part = "body", j = "Effect", i = ~ Effect == "λ", value = as_paragraph(as_i("λ"))) %>%
+  compose(part = "body", j = "Effect", i = ~ Effect == "N:T₁₁", value = as_paragraph(as_i("N"), ":", as_i("T"), as_sub("11"))) %>%
+  compose(part = "body", j = "Effect", i = ~ Effect == "N:λ", value = as_paragraph(as_i("N"), ":", as_i("λ"))) %>%
+  compose(part = "body", j = "Effect", i = ~ Effect == "T₁₁:λ", value = as_paragraph(as_i("T"), as_sub("11"), ":", as_i("λ"))) %>%
+  compose(part = "body", j = "p", i = ~ grepl("<", p) | as.numeric(p) < 0.05,
+          value = as_paragraph(as_b(p))) %>%
+  merge_v(j = "ANOVA") %>%
+  compose(part = "body", j = "ANOVA", i = ~ ANOVA == "Main Effects", value = as_paragraph("Main Effects")) %>%
+  compose(part = "body", j = "ANOVA", i = ~ ANOVA == "N × T₁₁", value = as_paragraph(as_i("N"), " × ", as_i("T"), as_sub("11"))) %>%
+  compose(part = "body", j = "ANOVA", i = ~ ANOVA == "N × λ", value = as_paragraph(as_i("N"), " × ", as_i("λ"))) %>%
+  compose(part = "body", j = "ANOVA", i = ~ ANOVA == "T₁₁ × λ", value = as_paragraph(as_i("T"), as_sub("11"), " × ", as_i("λ"))) %>%
+  valign(j = "ANOVA", valign = "center", part = "body") %>%
+  width(j = "ANOVA", width = 1.5) %>%
+  width(j = "Effect", width = 2.0) %>%
+  width(j = "df", width = 0.8) %>%
+  width(j = "F", width = 0.8) %>%
+  width(j = "p", width = 0.8) %>%
+  width(j = "Partial_Eta_Sq", width = 1.0) %>%
+  bg(i = ~ ANOVA %in% c("Main Effects", "N × λ"), bg = "#f0f0f0", part = "body") %>%
+  border_remove() %>%
+  hline_top(border = fp_border(color = "black", width = 1), part = "all") %>%
+  hline_bottom(border = fp_border(color = "black", width = 1), part = "all") %>%
+  font(fontname = "Avenir Next", part = "all") %>%
+  fontsize(size = 12, part = "all") %>%
+  align(align = "center", part = "all") %>%
+  padding(padding.top = 2.5, padding.bottom = 2.5, part = "all") %>%
+  padding(padding.left = 2.5, padding.right = 2.5, part = "all") %>%
+  set_table_properties(layout = "fixed")
+
+# Print
+print(bias_anova_table)
+```
+
+Save ANOVA Table
+
+```{r}
+# Save the anova_table as an SVG in the correct directory
+invisible(flextable::save_as_image(bias_anova_table, path = here::here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_bias_visuals", "r_l_3t_bias_anova_table.svg")))
+```
+
+**Create Pairwise Comparisons Table**
+
+```{r}
+#| label: "function-format-pairwise-rilta-lta"
+#| include: false
+
+format_pairwise_ft <- function(df, group_label) {
+
+
+  # Ensure flextable defaults are set
+  set_flextable_defaults(word_wrap = FALSE)
+
+  # Step 1: Process the pairwise results dataframe
+  df <- df %>%
+    dplyr::mutate(
+      Estimate   = round(as.numeric(estimate), 2),
+      SE         = round(as.numeric(SE), 2),
+      Lower_CL   = round(as.numeric(lower.CL), 2),
+      Upper_CL   = round(as.numeric(upper.CL), 2),
+      t_val      = round(as.numeric(t.ratio), 2),
+      p_val      = round(as.numeric(p.value), 3),
+      p          = ifelse(p_val < .001, "< .001", sub("^0", "", format(p_val, nsmall = 3))),
+      Effect     = paste0(
+        format(Estimate, nsmall = 2), " (",
+        format(Lower_CL, nsmall = 2), ", ",
+        format(Upper_CL, nsmall = 2), ")"
+      )
+    )
+
+  # Step 2: Format contrast labels in the dataframe
+  left_right <- stringr::str_match(df$contrast, "Population\\.(\\d{3}) - Population\\.(\\d{3})")
+  df <- df %>%
+    dplyr::mutate(
+      contrast_formatted = paste0(
+        "T₁₁ = .", left_right[, 2], " – T₁₁ = .", left_right[, 3]
+      )
+    )
+
+  # Step 3: Select columns for the table
+  pairwise_clean <- df %>%
+    dplyr::select(contrast_formatted, Effect, SE, df, t_val, p) %>%
+    dplyr::rename(
+      Contrast = contrast_formatted,
+      t = t_val
+    )
+
+  # Step 4: Create the flextable
+  ft <- flextable(pairwise_clean) %>%
+    set_header_labels(
+      Contrast = "Contrast",
+      Effect   = "Estimate (95% CI)",
+      SE       = "SE",
+      df       = "df",
+      t        = "t",
+      p        = "p"
+    ) %>%
+    # Italicize headers using mk_par
+    mk_par(part = "header", j = "SE", value = as_paragraph(as_i("SE"))) %>%
+    mk_par(part = "header", j = "df", value = as_paragraph(as_i("df"))) %>%
+    mk_par(part = "header", j = "t", value = as_paragraph(as_i("t"))) %>%
+    mk_par(part = "header", j = "p", value = as_paragraph(as_i("p"))) %>%
+    colformat_double(j = c("SE", "t"), digits = 2) %>%
+    align(j = c("Contrast", "Effect", "df", "p"), align = "center", part = "all") %>%
+    width(j = "Contrast", width = 2.2) %>%
+    width(j = "Effect", width = 2.5) %>%
+    line_spacing(space = 0.9, part = "all") %>%
+    padding(j = "Contrast", padding.top = 1, padding.bottom = 1, part = "all")
+
+  # Step 5: Bold significant p-values
+  sig_rows <- which(df$p_val < 0.05)
+  ft <- bold(ft, i = sig_rows, j = "p", bold = TRUE, part = "body")
+
+  # Step 6: Apply APA styling
+  thin <- fp_border(color = "black", width = 1)
+  ft <- ft %>%
+    border_remove() %>%
+    font(fontname = "Avenir Next", part = "all") %>%
+    fontsize(size = 12, part = "all") %>%
+    align(align = "center", part = "all") %>%
+    set_table_properties(layout = "fixed") %>%
+    hline(i = 1, border = thin, part = "header") %>%
+    hline_top(border = thin, part = "all") %>%
+    hline_bottom(border = thin, part = "all") %>%
+    add_header_row(
+      values = group_label,
+      colwidths = ncol(pairwise_clean)
+    ) %>%
+    merge_h(part = "header") %>%
+    line_spacing(i = 1, space = 1.5, part = "header") %>%
+    padding(i = 1, padding.top = 3, padding.bottom = 3, part = "header") %>%
+    fontsize(i = 1, size = 11, part = "header")
+
+  return(ft)
+}
+```
+
+Create Lambda Bias Pairwise Tables
+
+```{r}
+#| label: "pairwise-comparisons-lambda-rilta-lta"
+#| echo: true
+#| message: false
+#| warning: false
+
+# Load required packages
+library(flextable)
+library(dplyr)
+library(stringr)
+library(officer)
+
+# Refit the model with interactions
+anova_main_lambda <- aov(Parameter_Bias ~ N_numeric + Population * Lambda, data = final_mc_values)
+
+# Get all pairwise comparisons by Lambda, explicitly specifying levels
+lambda_levels <- c("λ = 0", "λ = 0.2", "λ = 0.4", "λ = 0.6", "λ = 0.8", "λ = 1")
+all_comparisons <- summary(emmeans(anova_main_lambda, pairwise ~ Population | Lambda, 
+                                   at = list(Lambda = lambda_levels))$contrasts, infer = TRUE)
+
+# Split into list by Lambda
+pairwise_list <- split(all_comparisons, all_comparisons$Lambda)
+
+# Create Lambda-specific tables with simplified group labels
+flextable_list <- lapply(names(pairwise_list), function(lam) {
+  group_label <- lam  # Just use the Lambda value (e.g., "λ = 0")
+  format_pairwise_ft(pairwise_list[[lam]], group_label)
+})
+
+# Explicitly print each table
+print(flextable_list[[1]])
+print(flextable_list[[2]])
+print(flextable_list[[3]])
+print(flextable_list[[4]])
+print(flextable_list[[5]])
+print(flextable_list[[6]])
+```
+
+\
+Save Pairwise Tables
+
+```{r}
+#| label: "save-comparisons-table"
+#| echo: false
+#| message: false
+#| warning: false
+
+# Save tables by lambda
+invisible(save_as_image(flextable_list[[1]], path = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_bias_visuals", "r_l_3t_pairwise_bias_lambda_0.svg")))
+invisible(save_as_image(flextable_list[[2]], path = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_bias_visuals", "r_l_3t_pairwise_bias_lambda_0.2.svg")))
+invisible(save_as_image(flextable_list[[3]], path = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_bias_visuals", "r_l_3t_pairwise_bias_lambda_0.4.svg")))
+invisible(save_as_image(flextable_list[[4]], path = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_bias_visuals", "r_l_3t_pairwise_bias_lambda_0.6.svg")))
+invisible(save_as_image(flextable_list[[5]], path = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_bias_visuals", "r_l_3t_pairwise_bias_lambda_0.8.svg")))
+invisible(save_as_image(flextable_list[[6]], path = here("Simulations", "STUDY_1", "3 Time Points", "zposthoc", "r_l_3t_bias_visuals", "r_l_3t_pairwise_bias_lambda_1.svg")))
+
+
+
 ```
 
 ------------------------------------------------------------------------
@@ -1888,8 +3070,10 @@ mc_values <- mc_values %>%
 #| warning: false
 #| code-fold: false
 
+final_mc_values <- read.csv(here("Simulations", "STUDY_1", "3 Time Points", "zbootstrapping", "r_l_3t_mc_final_mc_values.csv"))
+
 # Assuming Population is numeric in all_data
-all_data <- mc_values
+all_data <- final_mc_values
 
 # Convert N to a factor with the correct labels for plotting
 all_data <- all_data %>%
@@ -1943,7 +3127,7 @@ subset_stayer <- subset_stayer %>%
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: true
+#| code-fold: false
 
 # Define common themes and aesthetics
 common_theme <- theme_minimal() +
@@ -1951,30 +3135,18 @@ common_theme <- theme_minimal() +
     panel.grid.major.x = element_blank(),
     panel.grid.minor.x = element_blank(),
     panel.grid.minor.y = element_blank(),
-    axis.text.x = element_text(size = 8),
+    axis.text.x = element_text(size = 10),  # X-axis labels (tick marks)
+    axis.text.y = element_text(size = 10),  
+    axis.title.x = element_text(size = 11, margin = margin(t = 10, b = 10)),  # X-axis title
+    axis.title.y = element_text(size = 11),
     axis.ticks = element_line(color = "black", linewidth = 0.5),
     legend.position = "bottom",
     legend.title = element_blank(),
-    text = element_text(family = "Times New Roman"),
-    axis.title.x = element_text(margin = margin(t = 10, b = 10)),
+    legend.text = element_text(size = 11),
+    text = element_text(family = "Avenir Next", size = 11),
     legend.margin = margin(t = -10),
-    plot.caption = element_text(hjust = 0, margin = margin(t = 10))
-  )
-
-# Define common themes and aesthetics
-common_theme <- theme_minimal() +
-  theme(
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    axis.text.x = element_text(size = 8),
-    axis.ticks = element_line(color = "black", linewidth = 0.5),
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    text = element_text(family = "Times New Roman"),
-    axis.title.x = element_text(margin = margin(t = 10, b = 10)),
-    legend.margin = margin(t = -10),
-    plot.caption = element_text(hjust = 0, margin = margin(t = 10))
+    plot.caption = element_text(size = 11, hjust = 0, margin = margin(t = 10)),
+    strip.text = element_text(size = 11)
   )
 
 create_plot <- function(data, title_suffix) {
@@ -2003,7 +3175,7 @@ create_plot <- function(data, title_suffix) {
 scale_color_manual(values = filtered_colors, labels = present_categories, breaks = present_categories, guide = guide_legend(override.aes = list(shape = filtered_shapes))
 ) +
     labs(
-      x = "Lambda Loadings on the RI",
+      x = "Lambda Loadings on the Random Intercept",
       y = "Bias (%)",
       color = "",
       title = paste("RILTA Generated, LTA Analyzed with", title_suffix, "Transition Probabilities")
@@ -2019,7 +3191,7 @@ if (title_suffix == "Stayer") {
   base_plot <- base_plot + scale_y_continuous(limits = c(-20, 40), breaks = seq(-20, 40, by = 20))
 } else {  # Assume "Mover"
   # Manually specify breaks to include 160
-  base_plot <- base_plot + scale_y_continuous(limits = c(-20, 170), breaks = c(-20, 40, 80, 120, 160))
+  base_plot <- base_plot + scale_y_continuous(limits = c(-20, 160), breaks = c(-20, 40, 80, 120, 160))
 }
   return(base_plot)
 }
@@ -2044,7 +3216,7 @@ print(plot_mover)
 plot_mover_no_title <- plot_mover + labs(title = NULL)
 
 # Save Mover plot without title as .svg
-ggsave(here('Simulations', 'STUDY_1', '3 Time Points', "zFigures", "x3t_rilta_lta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 3, dpi = 300, device = "svg")
+ggsave(here('Simulations', 'STUDY_1', "3 Time Points", "zFigures", "x3t_rilta_lta_plots", "plot_mover.svg"), plot = plot_mover_no_title, width = 6, height = 4, dpi = 300, device = "svg")
 ```
 
 ```{r}
@@ -2064,7 +3236,7 @@ print(plot_stayer)
 plot_stayer_no_title <- plot_stayer + labs(title = NULL)
 
 # Save Stayer plot without title as .svg
-ggsave(here('Simulations', 'STUDY_1', '3 Time Points', "zFigures", "x3t_rilta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 3, dpi = 300, device = "svg")
+ggsave(here('Simulations', 'STUDY_1', "3 Time Points", "zFigures", "x3t_rilta_lta_plots", "plot_stayer.svg"), plot = plot_stayer_no_title, width = 6, height = 4, dpi = 300, device = "svg")
 ```
 
 ------------------------------------------------------------------------
@@ -2080,39 +3252,45 @@ ggsave(here('Simulations', 'STUDY_1', '3 Time Points', "zFigures", "x3t_rilta_lt
 #| warning: false
 #| code-fold: false
 
-# Mutate columns to factor with custom labels
-all_data <- all_data %>% 
-  mutate(N_Label = factor(N,
-                    labels = c("N = 500", "N = 1000", "N = 2000", "N = 4000"))) %>% 
-  mutate(Population = factor(Population,
-                             labels = c(`.2`= ".200", `.3` = ".300", `.4` = ".400",
-                                        `.6`= ".600", `.7` = ".700", `.8` = ".800")))
+# Prepare heatmap data
+heatmap_data <- all_data %>%
+  # Create a markdown-formatted N_Label column
+  mutate(
+    N_Label = case_when(
+      N == levels(N)[1] ~ "*N* = 500",
+      N == levels(N)[2] ~ "*N* = 1000",
+      N == levels(N)[3] ~ "*N* = 2000",
+      N == levels(N)[4] ~ "*N* = 4000",
+      TRUE ~ NA_character_
+    ),
+    # Extract numeric part of N for correct sorting
+    N_numeric = as.numeric(str_remove(N_Label, "\\*N\\* = ")),
+    # Convert Population to plain-text factor levels
+    Population = factor(
+      Population,
+      levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),
+      labels = c(".200", ".300", ".400", ".600", ".700", ".800")
+    )
+  ) %>%
+  # Arrange by Lambda, then numeric N, then Population
+  arrange(Lambda, N_numeric, Population)
 
-# Change names in the "Transitions" column
-all_data <- all_data %>%
-  mutate(Transitions = ifelse(Transitions == 1, "Mover", "Stayer"))
-
-rownames(all_data) <- NULL
-
-# Ordering the table based on the "Lambda" column from 0 -> 3
-all_data <- all_data %>%
-  arrange(Lambda)
-
-# Select necessary columns
-test_map <- select(all_data, N_Label, Population, average, Coverage, Power, Parameter_Bias, SE_Bias)
+# Clean up data for heatmaps
+heatmap_data_clean <- heatmap_data %>%
+  dplyr::select(N_Label, Population, average, Coverage, Power, Parameter_Bias, SE_Bias)
 
 # Define the population values as characters
 population_values <- c(".200", ".300", ".400", ".600", ".700", ".800")
 
 # Function to subset the data for a specific population value
 subset_data <- function(data, pop_value) {
-  subset <- data %>%
+  data %>%
     filter(Population == pop_value)
-  return(subset)
 }
 
 # Apply the function to each population value
-subset_list <- lapply(population_values, function(x) subset_data(test_map, as.character(x)))
+subset_list <- lapply(population_values, function(x) subset_data(heatmap_data_clean, x))
+
 # Access the subsets for each population value
 subset_02 <- subset_list[[1]]  # Subset for population value .200
 subset_03 <- subset_list[[2]]  # Subset for population value .300
@@ -2120,6 +3298,7 @@ subset_04 <- subset_list[[3]]  # Subset for population value .400
 subset_06 <- subset_list[[4]]  # Subset for population value .600
 subset_07 <- subset_list[[5]]  # Subset for population value .700
 subset_08 <- subset_list[[6]]  # Subset for population value .800
+
 ```
 
 ### Prepare Function for Heat Map Creation
@@ -2132,102 +3311,128 @@ subset_08 <- subset_list[[6]]  # Subset for population value .800
 #| code-fold: false
 
 create_table <- function(subset, transition_probability) {
-  
-  # Create the gt object and set initial formatting
+
   gt_table <- subset %>%
     gt() %>%
-    opt_table_font(stack = "geometric-humanist") %>% 
-    tab_header(
-      title = paste("RILTA Generated & LTA Analyzed with Transition Probability of", transition_probability)
-    ) %>%
+    opt_table_font(font = "Avenir Next") %>%
+    fmt_markdown(columns = "N_Label") %>%
     cols_label(
-      N_Label = "Sample Size",
-      average = "Estimated<br>Probability",
-      Coverage = "Coverage",
-      Power = "Power",
+      N_Label        = "Sample Size",
+      Population = md("*T*<sub>11</sub>"),
+      average        = md("Estimated<br>*T*<sub>11</sub>"),
+      Coverage       = "Coverage",
+      Power          = "Power",
       Parameter_Bias = "Parameter<br>Bias",
-      SE_Bias = "Standard Error<br>Bias",
-      .fn = md
+      SE_Bias        = "SE<br>Bias",
+      .fn            = md
     ) %>%
     tab_spanner(
-      label = "Bias",
-      columns = c("Parameter_Bias", "SE_Bias")) %>%
-    tab_row_group(
-      label = "Lambda RI Loading of 1 (λ)",  # Label for the first subgroup
-      rows = c(21:24)  # Rows corresponding to the first subgroup
+      label   = "Bias",
+      columns = c("Parameter_Bias", "SE_Bias")
     ) %>%
-    tab_row_group(
-      label = "Lambda RI Loading of .8 (λ)",  # Label for the second subgroup
-      rows = c(17:20)  # Rows corresponding to the second subgroup
+    tab_row_group(label = "Lambda RI Loading of 0 (λ)",  rows =  1: 4) %>%
+    tab_row_group(label = "Lambda RI Loading of .2 (λ)", rows =  5: 8) %>%
+    tab_row_group(label = "Lambda RI Loading of .4 (λ)", rows =  9:12) %>%
+    tab_row_group(label = "Lambda RI Loading of .6 (λ)", rows = 13:16) %>%
+    tab_row_group(label = "Lambda RI Loading of .8 (λ)", rows = 17:20) %>%
+    tab_row_group(label = "Lambda RI Loading of 1 (λ)", rows = 21:24) %>%
+    tab_style(
+      style     = cell_text(weight = "normal", style = "italic"),
+      locations = cells_row_groups()
     ) %>%
-    tab_row_group(
-      label = "Lambda RI Loading of .6 (λ)",  # Label for the third subgroup
-      rows = c(13:16)  # Rows corresponding to the third subgroup
-    ) %>%
-    tab_row_group(
-      label = "Lambda RI Loading of .4 (λ)",  # Label for the fourth subgroup
-      rows = c(9:12)  # Rows corresponding to the fourth subgroup
-    ) %>%
-    tab_row_group(
-      label = "Lambda RI Loading of .2 (λ)",  # Label for the fifth subgroup
-      rows = c(5:8)  # Rows corresponding to the fifth subgroup
-    ) %>%
-    tab_row_group(
-      label = "Lambda RI Loading of 0 (λ)",  # Label for the sixth subgroup
-      rows = c(1:4)  # Rows corresponding to the sixth subgroup
-    ) %>%
-      tab_style(
-    style = cell_text(
-      font = "bold italic"  # Apply bold and italic styling
-    ),
-      locations = cells_row_groups()  # Apply style to row subheaders
-    ) %>% 
-    fmt_number(columns = c("Parameter_Bias", "SE_Bias"), decimals = 2) %>%  
+    fmt_number(columns = c("Parameter_Bias","SE_Bias"), decimals = 2) %>%
     fmt_number(columns = 3, decimals = 3) %>%
+text_transform(
+  locations = cells_body(columns = c("average", "Coverage", "Power")),
+  fn = function(x) sub("^0\\.", ".", x)
+) %>%
     tab_options(
-      table_body.hlines.color = "white",
-      table.border.top.color = "black",
-      table.border.bottom.color = "black",
-      table_body.border.bottom.color = "black",
-      heading.border.bottom.color = "black",
-      column_labels.border.top.color = "black",
-      column_labels.border.bottom.color = "black",
-      row_group.border.bottom.color = "black" ,
-      row_group.border.top.color = "black" 
+      # striping off, sizing & padding
+      row.striping.include_table_body    = FALSE,
+      table.width                         = pct(75),
+      data_row.padding                    = px(0),
+      heading.padding                     = px(0),
+      column_labels.padding               = px(0),
+      row_group.padding                   = px(0),
+
+      # remove default GT hlines
+      table_body.hlines.color             = "white",
+
+      # **fix the two stray grey lines**: make table‐body borders 1px black
+      table_body.border.top.color         = "black",
+      table_body.border.top.width         = px(1),
+      table_body.border.bottom.color      = "black",
+      table_body.border.bottom.width      = px(1),
+
+      # outer box
+      table.border.top.color              = "black",
+      table.border.top.width              = px(1),
+      table.border.bottom.color           = "black",
+      table.border.bottom.width           = px(1),
+
+      # title underline
+      heading.border.bottom.color         = "black",
+      heading.border.bottom.width         = px(1),
+
+      # column‐label box
+      column_labels.border.top.color      = "black",
+      column_labels.border.top.width      = px(1),
+      column_labels.border.bottom.color   = "black",
+      column_labels.border.bottom.width   = px(1),
+
+      # row‐group separators
+      row_group.border.top.color          = "black",
+      row_group.border.top.width          = px(1),
+      row_group.border.bottom.color       = "black",
+      row_group.border.bottom.width       = px(1)
     ) %>%
     cols_align(
-      align = c("center"),
+      align   = "center",
       columns = everything()
+    ) %>%
+    # thin only the "Bias" spanner borders
+    tab_style(
+      style     = cell_borders(sides = c("top","bottom"), weight = px(1), color = "black"),
+      locations = cells_column_spanners()
+    ) %>%
+    # ensure the underline under the title is black 1px
+    tab_style(
+      style     = cell_borders(sides = "bottom", weight = px(1), color = "black"),
+      locations = cells_title(groups = "title")
+    ) %>%
+    # ensure the top border above each Lambda‑RI group is black 1px
+    tab_style(
+      style     = cell_borders(sides = "top", weight = px(1), color = "black"),
+      locations = cells_row_groups()
     )
 
-  # Apply color highlighting for violations in Parameter Bias
+  # —————— your existing color logic ——————
   if (any(!(subset$Parameter_Bias >= -9.99 & subset$Parameter_Bias <= 9.99), na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
         columns = "Parameter_Bias",
-        rows = .data$Parameter_Bias < -9.99 | .data$Parameter_Bias > 9.99,  # Apply color only if outside the threshold
-        method = "numeric",
-        palette = c("#113386", "#DAE3FA", "#113386"),  # Darker blue for larger deviations
-        domain = c(-170, 170)  # Adjust the domain to reflect the range of values
+        rows    = .data$Parameter_Bias < -9.99 | .data$Parameter_Bias > 9.99,
+        method  = "numeric",
+        palette = c("#113386","#DAE3FA","#113386"),
+        domain  = c(-160,166)
       ) %>%
       tab_footnote(
-        footnote = md("Darker blue indicates larger deviations from zero *Parameter Bias* beyond the ±9.99 threshold."),
+        footnote  = md("Darker blue indicates larger deviations from zero *Parameter Bias* beyond the ±9.99 threshold."),
         locations = cells_column_labels(columns = "Parameter_Bias")
       )
   }
 
-  # Apply color highlighting for violations in SE Bias
   if (any(!(subset$SE_Bias >= -4.99 & subset$SE_Bias <= 4.99), na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
         columns = "SE_Bias",
-        rows = .data$SE_Bias < -4.99 | .data$SE_Bias > 4.99,  # Apply color only if outside the threshold
-        method = "numeric",
-        palette = c("#781049", "#FDEAF4", "#781049"),  # Darker red for larger deviations
-        domain = c(-80, 80)  # Adjust the domain for the SE_Bias range
+        rows    = .data$SE_Bias < -4.99 | .data$SE_Bias > 4.99,
+        method  = "numeric",
+        palette = c("#781049","#FDEAF4","#781049"),
+        domain  = c(-80,80)
       ) %>%
       tab_footnote(
-        footnote = md("Darker red indicates larger deviations from zero *Standard Error Bias* beyond the ±4.99 threshold."),
+        footnote  = md("Darker red indicates larger deviations from zero *Standard Error Bias* beyond the ±4.99 threshold."),
         locations = cells_column_labels(columns = "SE_Bias")
       )
   }
@@ -2236,13 +3441,13 @@ create_table <- function(subset, transition_probability) {
     gt_table <- gt_table %>%
       data_color(
         columns = "Coverage",
-        rows = subset$Coverage < 0.93 | subset$Coverage > 0.979,
-        method = "numeric",
-        palette = c("#93C6B1", "white"),  # Green for coverage issues
-        domain = c(0, 1)
+        rows    = subset$Coverage < 0.91 | subset$Coverage > 0.979,
+        method  = "numeric",
+        palette = c("#93C6B1","white"),
+        domain  = c(0,1)
       ) %>%
       tab_footnote(
-        footnote = md("Green indicates failure to achieve adequate *Coverage*."),
+        footnote  = md("Green indicates failure to achieve adequate *Coverage*."),
         locations = cells_column_labels(columns = "Coverage")
       )
   }
@@ -2251,19 +3456,20 @@ create_table <- function(subset, transition_probability) {
     gt_table <- gt_table %>%
       data_color(
         columns = "Power",
-        rows = subset$Power < 0.8,
-        method = "numeric",
-        palette = c("#502CD1", "white"),  # Purple for power issues
-        domain = c(0, 1)
+        rows    = subset$Power < 0.8,
+        method  = "numeric",
+        palette = c("#502CD1","white"),
+        domain  = c(0,1)
       ) %>%
       tab_footnote(
-        footnote = md("Purple indicates failure to achieve adequate *Power*."),
+        footnote  = md("Purple indicates failure to achieve adequate *Power*."),
         locations = cells_column_labels(columns = "Power")
       )
   }
-  
+
   return(gt_table)
 }
+
 ```
 
 ### Render Heat maps
@@ -2281,7 +3487,7 @@ subset_02_table <- create_table(subset_02, ".200")
 
 subset_02_table
 
-subset_02_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z3t_r_l_heatmaps", "2T_R_L_.200.png"))
+subset_02_table |>  tab_options(table.width = pct(75)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_r_l_heatmaps", "3t_r_l_.200.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .300
@@ -2296,7 +3502,7 @@ subset_02_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulatio
 
 subset_03_table <- create_table(subset_03, ".300")
 subset_03_table
-subset_03_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z3t_r_l_heatmaps","2T_R_L_.300.png"))
+subset_03_table |>  tab_options(table.width = pct(75)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_r_l_heatmaps","3T_R_L_.300.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .400
@@ -2310,7 +3516,7 @@ subset_03_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulatio
 
 subset_04_table <- create_table(subset_04, ".400")
 subset_04_table
-subset_04_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z3t_r_l_heatmaps","2T_R_L_.400.png"))
+subset_04_table |>  tab_options(table.width = pct(75)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_r_l_heatmaps","3T_R_L_.400.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .600
@@ -2325,7 +3531,7 @@ subset_04_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulatio
 
 subset_06_table <- create_table(subset_06, ".600")
 subset_06_table
-subset_06_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_heatmaps","z3t_r_l_heatmaps","2T_R_L_.600.png"))
+subset_06_table |>  tab_options(table.width = pct(75)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_r_l_heatmaps","3T_R_L_.600.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .700
@@ -2339,7 +3545,7 @@ subset_06_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulatio
 
 subset_07_table <- create_table(subset_07, ".700")
 subset_07_table
-subset_07_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps","z3t_r_l_heatmaps","2T_R_L_.700.png"))
+subset_07_table |>  tab_options(table.width = pct(75)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps","z3t_r_l_heatmaps","3T_R_L_.700.png"))
 ```
 
 #### TABLE FOR TRANSITION PROBABILITIES OF .800
@@ -2356,5 +3562,5 @@ subset_08_table <- create_table(subset_08, ".800")
 
 subset_08_table
 
-subset_08_table |>  tab_options(table.width = pct(65)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_r_l_heatmaps","2T_R_L_.800.png"))
+subset_08_table |>  tab_options(table.width = pct(75)) |> gtsave(here('Simulations', 'STUDY_1', '3 Time Points', "zHeatmaps", "z3t_r_l_heatmaps","3T_R_L_.800.png"))
 ```

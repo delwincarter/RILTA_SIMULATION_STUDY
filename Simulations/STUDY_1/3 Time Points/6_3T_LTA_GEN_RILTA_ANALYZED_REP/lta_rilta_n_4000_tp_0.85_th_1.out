@@ -1,0 +1,3428 @@
+Mplus VERSION 8.11
+MUTHEN & MUTHEN
+04/29/2025   6:13 PM
+
+INPUT INSTRUCTIONS
+
+  TITLE:
+  Generate LTA_RILTA_N_4000_TP_0.85_TH_1
+  MONTECARLO:
+  NAMES = u11-u15 u21-u25 u31-u35;
+  GENERATE = u11-u15 u21-u25 u31-u35(1);
+  CATEGORICAL = u11-u15 u21-u25 u31-u35;
+  GENCLASSES = c1(2) c2(2) c3(2);
+  CLASSES = c1(2) c2(2) c3(2);
+  NOBSERVATIONS = 4000;
+  SEED = 07252005;
+  NREPS = 847;
+  !!SAVE = repM1*.dat;
+  RESULTS = LTA_RILTA_N_4000_TP_0.85_TH_1.csv;
+  MODEL POPULATION:
+     %OVERALL%
+
+     [c1#1-c3#1*0];
+     c2#1 on c1#1*0.85;
+     c3#1 on c2#1*0;
+
+   MODEL POPULATION-c1:
+     %c1#1%
+  [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+
+     %c1#2%
+  [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+
+   MODEL POPULATION-c2:
+     %c2#1%
+  [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+
+     %c2#2%
+  [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+
+   MODEL POPULATION-c3:
+     %c3#1%
+  [u31$1*1 u32$1*1 u33$1*1 u34$1*1 u35$1*1] (p111-p115);
+
+     %c3#2%
+  [u31$1*-1 u32$1*-1 u33$1*-1 u34$1*-1 u35$1*-1] (p121-p125);
+  ANALYSIS:
+  TYPE = MIXTURE;
+        algorithm = integration;
+        processors = 24;
+        starts= 400 150;
+        logcriterion=0.00001;
+        mconv=0.00001;
+  MODEL:
+      %OVERALL%
+        [c1#1-c3#1*0](par1-par3);
+      	c2#1 on c1#1*0.85 (par11);
+      	c3#1 on c2#1*0;
+      	
+      f by u11* u12-u15 (p1-p5)
+                u21-u25 (p1-p5)
+               u31-u35 (p1-p5);
+
+    	f@1;
+      [f@0];
+
+   MODEL c1:
+      %c1#1%
+   [u11$1*1 u12$1*1 u13$1*1 u14$1*1 u15$1*1] (p111-p115);
+
+      %c1#2%
+   [u11$1*-1 u12$1*-1 u13$1*-1 u14$1*-1 u15$1*-1] (p121-p125);
+
+  MODEL c2: 	
+      %c2#1%
+   [u21$1*1 u22$1*1 u23$1*1 u24$1*1 u25$1*1] (p111-p115);
+
+      %c2#2%
+   [u21$1*-1 u22$1*-1 u23$1*-1 u24$1*-1 u25$1*-1] (p121-p125);
+
+  MODEL c3:
+      %c3#1%
+   [u31$1*1 u32$1*1 u33$1*1 u34$1*1 u35$1*1] (p111-p115);
+
+      %c3#2%
+   [u31$1*-1 u32$1*-1 u33$1*-1 u34$1*-1 u35$1*-1] (p121-p125);
+  MODEL CONSTRAINT:
+  New(
+  trans11*.70 trans12*.30 trans21*.5 trans22*.5
+  prob11*.5 prob12*.5 prob21*.60 prob22*.4);
+  trans11 = 1/(1+exp(-(par2+par11)));
+  trans12 = 1-trans11;
+  trans21 = 1/(1+exp(-par2));
+  trans22 = 1- trans21;
+  !marginal probabilities at T1 and T2:
+  prob11 = 1/(1+exp(-par1));
+  prob12 = 1 - prob11;
+  prob21 = prob11*trans11+prob12*trans21;
+  prob22 = 1- prob21;
+
+
+
+INPUT READING TERMINATED NORMALLY
+
+
+
+
+Generate LTA_RILTA_N_4000_TP_0.85_TH_1
+
+SUMMARY OF ANALYSIS
+
+Number of groups                                                 1
+Number of observations                                        4000
+
+Number of replications
+    Requested                                                  847
+    Completed                                                  847
+Value of seed                                              7252005
+
+Number of dependent variables                                   15
+Number of independent variables                                  0
+Number of continuous latent variables                            1
+Number of categorical latent variables                           3
+
+Observed dependent variables
+
+  Binary and ordered categorical (ordinal)
+   U11         U12         U13         U14         U15         U21
+   U22         U23         U24         U25         U31         U32
+   U33         U34         U35
+
+Continuous latent variables
+   F
+
+Categorical latent variables
+   C1          C2          C3
+
+
+Estimator                                                      MLR
+Information matrix                                        OBSERVED
+Optimization Specifications for the Quasi-Newton Algorithm for
+Continuous Outcomes
+  Maximum number of iterations                                 100
+  Convergence criterion                                  0.100D-05
+Optimization Specifications for the EM Algorithm
+  Maximum number of iterations                                 500
+  Convergence criteria
+    Loglikelihood change                                 0.100D-04
+    Relative loglikelihood change                        0.100D-05
+    Derivative                                           0.100D-04
+Optimization Specifications for the M step of the EM Algorithm for
+Categorical Latent variables
+  Number of M step iterations                                    1
+  M step convergence criterion                           0.100D-02
+  Basis for M step termination                           ITERATION
+Optimization Specifications for the M step of the EM Algorithm for
+Censored, Binary or Ordered Categorical (Ordinal), Unordered
+Categorical (Nominal) and Count Outcomes
+  Number of M step iterations                                    1
+  M step convergence criterion                           0.100D-02
+  Basis for M step termination                           ITERATION
+  Maximum value for logit thresholds                            15
+  Minimum value for logit thresholds                           -15
+  Minimum expected cell size for chi-square              0.100D-01
+Optimization algorithm                                         EMA
+Integration Specifications
+  Type                                                    STANDARD
+  Number of integration points                                  15
+  Dimensions of numerical integration                            1
+  Adaptive quadrature                                           ON
+Random Starts Specifications
+  Number of initial stage random starts                        400
+  Number of final stage optimizations                          150
+  Number of initial stage iterations                            10
+  Initial stage convergence criterion                    0.100D+01
+  Random starts scale                                    0.500D+01
+  Random seed for generating random starts                       0
+Parameterization                                             LOGIT
+Link                                                         LOGIT
+Cholesky                                                        ON
+
+
+
+
+
+MODEL FIT INFORMATION
+
+Number of Free Parameters                       20
+
+Loglikelihood
+
+    H0 Value
+
+        Mean                            -39430.006
+        Std Dev                             72.556
+        Number of successful computations      847
+
+             Proportions                   Percentiles
+        Expected    Observed         Expected       Observed
+           0.990       0.987       -39598.793     -39606.788
+           0.980       0.978       -39579.014     -39585.405
+           0.950       0.952       -39549.353     -39549.199
+           0.900       0.898       -39522.994     -39524.168
+           0.800       0.798       -39491.069     -39492.010
+           0.700       0.699       -39468.054     -39468.486
+           0.500       0.496       -39430.006     -39431.003
+           0.300       0.299       -39391.958     -39392.783
+           0.200       0.205       -39368.943     -39368.537
+           0.100       0.102       -39337.018     -39336.225
+           0.050       0.051       -39310.659     -39311.419
+           0.020       0.022       -39280.998     -39280.466
+           0.010       0.009       -39261.219     -39262.830
+
+Information Criteria
+
+    Akaike (AIC)
+
+        Mean                             78900.012
+        Std Dev                            145.112
+        Number of successful computations      847
+
+             Proportions                   Percentiles
+        Expected    Observed         Expected       Observed
+           0.990       0.991        78562.438      78561.599
+           0.980       0.978        78601.996      78595.704
+           0.950       0.949        78661.317      78660.586
+           0.900       0.898        78714.037      78709.383
+           0.800       0.795        78777.886      78775.591
+           0.700       0.701        78823.915      78823.993
+           0.500       0.504        78900.012      78901.575
+           0.300       0.301        78976.109      78976.108
+           0.200       0.202        79022.138      79023.345
+           0.100       0.102        79085.987      79086.841
+           0.050       0.048        79138.707      79132.628
+           0.020       0.022        79198.028      79201.715
+           0.010       0.013        79237.586      79243.899
+
+    Bayesian (BIC)
+
+        Mean                             79025.893
+        Std Dev                            145.112
+        Number of successful computations      847
+
+             Proportions                   Percentiles
+        Expected    Observed         Expected       Observed
+           0.990       0.991        78688.319      78687.480
+           0.980       0.978        78727.877      78721.585
+           0.950       0.949        78787.198      78786.467
+           0.900       0.898        78839.918      78835.264
+           0.800       0.795        78903.767      78901.472
+           0.700       0.701        78949.796      78949.874
+           0.500       0.504        79025.893      79027.456
+           0.300       0.301        79101.990      79101.989
+           0.200       0.202        79148.019      79149.226
+           0.100       0.102        79211.868      79212.722
+           0.050       0.048        79264.588      79258.509
+           0.020       0.022        79323.909      79327.596
+           0.010       0.013        79363.467      79369.780
+
+    Sample-Size Adjusted BIC (n* = (n + 2) / 24)
+
+        Mean                             78962.342
+        Std Dev                            145.112
+        Number of successful computations      847
+
+             Proportions                   Percentiles
+        Expected    Observed         Expected       Observed
+           0.990       0.991        78624.768      78623.928
+           0.980       0.978        78664.326      78658.034
+           0.950       0.949        78723.647      78722.916
+           0.900       0.898        78776.366      78771.713
+           0.800       0.795        78840.216      78837.920
+           0.700       0.701        78886.245      78886.323
+           0.500       0.504        78962.342      78963.905
+           0.300       0.301        79038.439      79038.438
+           0.200       0.202        79084.468      79085.675
+           0.100       0.102        79148.317      79149.171
+           0.050       0.048        79201.036      79194.958
+           0.020       0.022        79260.358      79264.045
+           0.010       0.013        79299.916      79306.229
+
+Chi-Square Test of Model Fit for the Binary and Ordered Categorical
+(Ordinal) Outcomes
+
+    Pearson Chi-Square
+
+        Mean                             32731.022
+        Std Dev                            369.375
+        Degrees of freedom                   32747
+        Number of successful computations      847
+
+             Proportions                   Percentiles
+        Expected    Observed         Expected       Observed
+           0.990       0.937        32154.589      31824.960
+           0.980       0.910        32223.557      31951.863
+           0.950       0.832        32327.193      32133.825
+           0.900       0.771        32419.459      32250.549
+           0.800       0.642        32531.422      32399.057
+           0.700       0.482        32612.315      32533.418
+           0.500       0.482        32746.333      32728.804
+           0.300       0.360        32880.719      32930.457
+           0.200       0.264        32962.189      33038.398
+           0.100       0.166        33075.397      33188.878
+           0.050       0.111        33169.082      33325.668
+           0.020       0.067        33274.734      33462.750
+           0.010       0.045        33345.294      33609.527
+
+    Likelihood Ratio Chi-Square
+
+        Mean                             14332.523
+        Std Dev                            108.883
+        Degrees of freedom                   32747
+        Number of successful computations      847
+
+             Proportions                   Percentiles
+        Expected    Observed         Expected       Observed
+           0.990       0.000        32154.589      14105.607
+           0.980       0.000        32223.557      14117.095
+           0.950       0.000        32327.193      14151.572
+           0.900       0.000        32419.459      14195.032
+           0.800       0.000        32531.422      14239.347
+           0.700       0.000        32612.315      14275.039
+           0.500       0.000        32746.333      14326.146
+           0.300       0.000        32880.719      14388.024
+           0.200       0.000        32962.189      14426.170
+           0.100       0.000        33075.397      14475.576
+           0.050       0.000        33169.082      14516.346
+           0.020       0.000        33274.734      14558.697
+           0.010       0.000        33345.294      14586.252
+
+
+
+MODEL RESULTS USE THE LATENT CLASS VARIABLE ORDER
+
+   C1  C2  C3
+
+
+FINAL CLASS COUNTS AND PROPORTIONS FOR THE LATENT CLASS PATTERNS
+BASED ON THE ESTIMATED MODEL
+
+  Latent Class
+    Pattern
+
+    1  1  1        643.48966          0.16087
+    1  1  2        647.08612          0.16177
+    1  2  1        357.41309          0.08935
+    1  2  2        352.12131          0.08803
+    2  1  1        445.41605          0.11135
+    2  1  2        448.22726          0.11206
+    2  2  1        557.10072          0.13928
+    2  2  2        549.14578          0.13729
+
+
+FINAL CLASS COUNTS AND PROPORTIONS FOR EACH LATENT CLASS VARIABLE
+BASED ON THE ESTIMATED MODEL
+
+  Latent Class
+    Variable    Class
+
+    C1             1      2000.11023          0.50003
+                   2      1999.88977          0.49997
+    C2             1      2184.21899          0.54605
+                   2      1815.78088          0.45395
+    C3             1      2003.41956          0.50085
+                   2      1996.58044          0.49915
+
+
+LATENT TRANSITION PROBABILITIES BASED ON THE ESTIMATED MODEL
+
+  C1 Classes (Rows) by C2 Classes (Columns)
+
+            1        2
+
+   1     0.645    0.355
+   2     0.447    0.553
+
+  C2 Classes (Rows) by C3 Classes (Columns)
+
+            1        2
+
+   1     0.498    0.502
+   2     0.504    0.496
+
+
+FINAL CLASS COUNTS AND PROPORTIONS FOR THE LATENT CLASS PATTERNS
+BASED ON ESTIMATED POSTERIOR PROBABILITIES
+
+  Latent Class
+    Pattern
+
+    1  1  1        642.59288          0.16065
+    1  1  2        647.98273          0.16200
+    1  2  1        356.91409          0.08923
+    1  2  2        352.62050          0.08816
+    2  1  1        446.31261          0.11158
+    2  1  2        447.33093          0.11183
+    2  2  1        557.59988          0.13940
+    2  2  2        548.64638          0.13716
+
+
+FINAL CLASS COUNTS AND PROPORTIONS FOR EACH LATENT CLASS VARIABLE
+BASED ON ESTIMATED POSTERIOR PROBABILITIES
+
+  Latent Class
+    Variable    Class
+
+    C1             1      2000.11011          0.50003
+                   2      1999.88977          0.49997
+    C2             1      2184.21899          0.54605
+                   2      1815.78088          0.45395
+    C3             1      2003.41943          0.50085
+                   2      1996.58044          0.49915
+
+
+FINAL CLASS COUNTS AND PROPORTIONS FOR THE LATENT CLASS PATTERNS
+BASED ON THEIR MOST LIKELY LATENT CLASS PATTERN
+
+Class Counts and Proportions
+
+  Latent Class
+    Pattern
+
+    1  1  1              597          0.14937
+    1  1  2              600          0.15009
+    1  2  1              403          0.10065
+    1  2  2              399          0.09971
+    2  1  1              475          0.11870
+    2  1  2              475          0.11871
+    2  2  1              527          0.13166
+    2  2  2              524          0.13111
+
+
+FINAL CLASS COUNTS AND PROPORTIONS FOR EACH LATENT CLASS VARIABLE
+BASED ON THEIR MOST LIKELY LATENT CLASS PATTERN
+
+  Latent Class
+    Variable    Class
+
+    C1             1            1999          0.49982
+                   2            2000          0.50018
+    C2             1            2147          0.53687
+                   2            1852          0.46313
+    C3             1            2001          0.50038
+                   2            1998          0.49962
+
+
+CLASSIFICATION QUALITY
+
+     Entropy                         0.551
+
+
+MODEL RESULTS
+
+                              ESTIMATES              S. E.     M. S. E.  95%  % Sig
+                 Population   Average   Std. Dev.   Average             Cover Coeff
+
+Parameters in the Overall Part of the Model (Parameters Equal in All of the Classes)
+
+ F        BY
+  U11                 1.000     0.0372     0.1549     0.1479     0.9509 0.024 0.221
+  U12                 1.000     0.0344     0.1547     0.1441     0.9562 0.022 0.203
+  U13                 1.000     0.0385     0.1586     0.1468     0.9495 0.025 0.217
+  U14                 1.000     0.0350     0.1628     0.1410     0.9576 0.015 0.241
+  U15                 1.000     0.0322     0.1630     0.1450     0.9631 0.019 0.223
+  U21                 1.000     0.0372     0.1549     0.1479     0.9509 0.024 0.221
+  U22                 1.000     0.0344     0.1547     0.1441     0.9562 0.022 0.203
+  U23                 1.000     0.0385     0.1586     0.1468     0.9495 0.025 0.217
+  U24                 1.000     0.0350     0.1628     0.1410     0.9576 0.015 0.241
+  U25                 1.000     0.0322     0.1630     0.1450     0.9631 0.019 0.223
+  U31                 1.000     0.0372     0.1549     0.1479     0.9509 0.024 0.221
+  U32                 1.000     0.0344     0.1547     0.1441     0.9562 0.022 0.203
+  U33                 1.000     0.0385     0.1586     0.1468     0.9495 0.025 0.217
+  U34                 1.000     0.0350     0.1628     0.1410     0.9576 0.015 0.241
+  U35                 1.000     0.0322     0.1630     0.1450     0.9631 0.019 0.223
+
+ Means
+  F                   0.000     0.0000     0.0000     0.0000     0.0000 1.000 0.000
+
+ Variances
+  F                   1.000     1.0000     0.0000     0.0000     0.0000 1.000 0.000
+
+Parameters for Class-specific Model Parts of C1
+
+Latent Class C1#1
+
+ Thresholds
+  U11$1               1.000     0.4575     0.8930     0.0434     1.0909 0.689 1.000
+  U12$1               1.000     0.4562     0.8968     0.0431     1.0991 0.693 1.000
+  U13$1               1.000     0.4563     0.8959     0.0437     1.0973 0.689 1.000
+  U14$1               1.000     0.4556     0.8962     0.0434     1.0985 0.689 1.000
+  U15$1               1.000     0.4555     0.8998     0.0433     1.1051 0.687 1.000
+
+Latent Class C1#2
+
+ Thresholds
+  U11$1              -1.000    -0.4590     0.8977     0.0454     1.0977 0.691 1.000
+  U12$1              -1.000    -0.4558     0.8963     0.0451     1.0986 0.692 1.000
+  U13$1              -1.000    -0.4565     0.8960     0.0456     1.0973 0.699 1.000
+  U14$1              -1.000    -0.4581     0.8981     0.0453     1.0992 0.686 1.000
+  U15$1              -1.000    -0.4574     0.8969     0.0451     1.0979 0.700 1.000
+
+Parameters for Class-specific Model Parts of C2
+
+Latent Class C2#1
+
+ Thresholds
+  U21$1               1.000     0.4575     0.8930     0.0434     1.0909 0.689 1.000
+  U22$1               1.000     0.4562     0.8968     0.0431     1.0991 0.693 1.000
+  U23$1               1.000     0.4563     0.8959     0.0437     1.0973 0.689 1.000
+  U24$1               1.000     0.4556     0.8962     0.0434     1.0985 0.689 1.000
+  U25$1               1.000     0.4555     0.8998     0.0433     1.1051 0.687 1.000
+
+Latent Class C2#2
+
+ Thresholds
+  U21$1              -1.000    -0.4590     0.8977     0.0454     1.0977 0.691 1.000
+  U22$1              -1.000    -0.4558     0.8963     0.0451     1.0986 0.692 1.000
+  U23$1              -1.000    -0.4565     0.8960     0.0456     1.0973 0.699 1.000
+  U24$1              -1.000    -0.4581     0.8981     0.0453     1.0992 0.686 1.000
+  U25$1              -1.000    -0.4574     0.8969     0.0451     1.0979 0.700 1.000
+
+Parameters for Class-specific Model Parts of C3
+
+Latent Class C3#1
+
+ Thresholds
+  U31$1               1.000     0.4575     0.8930     0.0434     1.0909 0.689 1.000
+  U32$1               1.000     0.4562     0.8968     0.0431     1.0991 0.693 1.000
+  U33$1               1.000     0.4563     0.8959     0.0437     1.0973 0.689 1.000
+  U34$1               1.000     0.4556     0.8962     0.0434     1.0985 0.689 1.000
+  U35$1               1.000     0.4555     0.8998     0.0433     1.1051 0.687 1.000
+
+Latent Class C3#2
+
+ Thresholds
+  U31$1              -1.000    -0.4590     0.8977     0.0454     1.0977 0.691 1.000
+  U32$1              -1.000    -0.4558     0.8963     0.0451     1.0986 0.692 1.000
+  U33$1              -1.000    -0.4565     0.8960     0.0456     1.0973 0.699 1.000
+  U34$1              -1.000    -0.4581     0.8981     0.0453     1.0992 0.686 1.000
+  U35$1              -1.000    -0.4574     0.8969     0.0451     1.0979 0.700 1.000
+
+Categorical Latent Variables
+
+ C2#1     ON
+  C1#1                0.850     0.8398     0.1150     0.1129     0.0133 0.947 1.000
+
+ C3#1     ON
+  C2#1                0.000    -0.0228     0.1064     0.1124     0.0118 0.954 0.046
+
+ Means
+  C1#1                0.000     0.0001     0.0518     0.0518     0.0027 0.945 0.055
+  C2#1                0.000    -0.2247     0.3896     0.0747     0.2021 0.699 0.301
+  C3#1                0.000     0.0160     0.0798     0.0812     0.0066 0.952 0.048
+
+New/Additional Parameters
+  TRANS11             0.700     0.6450     0.0914     0.0171     0.0114 0.689 1.000
+  TRANS12             0.300     0.3550     0.0914     0.0171     0.0114 0.689 1.000
+  TRANS21             0.500     0.4471     0.0919     0.0178     0.0112 0.699 1.000
+  TRANS22             0.500     0.5529     0.0919     0.0178     0.0112 0.699 1.000
+  PROB11              0.500     0.5000     0.0129     0.0129     0.0002 0.943 1.000
+  PROB12              0.500     0.5000     0.0129     0.0129     0.0002 0.943 1.000
+  PROB21              0.600     0.5461     0.0910     0.0127     0.0112 0.684 1.000
+  PROB22              0.400     0.4539     0.0910     0.0127     0.0112 0.684 1.000
+
+
+QUALITY OF NUMERICAL RESULTS
+
+     Average Condition Number for the Information Matrix      0.562E-03
+       (ratio of smallest to largest eigenvalue)
+
+
+C-SPECIFIC CLASSIFICATION RESULTS
+
+Classification Quality for C1
+
+     Entropy                         0.557
+
+Average Latent Class Probabilities for Most Likely Latent Class Membership (Row)
+by Latent Class (Column)
+
+           1        2
+
+    1   0.875    0.125
+    2   0.126    0.874
+
+Classification Quality for C2
+
+     Entropy                         0.569
+
+Average Latent Class Probabilities for Most Likely Latent Class Membership (Row)
+by Latent Class (Column)
+
+           1        2
+
+    1   0.887    0.113
+    2   0.151    0.849
+
+Classification Quality for C3
+
+     Entropy                         0.551
+
+Average Latent Class Probabilities for Most Likely Latent Class Membership (Row)
+by Latent Class (Column)
+
+           1        2
+
+    1   0.875    0.125
+    2   0.126    0.874
+
+
+TECHNICAL 1 OUTPUT
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS PATTERN 1 1 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           LAMBDA
+              F
+              ________
+ U11                1
+ U12                2
+ U13                3
+ U14                4
+ U15                5
+ U21                1
+ U22                2
+ U23                3
+ U24                4
+ U25                5
+ U31                1
+ U32                2
+ U33                3
+ U34                4
+ U35                5
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11                0
+ U12                0             0
+ U13                0             0             0
+ U14                0             0             0             0
+ U15                0             0             0             0             0
+ U21                0             0             0             0             0
+ U22                0             0             0             0             0
+ U23                0             0             0             0             0
+ U24                0             0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21                0
+ U22                0             0
+ U23                0             0             0
+ U24                0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31                0
+ U32                0             0
+ U33                0             0             0
+ U34                0             0             0             0
+ U35                0             0             0             0             0
+
+
+           ALPHA
+              F
+              ________
+                    0
+
+
+           BETA
+              F
+              ________
+ F                  0
+
+
+           PSI
+              F
+              ________
+ F                  0
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS PATTERN 1 1 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           LAMBDA
+              F
+              ________
+ U11                1
+ U12                2
+ U13                3
+ U14                4
+ U15                5
+ U21                1
+ U22                2
+ U23                3
+ U24                4
+ U25                5
+ U31                1
+ U32                2
+ U33                3
+ U34                4
+ U35                5
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11                0
+ U12                0             0
+ U13                0             0             0
+ U14                0             0             0             0
+ U15                0             0             0             0             0
+ U21                0             0             0             0             0
+ U22                0             0             0             0             0
+ U23                0             0             0             0             0
+ U24                0             0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21                0
+ U22                0             0
+ U23                0             0             0
+ U24                0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31                0
+ U32                0             0
+ U33                0             0             0
+ U34                0             0             0             0
+ U35                0             0             0             0             0
+
+
+           ALPHA
+              F
+              ________
+                    0
+
+
+           BETA
+              F
+              ________
+ F                  0
+
+
+           PSI
+              F
+              ________
+ F                  0
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS PATTERN 1 2 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           LAMBDA
+              F
+              ________
+ U11                1
+ U12                2
+ U13                3
+ U14                4
+ U15                5
+ U21                1
+ U22                2
+ U23                3
+ U24                4
+ U25                5
+ U31                1
+ U32                2
+ U33                3
+ U34                4
+ U35                5
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11                0
+ U12                0             0
+ U13                0             0             0
+ U14                0             0             0             0
+ U15                0             0             0             0             0
+ U21                0             0             0             0             0
+ U22                0             0             0             0             0
+ U23                0             0             0             0             0
+ U24                0             0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21                0
+ U22                0             0
+ U23                0             0             0
+ U24                0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31                0
+ U32                0             0
+ U33                0             0             0
+ U34                0             0             0             0
+ U35                0             0             0             0             0
+
+
+           ALPHA
+              F
+              ________
+                    0
+
+
+           BETA
+              F
+              ________
+ F                  0
+
+
+           PSI
+              F
+              ________
+ F                  0
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS PATTERN 1 2 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           LAMBDA
+              F
+              ________
+ U11                1
+ U12                2
+ U13                3
+ U14                4
+ U15                5
+ U21                1
+ U22                2
+ U23                3
+ U24                4
+ U25                5
+ U31                1
+ U32                2
+ U33                3
+ U34                4
+ U35                5
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11                0
+ U12                0             0
+ U13                0             0             0
+ U14                0             0             0             0
+ U15                0             0             0             0             0
+ U21                0             0             0             0             0
+ U22                0             0             0             0             0
+ U23                0             0             0             0             0
+ U24                0             0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21                0
+ U22                0             0
+ U23                0             0             0
+ U24                0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31                0
+ U32                0             0
+ U33                0             0             0
+ U34                0             0             0             0
+ U35                0             0             0             0             0
+
+
+           ALPHA
+              F
+              ________
+                    0
+
+
+           BETA
+              F
+              ________
+ F                  0
+
+
+           PSI
+              F
+              ________
+ F                  0
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS PATTERN 2 1 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           LAMBDA
+              F
+              ________
+ U11                1
+ U12                2
+ U13                3
+ U14                4
+ U15                5
+ U21                1
+ U22                2
+ U23                3
+ U24                4
+ U25                5
+ U31                1
+ U32                2
+ U33                3
+ U34                4
+ U35                5
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11                0
+ U12                0             0
+ U13                0             0             0
+ U14                0             0             0             0
+ U15                0             0             0             0             0
+ U21                0             0             0             0             0
+ U22                0             0             0             0             0
+ U23                0             0             0             0             0
+ U24                0             0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21                0
+ U22                0             0
+ U23                0             0             0
+ U24                0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31                0
+ U32                0             0
+ U33                0             0             0
+ U34                0             0             0             0
+ U35                0             0             0             0             0
+
+
+           ALPHA
+              F
+              ________
+                    0
+
+
+           BETA
+              F
+              ________
+ F                  0
+
+
+           PSI
+              F
+              ________
+ F                  0
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS PATTERN 2 1 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           LAMBDA
+              F
+              ________
+ U11                1
+ U12                2
+ U13                3
+ U14                4
+ U15                5
+ U21                1
+ U22                2
+ U23                3
+ U24                4
+ U25                5
+ U31                1
+ U32                2
+ U33                3
+ U34                4
+ U35                5
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11                0
+ U12                0             0
+ U13                0             0             0
+ U14                0             0             0             0
+ U15                0             0             0             0             0
+ U21                0             0             0             0             0
+ U22                0             0             0             0             0
+ U23                0             0             0             0             0
+ U24                0             0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21                0
+ U22                0             0
+ U23                0             0             0
+ U24                0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31                0
+ U32                0             0
+ U33                0             0             0
+ U34                0             0             0             0
+ U35                0             0             0             0             0
+
+
+           ALPHA
+              F
+              ________
+                    0
+
+
+           BETA
+              F
+              ________
+ F                  0
+
+
+           PSI
+              F
+              ________
+ F                  0
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS PATTERN 2 2 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           LAMBDA
+              F
+              ________
+ U11                1
+ U12                2
+ U13                3
+ U14                4
+ U15                5
+ U21                1
+ U22                2
+ U23                3
+ U24                4
+ U25                5
+ U31                1
+ U32                2
+ U33                3
+ U34                4
+ U35                5
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11                0
+ U12                0             0
+ U13                0             0             0
+ U14                0             0             0             0
+ U15                0             0             0             0             0
+ U21                0             0             0             0             0
+ U22                0             0             0             0             0
+ U23                0             0             0             0             0
+ U24                0             0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21                0
+ U22                0             0
+ U23                0             0             0
+ U24                0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31                0
+ U32                0             0
+ U33                0             0             0
+ U34                0             0             0             0
+ U35                0             0             0             0             0
+
+
+           ALPHA
+              F
+              ________
+                    0
+
+
+           BETA
+              F
+              ________
+ F                  0
+
+
+           PSI
+              F
+              ________
+ F                  0
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS PATTERN 2 2 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                    0             0             0             0             0
+
+
+           LAMBDA
+              F
+              ________
+ U11                1
+ U12                2
+ U13                3
+ U14                4
+ U15                5
+ U21                1
+ U22                2
+ U23                3
+ U24                4
+ U25                5
+ U31                1
+ U32                2
+ U33                3
+ U34                4
+ U35                5
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11                0
+ U12                0             0
+ U13                0             0             0
+ U14                0             0             0             0
+ U15                0             0             0             0             0
+ U21                0             0             0             0             0
+ U22                0             0             0             0             0
+ U23                0             0             0             0             0
+ U24                0             0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21                0
+ U22                0             0
+ U23                0             0             0
+ U24                0             0             0             0
+ U25                0             0             0             0             0
+ U31                0             0             0             0             0
+ U32                0             0             0             0             0
+ U33                0             0             0             0             0
+ U34                0             0             0             0             0
+ U35                0             0             0             0             0
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31                0
+ U32                0             0
+ U33                0             0             0
+ U34                0             0             0             0
+ U35                0             0             0             0             0
+
+
+           ALPHA
+              F
+              ________
+                    0
+
+
+           BETA
+              F
+              ________
+ F                  0
+
+
+           PSI
+              F
+              ________
+ F                  0
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS INDICATOR MODEL PART
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                    6             7             8             9            10
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                   11            12            13            14            15
+
+
+     PARAMETER SPECIFICATION FOR LATENT CLASS REGRESSION MODEL PART
+
+
+           ALPHA(C)
+              C1#1          C1#2          C2#1          C2#2          C3#1
+              ________      ________      ________      ________      ________
+                   16             0            17             0            18
+
+
+           ALPHA(C)
+              C3#2
+              ________
+                    0
+
+
+           GAMMA(C)
+              F
+              ________
+ C1#1               0
+ C1#2               0
+ C2#1               0
+ C2#2               0
+ C3#1               0
+ C3#2               0
+
+
+           BETA(C)
+              C1#1          C1#2
+              ________      ________
+ C2#1              19             0
+ C2#2               0             0
+
+
+           BETA(C)
+              C2#1          C2#2
+              ________      ________
+ C3#1              20             0
+ C3#2               0             0
+
+
+     PARAMETER SPECIFICATION FOR THE ADDITIONAL PARAMETERS
+
+
+           NEW/ADDITIONAL PARAMETERS
+              TRANS11       TRANS12       TRANS21       TRANS22       PROB11
+              ________      ________      ________      ________      ________
+                   21            22            23            24            25
+
+
+           NEW/ADDITIONAL PARAMETERS
+              PROB12        PROB21        PROB22
+              ________      ________      ________
+                   26            27            28
+
+
+     STARTING VALUES FOR LATENT CLASS PATTERN 1 1 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           LAMBDA
+              F
+              ________
+ U11            1.000
+ U12            1.000
+ U13            1.000
+ U14            1.000
+ U15            1.000
+ U21            1.000
+ U22            1.000
+ U23            1.000
+ U24            1.000
+ U25            1.000
+ U31            1.000
+ U32            1.000
+ U33            1.000
+ U34            1.000
+ U35            1.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            1.000
+ U12            0.000         1.000
+ U13            0.000         0.000         1.000
+ U14            0.000         0.000         0.000         1.000
+ U15            0.000         0.000         0.000         0.000         1.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            1.000
+ U22            0.000         1.000
+ U23            0.000         0.000         1.000
+ U24            0.000         0.000         0.000         1.000
+ U25            0.000         0.000         0.000         0.000         1.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            1.000
+ U32            0.000         1.000
+ U33            0.000         0.000         1.000
+ U34            0.000         0.000         0.000         1.000
+ U35            0.000         0.000         0.000         0.000         1.000
+
+
+           ALPHA
+              F
+              ________
+                0.000
+
+
+           BETA
+              F
+              ________
+ F              0.000
+
+
+           PSI
+              F
+              ________
+ F              1.000
+
+
+     STARTING VALUES FOR LATENT CLASS PATTERN 1 1 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           LAMBDA
+              F
+              ________
+ U11            1.000
+ U12            1.000
+ U13            1.000
+ U14            1.000
+ U15            1.000
+ U21            1.000
+ U22            1.000
+ U23            1.000
+ U24            1.000
+ U25            1.000
+ U31            1.000
+ U32            1.000
+ U33            1.000
+ U34            1.000
+ U35            1.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            1.000
+ U12            0.000         1.000
+ U13            0.000         0.000         1.000
+ U14            0.000         0.000         0.000         1.000
+ U15            0.000         0.000         0.000         0.000         1.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            1.000
+ U22            0.000         1.000
+ U23            0.000         0.000         1.000
+ U24            0.000         0.000         0.000         1.000
+ U25            0.000         0.000         0.000         0.000         1.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            1.000
+ U32            0.000         1.000
+ U33            0.000         0.000         1.000
+ U34            0.000         0.000         0.000         1.000
+ U35            0.000         0.000         0.000         0.000         1.000
+
+
+           ALPHA
+              F
+              ________
+                0.000
+
+
+           BETA
+              F
+              ________
+ F              0.000
+
+
+           PSI
+              F
+              ________
+ F              1.000
+
+
+     STARTING VALUES FOR LATENT CLASS PATTERN 1 2 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           LAMBDA
+              F
+              ________
+ U11            1.000
+ U12            1.000
+ U13            1.000
+ U14            1.000
+ U15            1.000
+ U21            1.000
+ U22            1.000
+ U23            1.000
+ U24            1.000
+ U25            1.000
+ U31            1.000
+ U32            1.000
+ U33            1.000
+ U34            1.000
+ U35            1.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            1.000
+ U12            0.000         1.000
+ U13            0.000         0.000         1.000
+ U14            0.000         0.000         0.000         1.000
+ U15            0.000         0.000         0.000         0.000         1.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            1.000
+ U22            0.000         1.000
+ U23            0.000         0.000         1.000
+ U24            0.000         0.000         0.000         1.000
+ U25            0.000         0.000         0.000         0.000         1.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            1.000
+ U32            0.000         1.000
+ U33            0.000         0.000         1.000
+ U34            0.000         0.000         0.000         1.000
+ U35            0.000         0.000         0.000         0.000         1.000
+
+
+           ALPHA
+              F
+              ________
+                0.000
+
+
+           BETA
+              F
+              ________
+ F              0.000
+
+
+           PSI
+              F
+              ________
+ F              1.000
+
+
+     STARTING VALUES FOR LATENT CLASS PATTERN 1 2 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           LAMBDA
+              F
+              ________
+ U11            1.000
+ U12            1.000
+ U13            1.000
+ U14            1.000
+ U15            1.000
+ U21            1.000
+ U22            1.000
+ U23            1.000
+ U24            1.000
+ U25            1.000
+ U31            1.000
+ U32            1.000
+ U33            1.000
+ U34            1.000
+ U35            1.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            1.000
+ U12            0.000         1.000
+ U13            0.000         0.000         1.000
+ U14            0.000         0.000         0.000         1.000
+ U15            0.000         0.000         0.000         0.000         1.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            1.000
+ U22            0.000         1.000
+ U23            0.000         0.000         1.000
+ U24            0.000         0.000         0.000         1.000
+ U25            0.000         0.000         0.000         0.000         1.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            1.000
+ U32            0.000         1.000
+ U33            0.000         0.000         1.000
+ U34            0.000         0.000         0.000         1.000
+ U35            0.000         0.000         0.000         0.000         1.000
+
+
+           ALPHA
+              F
+              ________
+                0.000
+
+
+           BETA
+              F
+              ________
+ F              0.000
+
+
+           PSI
+              F
+              ________
+ F              1.000
+
+
+     STARTING VALUES FOR LATENT CLASS PATTERN 2 1 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           LAMBDA
+              F
+              ________
+ U11            1.000
+ U12            1.000
+ U13            1.000
+ U14            1.000
+ U15            1.000
+ U21            1.000
+ U22            1.000
+ U23            1.000
+ U24            1.000
+ U25            1.000
+ U31            1.000
+ U32            1.000
+ U33            1.000
+ U34            1.000
+ U35            1.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            1.000
+ U12            0.000         1.000
+ U13            0.000         0.000         1.000
+ U14            0.000         0.000         0.000         1.000
+ U15            0.000         0.000         0.000         0.000         1.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            1.000
+ U22            0.000         1.000
+ U23            0.000         0.000         1.000
+ U24            0.000         0.000         0.000         1.000
+ U25            0.000         0.000         0.000         0.000         1.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            1.000
+ U32            0.000         1.000
+ U33            0.000         0.000         1.000
+ U34            0.000         0.000         0.000         1.000
+ U35            0.000         0.000         0.000         0.000         1.000
+
+
+           ALPHA
+              F
+              ________
+                0.000
+
+
+           BETA
+              F
+              ________
+ F              0.000
+
+
+           PSI
+              F
+              ________
+ F              1.000
+
+
+     STARTING VALUES FOR LATENT CLASS PATTERN 2 1 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           LAMBDA
+              F
+              ________
+ U11            1.000
+ U12            1.000
+ U13            1.000
+ U14            1.000
+ U15            1.000
+ U21            1.000
+ U22            1.000
+ U23            1.000
+ U24            1.000
+ U25            1.000
+ U31            1.000
+ U32            1.000
+ U33            1.000
+ U34            1.000
+ U35            1.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            1.000
+ U12            0.000         1.000
+ U13            0.000         0.000         1.000
+ U14            0.000         0.000         0.000         1.000
+ U15            0.000         0.000         0.000         0.000         1.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            1.000
+ U22            0.000         1.000
+ U23            0.000         0.000         1.000
+ U24            0.000         0.000         0.000         1.000
+ U25            0.000         0.000         0.000         0.000         1.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            1.000
+ U32            0.000         1.000
+ U33            0.000         0.000         1.000
+ U34            0.000         0.000         0.000         1.000
+ U35            0.000         0.000         0.000         0.000         1.000
+
+
+           ALPHA
+              F
+              ________
+                0.000
+
+
+           BETA
+              F
+              ________
+ F              0.000
+
+
+           PSI
+              F
+              ________
+ F              1.000
+
+
+     STARTING VALUES FOR LATENT CLASS PATTERN 2 2 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           LAMBDA
+              F
+              ________
+ U11            1.000
+ U12            1.000
+ U13            1.000
+ U14            1.000
+ U15            1.000
+ U21            1.000
+ U22            1.000
+ U23            1.000
+ U24            1.000
+ U25            1.000
+ U31            1.000
+ U32            1.000
+ U33            1.000
+ U34            1.000
+ U35            1.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            1.000
+ U12            0.000         1.000
+ U13            0.000         0.000         1.000
+ U14            0.000         0.000         0.000         1.000
+ U15            0.000         0.000         0.000         0.000         1.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            1.000
+ U22            0.000         1.000
+ U23            0.000         0.000         1.000
+ U24            0.000         0.000         0.000         1.000
+ U25            0.000         0.000         0.000         0.000         1.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            1.000
+ U32            0.000         1.000
+ U33            0.000         0.000         1.000
+ U34            0.000         0.000         0.000         1.000
+ U35            0.000         0.000         0.000         0.000         1.000
+
+
+           ALPHA
+              F
+              ________
+                0.000
+
+
+           BETA
+              F
+              ________
+ F              0.000
+
+
+           PSI
+              F
+              ________
+ F              1.000
+
+
+     STARTING VALUES FOR LATENT CLASS PATTERN 2 2 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           LAMBDA
+              F
+              ________
+ U11            1.000
+ U12            1.000
+ U13            1.000
+ U14            1.000
+ U15            1.000
+ U21            1.000
+ U22            1.000
+ U23            1.000
+ U24            1.000
+ U25            1.000
+ U31            1.000
+ U32            1.000
+ U33            1.000
+ U34            1.000
+ U35            1.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            1.000
+ U12            0.000         1.000
+ U13            0.000         0.000         1.000
+ U14            0.000         0.000         0.000         1.000
+ U15            0.000         0.000         0.000         0.000         1.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            1.000
+ U22            0.000         1.000
+ U23            0.000         0.000         1.000
+ U24            0.000         0.000         0.000         1.000
+ U25            0.000         0.000         0.000         0.000         1.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            1.000
+ U32            0.000         1.000
+ U33            0.000         0.000         1.000
+ U34            0.000         0.000         0.000         1.000
+ U35            0.000         0.000         0.000         0.000         1.000
+
+
+           ALPHA
+              F
+              ________
+                0.000
+
+
+           BETA
+              F
+              ________
+ F              0.000
+
+
+           PSI
+              F
+              ________
+ F              1.000
+
+
+     STARTING VALUES FOR LATENT CLASS INDICATOR MODEL PART
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+     STARTING VALUES FOR LATENT CLASS REGRESSION MODEL PART
+
+
+           ALPHA(C)
+              C1#1          C1#2          C2#1          C2#2          C3#1
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           ALPHA(C)
+              C3#2
+              ________
+                0.000
+
+
+           GAMMA(C)
+              F
+              ________
+ C1#1           0.000
+ C1#2           0.000
+ C2#1           0.000
+ C2#2           0.000
+ C3#1           0.000
+ C3#2           0.000
+
+
+           BETA(C)
+              C1#1          C1#2
+              ________      ________
+ C2#1           0.850         0.000
+ C2#2           0.000         0.000
+
+
+           BETA(C)
+              C2#1          C2#2
+              ________      ________
+ C3#1           0.000         0.000
+ C3#2           0.000         0.000
+
+
+     STARTING VALUES FOR THE ADDITIONAL PARAMETERS
+
+
+           NEW/ADDITIONAL PARAMETERS
+              TRANS11       TRANS12       TRANS21       TRANS22       PROB11
+              ________      ________      ________      ________      ________
+                0.700         0.300         0.500         0.500         0.500
+
+
+           NEW/ADDITIONAL PARAMETERS
+              PROB12        PROB21        PROB22
+              ________      ________      ________
+                0.500         0.600         0.400
+
+
+     POPULATION VALUES FOR LATENT CLASS PATTERN 1 1 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            0.000
+ U12            0.000         0.000
+ U13            0.000         0.000         0.000
+ U14            0.000         0.000         0.000         0.000
+ U15            0.000         0.000         0.000         0.000         0.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            0.000
+ U22            0.000         0.000
+ U23            0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            0.000
+ U32            0.000         0.000
+ U33            0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+     POPULATION VALUES FOR LATENT CLASS PATTERN 1 1 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            0.000
+ U12            0.000         0.000
+ U13            0.000         0.000         0.000
+ U14            0.000         0.000         0.000         0.000
+ U15            0.000         0.000         0.000         0.000         0.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            0.000
+ U22            0.000         0.000
+ U23            0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            0.000
+ U32            0.000         0.000
+ U33            0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+     POPULATION VALUES FOR LATENT CLASS PATTERN 1 2 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            0.000
+ U12            0.000         0.000
+ U13            0.000         0.000         0.000
+ U14            0.000         0.000         0.000         0.000
+ U15            0.000         0.000         0.000         0.000         0.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            0.000
+ U22            0.000         0.000
+ U23            0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            0.000
+ U32            0.000         0.000
+ U33            0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+     POPULATION VALUES FOR LATENT CLASS PATTERN 1 2 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            0.000
+ U12            0.000         0.000
+ U13            0.000         0.000         0.000
+ U14            0.000         0.000         0.000         0.000
+ U15            0.000         0.000         0.000         0.000         0.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            0.000
+ U22            0.000         0.000
+ U23            0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            0.000
+ U32            0.000         0.000
+ U33            0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+     POPULATION VALUES FOR LATENT CLASS PATTERN 2 1 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            0.000
+ U12            0.000         0.000
+ U13            0.000         0.000         0.000
+ U14            0.000         0.000         0.000         0.000
+ U15            0.000         0.000         0.000         0.000         0.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            0.000
+ U22            0.000         0.000
+ U23            0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            0.000
+ U32            0.000         0.000
+ U33            0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+     POPULATION VALUES FOR LATENT CLASS PATTERN 2 1 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            0.000
+ U12            0.000         0.000
+ U13            0.000         0.000         0.000
+ U14            0.000         0.000         0.000         0.000
+ U15            0.000         0.000         0.000         0.000         0.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            0.000
+ U22            0.000         0.000
+ U23            0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            0.000
+ U32            0.000         0.000
+ U33            0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+     POPULATION VALUES FOR LATENT CLASS PATTERN 2 2 1
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            0.000
+ U12            0.000         0.000
+ U13            0.000         0.000         0.000
+ U14            0.000         0.000         0.000         0.000
+ U15            0.000         0.000         0.000         0.000         0.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            0.000
+ U22            0.000         0.000
+ U23            0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            0.000
+ U32            0.000         0.000
+ U33            0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+     POPULATION VALUES FOR LATENT CLASS PATTERN 2 2 2
+
+
+           NU
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           NU
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U11           U12           U13           U14           U15
+              ________      ________      ________      ________      ________
+ U11            0.000
+ U12            0.000         0.000
+ U13            0.000         0.000         0.000
+ U14            0.000         0.000         0.000         0.000
+ U15            0.000         0.000         0.000         0.000         0.000
+ U21            0.000         0.000         0.000         0.000         0.000
+ U22            0.000         0.000         0.000         0.000         0.000
+ U23            0.000         0.000         0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U21           U22           U23           U24           U25
+              ________      ________      ________      ________      ________
+ U21            0.000
+ U22            0.000         0.000
+ U23            0.000         0.000         0.000
+ U24            0.000         0.000         0.000         0.000
+ U25            0.000         0.000         0.000         0.000         0.000
+ U31            0.000         0.000         0.000         0.000         0.000
+ U32            0.000         0.000         0.000         0.000         0.000
+ U33            0.000         0.000         0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+           THETA
+              U31           U32           U33           U34           U35
+              ________      ________      ________      ________      ________
+ U31            0.000
+ U32            0.000         0.000
+ U33            0.000         0.000         0.000
+ U34            0.000         0.000         0.000         0.000
+ U35            0.000         0.000         0.000         0.000         0.000
+
+
+     POPULATION VALUES FOR LATENT CLASS INDICATOR MODEL PART
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 1 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 1 2 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 1 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 1
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 1
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 1
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+                1.000         1.000         1.000         1.000         1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 2
+              U11$1         U12$1         U13$1         U14$1         U15$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 2
+              U21$1         U22$1         U23$1         U24$1         U25$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+           TAU(U) FOR LATENT CLASS PATTERN 2 2 2
+              U31$1         U32$1         U33$1         U34$1         U35$1
+              ________      ________      ________      ________      ________
+               -1.000        -1.000        -1.000        -1.000        -1.000
+
+
+     POPULATION VALUES FOR LATENT CLASS REGRESSION MODEL PART
+
+
+           ALPHA(C)
+              C1#1          C1#2          C2#1          C2#2          C3#1
+              ________      ________      ________      ________      ________
+                0.000         0.000         0.000         0.000         0.000
+
+
+           ALPHA(C)
+              C3#2
+              ________
+                0.000
+
+
+           BETA(C)
+              C1#1          C1#2
+              ________      ________
+ C2#1           0.850         0.000
+ C2#2           0.000         0.000
+
+
+           BETA(C)
+              C2#1          C2#2
+              ________      ________
+ C3#1           0.000         0.000
+ C3#2           0.000         0.000
+
+
+RESULTS SAVING INFORMATION
+
+  Order of data
+
+    Replication number
+    Parameter estimates
+     (saved in order shown in Technical 1 output)
+    Standard errors
+     (saved in order shown in Technical 1 output)
+    Number of Free Parameters
+    H0 Loglikelihood
+    Akaike (AIC)
+    Bayesian (BIC)
+    Sample-Size Adjusted BIC
+    Pearson Chi-Square : Value
+    Pearson Chi-Square : Degrees of Freedom
+    Pearson Chi-Square : P-Value
+    Likelihood Chi-Square : Value
+    Likelihood Chi-Square : Degrees of Freedom
+    Likelihood Chi-Square : P-Value
+
+  Save file
+    LTA_RILTA_N_4000_TP_0.85_TH_1.csv
+
+  Save file format           Free
+
+
+     Beginning Time:   18:13:08
+        Ending Time:   16:18:09
+       Elapsed Time:  406:05:01
+
+
+
+MUTHEN & MUTHEN
+3463 Stoner Ave.
+Los Angeles, CA  90066
+
+Tel: (310) 391-9971
+Fax: (310) 391-8971
+Web: www.StatModel.com
+Support: Support@StatModel.com
+
+Copyright (c) 1998-2024 Muthen & Muthen

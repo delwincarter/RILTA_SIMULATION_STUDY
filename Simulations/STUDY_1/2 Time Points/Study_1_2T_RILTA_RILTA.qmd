@@ -725,8 +725,8 @@ violation_summary <- final_data_with_actuals %>%
     GoodReplications = ifelse(GoodReplications < 0, 0, GoodReplications),
     Reanalysis_Needed = if_else(GoodReplications >= 500, "No", "Yes"),
 Adjusted_Replications_Needed = case_when(
-  True_Violation_Perc >= 100 ~ NA_real_,  
-  TRUE ~ ceiling(500 / (1 - (True_Violation_Perc / 100)) + 50)
+  True_Violation_Perc >= 100 ~ NA_real_,
+  TRUE ~ ceiling(500 / (1 - (True_Violation_Perc / 100 + 0.11)) + 55)
 ),
 Adjusted_Replications_Needed = if_else(
   is.na(Adjusted_Replications_Needed) | Adjusted_Replications_Needed < 500, 
@@ -805,11 +805,14 @@ create_flextable <- function(data) {
     select(
       N_numeric,  
       Lambda,  # Replacing Population with Lambda
-      Total_Rows,
       Total_Violations,
       Percentage_Violations,
       Total_Errors,
       ErrorRate,
+      Total_LL_Failures,
+      LL_Failure_Perc,
+      Total_True_Violations,
+      True_Violation_Perc,
       Adjusted_Replications_Needed
     ) %>%
     as.data.frame()  # Ensures proper structure before passing to flextable
@@ -819,39 +822,60 @@ create_flextable <- function(data) {
     set_header_labels(
       N_numeric = "N",
       Lambda = "\u03BB",  # Lambda symbol (λ)
-      Total_Rows = "N Reps",
       Total_Violations = "V",
       Percentage_Violations = "V %",
       Total_Errors = "\u03B5",  # Epsilon
       ErrorRate = "\u03B5 %",
-      Adjusted_Replications_Needed = "\u2206 Reps Req'd"  # Delta Symbol
+      Total_LL_Failures = "\u2112\u2097",  # ℒₗ
+      LL_Failure_Perc = "\u2112\u2097 %",  # ℒₗ%
+      Total_True_Violations = "\u03C4\u1D65",  # Tau subscript v (𝜏ᵥ)
+      True_Violation_Perc = "\u03C4\u1D65 %",
+      Adjusted_Replications_Needed = "\u2206 Reps Req’d"  # Delta Symbol
     )
 
   # Apply special formatting to headers
   ft <- compose(ft, part = "header", j = "N_numeric", value = as_paragraph(as_i("N")))
   ft <- compose(ft, part = "header", j = "Lambda", value = as_paragraph(as_i("\u03BB")))  # Lambda symbol
-  ft <- compose(ft, part = "header", j = "Total_Rows", value = as_paragraph(as_i("N"), "\n", "Reps"))
+
+  # 🔹 Label Switching Violations
   ft <- compose(ft, part = "header", j = "Total_Violations", value = as_paragraph(as_i("V")))
   ft <- compose(ft, part = "header", j = "Percentage_Violations", value = as_paragraph(as_i("V"), "%"))
-  ft <- compose(ft, part = "header", j = "Total_Errors", value = as_paragraph("\u03B5"))
-  ft <- compose(ft, part = "header", j = "ErrorRate", value = as_paragraph("\u03B5", "%"))
-  ft <- compose(ft, part = "header", j = "Adjusted_Replications_Needed", value = as_paragraph("\u2206", "\n", "Reps", "\n", "Req'd"))
+
+  # 🔹 Mplus Errors
+  ft <- compose(ft, part = "header", j = "Total_Errors", value = as_paragraph(as_i("\u03B5")))  
+  ft <- compose(ft, part = "header", j = "ErrorRate", value = as_paragraph(as_i("\u03B5"), "%"))
+
+  # 🔹 NEW: LL Replication Failures (ℒₗ)
+  ft <- compose(ft, part = "header", j = "Total_LL_Failures", value = as_paragraph(as_i("\u2112"), as_sub("r")))
+  ft <- compose(ft, part = "header", j = "LL_Failure_Perc", value = as_paragraph(as_i("\u2112"), as_sub("r"), "%"))
+
+# 🔹 True Violations (𝜏ᵥ)
+ft <- compose(ft, part = "header", j = "Total_True_Violations", value = as_paragraph(as_i("\u03C4"), as_sub(as_i("v"))))  
+ft <- compose(ft, part = "header", j = "True_Violation_Perc", value = as_paragraph(as_i("\u03C4"), as_sub(as_i("v")), "%"))  
+
+  ft <- compose(ft, part = "header", j = "Adjusted_Replications_Needed", value = as_paragraph(as_i("\u2206"), "\n", as_i("Reps"), "\n", "Req'd"))
 
   # Apply width settings
   ft <- width(ft, j = "N_numeric", width = 1.)
   ft <- width(ft, j = "Lambda", width = 0.6)
-  ft <- width(ft, j = "Total_Rows", width = 0.6)
   ft <- width(ft, j = "Total_Violations", width = 0.6)
   ft <- width(ft, j = "Percentage_Violations", width = 0.6)
   ft <- width(ft, j = "Total_Errors", width = 0.5)
-  ft <- width(ft, j = "ErrorRate", width = 0.6)
+  ft <- width(ft, j = "ErrorRate", width = 0.5)
+  ft <- width(ft, j = "Total_LL_Failures", width = 0.5)
+  ft <- width(ft, j = "LL_Failure_Perc", width = 0.5)
+  ft <- width(ft, j = "Total_True_Violations", width = 0.6)
+  ft <- width(ft, j = "True_Violation_Perc", width = 0.6)
   ft <- width(ft, j = "Adjusted_Replications_Needed", width = 0.6)
 
-ft <- colformat_num(
+ ft <- colformat_num(
   ft,
-  j = c("Percentage_Violations", "ErrorRate"),  
+  j = c("Percentage_Violations", "ErrorRate", "LL_Failure_Perc", "True_Violation_Perc" ),  
   suffix = "%"  # ✅ Adds percentage symbol
 )
+  # Add padding below the subheaders
+#ft <- ft %>%
+ # padding(part = "header", padding = c(0, 0, 6, 0))  # Adjust as needed for top, right, bottom, and left padding
 
   # Enable autofit
   ft <- set_table_properties(ft, layout = "fixed")
@@ -860,7 +884,7 @@ ft <- colformat_num(
   ft <- align(ft, align = "center", part = "all")
 
   # Align header text at the bottom of the cells
-  ft <- valign(ft, part = "header", valign = "bottom")
+  #ft <- valign(ft, part = "header", valign = "bottom")
 
   # Merge vertically identical rows in the "N_numeric" column
   ft <- merge_v(ft, j = "N_numeric")
@@ -868,7 +892,6 @@ ft <- colformat_num(
   # Apply font to the entire table
   ft <- font(ft, fontname = "Avenir Next", part = "all")
 
-  # Format `N_numeric` properly with thin space
   ft <- compose(
     ft,
     part = "body",
@@ -877,22 +900,21 @@ ft <- colformat_num(
     value = as_paragraph(
       as_i("N"),  
       " =\u2009",  # THIN SPACE (Unicode U+2009)
-      as_character(format(N_numeric, big.mark = ",", scientific = FALSE))  # Keeps proper formatting
+      as.character(format(N_numeric, big.mark = ",", scientific = FALSE))  # Keeps proper formatting
     )
   )
 
-  # Add subheader row (adjusted for 8 columns)
+  # Add subheader row
   ft <- add_header_row(
     ft,
-    values = c(" ", "Violations", "Errors", "Adjustments"),  
-    colwidths = c(3, 2, 2, 2)  # Adjusted to match 8 total columns
-  )
+    values = c("N Reps = 500", "Violations", "Errors", "LL Replication", "True Violations", "Adjustments"),  
+    colwidths = c(2, 2, 2, 2, 2, 1))
 
   # Define a transparent border
   no_border <- fp_border(color = "transparent", width = 0)
 
-  # **Remove ONLY the bottom border under the first two columns (the blank subheader)**
-  ft <- hline(ft, i = 1, j = 1:3, border = no_border, part = "header")
+  # **Remove ONLY the bottom border under the first three columns (the blank subheader)**
+  ft <- hline(ft, i = 1, j = 1:2, border = no_border, part = "header")
 
   # Adding color with a correct method
   total_rows <- nrow(data)  # Get the total number of rows in your data
@@ -1419,17 +1441,19 @@ final_data_with_actuals <- final_data_with_actuals %>%
 violation_summary2 <- final_data_with_actuals %>%
   mutate(
     N_numeric = as.numeric(gsub("N = ", "", as.character(N))),
-    N_numeric = ifelse(is.na(N_numeric), 0, N_numeric),
-    Lambda = as.numeric(Lambda)  # Keep Lambda since it’s here
+    N_numeric = ifelse(is.na(N_numeric), 0, N_numeric)
   ) %>%
-  group_by(FileName, Population, N, Lambda, N_numeric) %>%
+  group_by(FileName, Population, N, N_numeric, Lambda) %>%
   summarize(
-    Total_Rows = n(),                                
+    Total_Rows = n(),
+    Total_Violations = sum(Any_Violation, na.rm = TRUE),   
+    Total_Errors = sum(ErrorFlag, na.rm = TRUE),           
+    Total_LL_Failures = sum(LL_Replicated == 0, na.rm = TRUE),  
     Total_True_Violations = sum(True_Violation, na.rm = TRUE),  
+    Percentage_Violations = round((Total_Violations / Total_Rows) * 100, 1),  
     True_Violation_Perc = round((Total_True_Violations / Total_Rows) * 100, 1),  
-    Total_Violations = sum(Any_Violation, na.rm = TRUE),  # For reporting only
-    Total_Errors = sum(ErrorFlag, na.rm = TRUE),         # For reporting only
-    ErrorRate = round((Total_Errors / Total_Rows) * 100, 1),  # For reporting only
+    ErrorRate = round((Total_Errors / Total_Rows) * 100, 1),  
+    LL_Failure_Perc = round((Total_LL_Failures / Total_Rows) * 100, 1),  
     .groups = "drop"
   ) %>%
   mutate(
@@ -1455,20 +1479,31 @@ Adjusted_Replications_Needed = if_else(
       TRUE ~ NA_real_
     )
   ) %>%
-  arrange(factor(N_numeric, levels = c(500, 1000, 2000, 4000)), as.numeric(Population)) %>%
+  arrange(
+    factor(N_numeric, levels = c(500, 1000, 2000, 4000)), 
+    Lambda, 
+    as.numeric(Population)
+  ) %>%
   mutate(
     N = factor(N, levels = c("N = 500", "N = 1000", "N = 2000", "N = 4000")),
     Population = factor(Population, levels = c(".200", ".300", ".400", ".600", ".700", ".800"))
   ) %>%
-  select(
+  dplyr::select(
     FileName, Population, TPs, N, N_numeric, Lambda,  
-    Total_Rows, Total_Violations, Total_Errors,
-    ErrorRate, True_Violation_Perc, GoodReplications,
-    Adjusted_Replications_Needed,
-    Reanalysis_Needed
+    Total_Rows,  
+    Total_Violations, Percentage_Violations,  
+    Total_Errors, ErrorRate,  
+    Total_LL_Failures, LL_Failure_Perc,  
+    Total_True_Violations, True_Violation_Perc,  
+    GoodReplications,  
+    Reanalysis_Needed,
+    Adjusted_Replications_Needed
   ) %>%
   arrange(N_numeric, Lambda, Population) %>%
   mutate(N_numeric = trimws(as.numeric(N_numeric)))
+
+# Write CSV
+write.csv(violation_summary2, here("Simulations", "STUDY_1", "2 Time Points", 'zdata', "violation_summary2_r_r_2t.csv"), row.names = FALSE)
 ```
 
 Prepare Subsets for Visualization
@@ -1995,66 +2030,126 @@ if (all(initial_counts$Initial_Count >= 500)) {
 
 ------------------------------------------------------------------------
 
-### Calculate Monte Carlo Values
+### Calculate Monte Carlo Values via Bootstrapping
 
-*Calculate Monte Carlo values for `TRANS11`, including population values, averages, standard errors, Mean Squared Error (MSE), coverage, and power.*
-
-```{r}
-#| label: "compute-mc-values"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: false
-
-# Compute Monte Carlo Values
-source(here('Child_Docs', 'compute_mc_lambda.R'))
-```
-
-### Calculate Bias and Dichotomous Variables
-
-*Calculate dichotomous variables for Power and Coverage, compute Parameter and SE Bias, and prepare subsets for movers and stayers.*
+*Calculate Monte Carlo values for `TRANS11`, including population values, averages, standard errors, Mean Squared Error (MSE), coverage, power, and dichotomous variables for Power and Coverage,*
 
 ```{r}
-#| label: "calculate-bias-dichotomous-variables"
-#| echo: true
-#| message: false
-#| warning: false
-#| code-fold: false
+library(dplyr)
+library(purrr)
 
-# Step 1: Calculate dichotomous variable for Power (1 if Power >= 0.8, else 0)
-mc_values <- mc_values %>%
-  mutate(Power_Dic = ifelse(Power >= 0.8, 1, 0))
+# 1. Create a function that calculates mc_values from raw replication-level data
+calc_mc_values <- function(data) {
+  # Step A: Clean and convert columns as needed
+  cleaned_data <- data %>%
+    mutate(
+      Population = as.numeric(as.character(Population)),
+      TRANS11 = as.numeric(as.character(TRANS11)),
+      SE_11 = as.numeric(as.character(SE_11))
+    )
+  
+  # Step B: Compute group-level summaries (without grouping by Transitions)
+  mc_values <- cleaned_data %>%
+    group_by(Population, N) %>%
+    summarize(
+      group_size   = n(),
+      average      = round(mean(TRANS11, na.rm = TRUE), 3),
+      average_SE   = round(mean(SE_11, na.rm = TRUE), 3),
+      population_sd= round(sd(TRANS11, na.rm = TRUE), 3),
+      MSE          = round(mean((TRANS11 - Population)^2, na.rm = TRUE), 3),
+      Coverage     = round(mean((Population >= (TRANS11 - 1.96 * SE_11)) &
+                                  (Population <= (TRANS11 + 1.96 * SE_11)), na.rm = TRUE), 3),
+      Power        = round(mean(TRANS11 / SE_11 > 1.96, na.rm = TRUE), 3),
+      Reps_Used    = n(),
+      .groups = "drop"
+    )
+  
+  # Step C: Merge in Transitions from the raw data (or from an auxiliary table if needed)
+  mc_values <- cleaned_data %>%
+    select(FileName, Population, N, Transitions) %>%
+    distinct() %>%
+    right_join(mc_values, by = c("Population", "N"))
+  
+  # Step D: Calculate bias measures
+  mc_values <- mc_values %>%
+    mutate(
+      Parameter_Bias_boot = round((average - Population) / Population * 100, 2),
+      SE_Bias_boot        = round((average_SE - population_sd) / (population_sd + 1e-6) * 100, 2)
+    )
+  
+  # (Optional: add any further transformations or dichotomizations)
+  
+  return(mc_values)
+}
 
-# Step 2: Calculate dichotomous variable for Coverage (0 if outside [0.91, 0.98], else 1)
-mc_values <- mc_values %>%
-  mutate(Coverage_Dic = ifelse(Coverage > 0.98 | Coverage < 0.91, 0, 1))
+# 2. Create a parallelized bootstrap function that uses the above calculation on bootstrap samples
+bootstrap_mc_values <- function(data, n_bootstrap, sample_size) {
+  
+  # Step A: Detect available cores and create a parallel cluster
+  num_cores <- detectCores() - 1  # Use one less than total cores to avoid overloading the system
+  cluster_type <- ifelse(.Platform$OS.type == "windows", "PSOCK", "FORK")  # Use FORK for Mac/Linux, PSOCK for Windows
+  cl <- makeCluster(num_cores, type = cluster_type)  # Create the cluster
+  
+  # Step B: Export necessary functions and objects to the cluster workers
+  clusterExport(cl, c("calc_mc_values", "sample_n", "%>%", "filtered_data_with_no_violations"))
+  clusterEvalQ(cl, { library(dplyr) })  # Ensure each worker loads the required package
 
-# Step 3: Remove any groupings before further calculations
-mc_values <- mc_values %>%
-  ungroup()
+  # Step C: Group data by condition variables (Population, N, Transitions)
+  grouped_data <- data %>%
+    group_by(Population, N, Transitions) %>%
+    group_split()  # Split data so each group runs separately in parallel
+  
+  # Step D: Perform bootstrapping in parallel across worker nodes
+  boot_results <- parLapply(cl, grouped_data, function(group_data) {
+    map_dfr(1:n_bootstrap, function(i) {
+      # Step D1: Draw a bootstrap sample (with replacement) from the replications in this condition
+      boot_sample <- group_data %>% sample_n(sample_size, replace = TRUE)
+      
+      # Step D2: Calculate MC values for the bootstrap sample
+      boot_mc <- calc_mc_values(boot_sample)
+      
+      # Step D3: Add Bootstrap Iteration number
+      boot_mc %>% mutate(Bootstrap_Iteration = i)
+    })
+  }) %>%
+    bind_rows()  # Step E: Combine results from all parallel workers into a single dataframe
 
-# Step 4: Ensure numeric columns are correctly formatted and **convert Population only for calculations**
-mc_values <- mc_values %>%
-  mutate(
-    # Keep average as numeric but **do not convert Population for display purposes**
-    average = as.numeric(average),
-    population_numeric = as.numeric(Population),  # Create a temporary numeric version of Population
-    average_se = as.numeric(average_SE),
-    population_sd = as.numeric(population_sd)
+  # Step F: Stop the parallel cluster to free system resources
+  stopCluster(cl)
+
+  # Step G: Return the final bootstrapped MC values
+  return(boot_results)
+}
+
+# 3. Run the bootstrap procedure on your raw replication-level data
+set.seed(07252005)
+boot_results <- bootstrap_mc_values(filtered_data_with_no_violations, n_bootstrap = 1000, sample_size = 500)
+
+# 4. Aggregate the bootstrap results to get mean bootstrap estimates per condition:
+bootstrap_aggregates <- boot_results %>%
+  group_by(Population, N, Transitions) %>%
+  summarize(
+    Parameter_Bias = mean(Parameter_Bias_boot, na.rm = TRUE),
+    SE_Bias       = mean(SE_Bias_boot, na.rm = TRUE),
+    .groups = "drop"
   )
 
-# Step 5: Calculate Parameter Bias and SE Bias, rounding the results to 2 decimal places
-mc_values <- mc_values %>%
-  mutate(
-    # Use population_numeric for the calculations, but **retain Population in the original format**
-    Parameter_Bias = (average - population_numeric) / population_numeric * 100,  # Bias for the parameter
-    SE_Bias = (average_se - population_sd) / population_sd * 100  # Bias for the standard error
-  ) %>%
-  mutate(across(c(Parameter_Bias, SE_Bias), ~ round(.x, 2)))  # Round to 2 decimal places
+# 5. Calculate your original mc_values (using the full replication set) for comparison:
+original_mc_values <- calc_mc_values(filtered_data_with_no_violations)
 
-# Drop the temporary numeric population column if no longer needed
-mc_values <- mc_values %>%
-  select(-population_numeric)
+# 6. Merge the bootstrap aggregates back to the original values (if desired)
+final_mc_values <- original_mc_values %>%
+  left_join(bootstrap_aggregates, by = c("Population", "N", "Transitions")) %>%
+  mutate(
+    Power_Dic    = ifelse(Power >= 0.8, 1, 0),
+    Coverage_Dic = ifelse(Coverage > 0.98 | Coverage < 0.91, 0, 1)
+  )
+
+# Save or inspect the results
+# Save results
+write.csv(final_mc_values, here("Simulations", "STUDY_1", "2 Time Points", "zbootstrapping", "r_r_2t_mc_final_mc_values.csv"), row.names = FALSE)
+write.csv(boot_results, here("Simulations", "STUDY_1", "2 Time Points", "zbootstrapping", "r_r_2t_boot_results.csv"), row.names = FALSE)
+
 ```
 
 ------------------------------------------------------------------------
@@ -2070,56 +2165,36 @@ mc_values <- mc_values %>%
 #| echo: true
 #| message: false
 #| warning: false
-#| code-fold: false
 
+final_mc_values <- read.csv(here("Simulations", "STUDY_1", "2 Time Points", "zbootstrapping", "r_r_2t_mc_final_mc_values.csv"))
 
 # Assuming Population is numeric in all_data
-all_data <- mc_values
+all_data <- final_mc_values
 
-# Convert N to a factor with the correct labels for plotting
-all_data <- all_data %>%
-  mutate(N = factor(N,
-                    levels = c("N = 500", "N = 1000", "N = 2000", "N = 4000"),  # These are the existing labels
-                    labels = c(`1` = "N = 500", 
-                               `2` = "N = 1000", 
-                               `3` = "N = 2000", 
-                               `4` = "N = 4000")))
-
-# Define the labels for N using expression() for italics, which will be used in plotting
-n_labels <- c(
-  `1` = expression(italic('N') ~ "= 500"),
-  `2` = expression(italic('N') ~ "= 1000"),
-  `3` = expression(italic('N') ~ "= 2000"),
-  `4` = expression(italic('N') ~ "= 4000")
-)
-
-# Assign the labels to the levels
-all_data$N <- factor(all_data$N, labels = n_labels)
-# Now you can use `n_labels` in the plotting code
-
-
-# Ensure that Population_Label is correctly prepared
+# Ensure that the Population_Label uses numeric levels without leading zeros but assigns expression-based labels
 all_data$Population_Label <- factor(all_data$Population, 
     levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),  # Numeric levels without leading zeros
     labels = c(
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .200"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .300"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .400"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .600"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .700"),
-        expression(bold(C[11]) ~ "\u2192" ~ bold(C[21]) ~ " = .800")
+        expression(bold(italic(T))[11] ~ " = .200"),
+        expression(bold(italic(T))[11] ~ " = .300"),
+        expression(bold(italic(T))[11] ~ " = .400"),
+        expression(bold(italic(T))[11] ~ " = .600"),
+        expression(bold(italic(T))[11] ~ " = .700"),
+        expression(bold(italic(T))[11] ~ " = .800")
     )
+)
+
+# Ensure that N is consistently factored and ordered
+all_data$N <- factor(all_data$N, 
+    levels = c("N = 500", "N = 1000", "N = 2000", "N = 4000")
 )
 
 # Subset for Transitions movers (already correctly defined as "Mover")
 subset_mover <- subset(all_data, Transitions == "Mover")
-subset_mover <- subset_mover %>%
-  mutate(Lambda = as.numeric(as.character(Lambda)))
 
 # Subset for Transitions stayers (already correctly defined as "Stayer")
 subset_stayer <- subset(all_data, Transitions == "Stayer")
-subset_stayer <- subset_stayer %>%
-  mutate(Lambda = as.numeric(as.character(Lambda)))
+
 ```
 
 ### Prepare Function for Bias Plots

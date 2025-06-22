@@ -15,7 +15,7 @@ format:
     theme: flatly
     fig-format: svg
     font:
-      main: "Avenir Next LT Pro, Arial, sans-serif"
+      main: "Avenir Next LT Pro, sans-serif"
     page-layout: full
     code-tools: true
 
@@ -414,23 +414,27 @@ source(here('Child_Docs', 'step_3.R'))
 #| warning: false
 #| code-fold: false
 
+# Load libraries
+library(ggplot2)
+library(here)
+
 # Set plot width and height
 plot_width <- 8
 plot_height <- 6
 
-# Take a random sample of up to 250 violators (ensure not to exceed the total number of violators)
-set.seed(123)  # For reproducibility
-sample_size <- min(nrow(violators), 250)  # Handle cases where fewer than 250 violators exist
+# Take a random sample of 1 violator
+set.seed(123)
+sample_size <- 250
 sampled_violators <- violators[sample(nrow(violators), sample_size), ]
 
-# Define the function to create plots sequentially
+# Define the function to create plots
 plot_violator <- function(i) {
   row_data <- sampled_violators[i, ]
   
-  # Extract the file name from the current row
+  # Extract the file name
   file_name <- row_data$FileName
 
-  # Extract probability values for EC1 and EC2 (estimated probabilities) and AC1 and AC2 (actuals)
+  # Extract probability values
   estimated_probabilities <- c(
     as.numeric(row_data[c("Ec1u1", "Ec1u2", "Ec1u3", "Ec1u4", "Ec1u5")]),
     as.numeric(row_data[c("Ec2u1", "Ec2u2", "Ec2u3", "Ec2u4", "Ec2u5")])
@@ -441,45 +445,63 @@ plot_violator <- function(i) {
     as.numeric(row_data[c("Ac2u1", "Ac2u2", "Ac2u3", "Ac2u4", "Ac2u5")])
   )
   
-  # Create labels for the legend with actual values directly from the dataset
-  labels <- c(
-    paste0("EC1: (", round(row_data$Ec1u1, 3), ", ", round(row_data$Ec1u2, 3), ", ", round(row_data$Ec1u3, 3), ", ", round(row_data$Ec1u4, 3), ", ", round(row_data$Ec1u5, 3), ")"),
-    paste0("EC2: (", round(row_data$Ec2u1, 3), ", ", round(row_data$Ec2u2, 3), ", ", round(row_data$Ec2u3, 3), ", ", round(row_data$Ec2u4, 3), ", ", round(row_data$Ec2u5, 3), ")"),
-    paste0("AC1: (", round(row_data$Ac1u1, 3), ", ", round(row_data$Ac1u2, 3), ", ", round(row_data$Ac1u3, 3), ", ", round(row_data$Ac1u4, 3), ", ", round(row_data$Ac1u5, 3), ")"),
-    paste0("AC2: (", round(row_data$Ac2u1, 3), ", ", round(row_data$Ac2u2, 3), ", ", round(row_data$Ac2u3, 3), ", ", round(row_data$Ac2u4, 3), ", ", round(row_data$Ac2u5, 3), ")")
-  )
+  # Create labels for legend with probabilities
+labels <- c(
+  paste0("Population Probabilities Class 1: (", round(row_data$Ac1u1, 3), ", ", round(row_data$Ac1u2, 3), ", ", round(row_data$Ac1u3, 3), ", ", round(row_data$Ac1u4, 3), ", ", round(row_data$Ac1u5, 3), ")"),
+  paste0("Population Probabilities Class 2: (", round(row_data$Ac2u1, 3), ", ", round(row_data$Ac2u2, 3), ", ", round(row_data$Ac2u3, 3), ", ", round(row_data$Ac2u4, 3), ", ", round(row_data$Ac2u5, 3), ")"),
+  paste0("Estimated Probabilities Class 1: (", round(row_data$Ec1u1, 3), ", ", round(row_data$Ec1u2, 3), ", ", round(row_data$Ec1u3, 3), ", ", round(row_data$Ec1u4, 3), ", ", round(row_data$Ec1u5, 3), ")"),
+  paste0("Estimated Probabilities Class 2: (", round(row_data$Ec2u1, 3), ", ", round(row_data$Ec2u2, 3), ", ", round(row_data$Ec2u3, 3), ", ", round(row_data$Ec2u4, 3), ", ", round(row_data$Ec2u5, 3), ")")
+)
 
-  # Step 6: Create a data frame for plotting
-  plot_data <- data.frame(
-    Items = rep(1:5, 4),
-    Probabilities = c(estimated_probabilities, actual_values),
-    Class = rep(labels, each = 5)
-  )
+  # Create data frame for plotting
+plot_data <- data.frame(
+  Items = rep(1:5, 4),
+  Probabilities = c(actual_values, estimated_probabilities),
+  Class = factor(rep(labels, each = 5), levels = labels)
+)
 
-  # Step 7: Create the plot with the file name in the title
-  p <- ggplot(plot_data, aes(x = Items, y = Probabilities, color = Class, group = Class)) +
-    geom_line(size = 1.2) +
-    geom_point(size = 3) +
-    labs(title = file_name, x = "Items", y = "Probabilities") +  # Only the file name in the title
-    theme_minimal(base_size = 16) +
-    theme(panel.background = element_rect(fill = "white"),
-          plot.background = element_rect(fill = "white"),
-          plot.title = element_text(size = 14, hjust = 0.5)) +  # Adjust title size and center
-    scale_color_manual(values = c(
-      "darkblue", "darkgreen",  # EC1 and EC2 (Estimated Probabilities)
-      "lightblue", "lightgreen"  # AC1 and AC2 (Actual Values)
-    ))
+# Create APA-style plot
+p <- ggplot(plot_data, aes(x = Items, y = Probabilities, color = Class, group = Class)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  labs(title = paste0(file_name, " (Violator, Replication ", row_data$Replication, ")"), x = "Items", y = "Probabilities") +
+  theme_minimal(base_size = 18) +
+  theme(
+    text = element_text(family = "Avenir Next", color = "black"),
+    plot.title = element_text(size = 18, hjust = 0.5),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "lightgrey"),
+    panel.grid.minor = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.ticks = element_line(color = "black"),
+    axis.ticks.length = unit(0.1, "cm"),
+    axis.text.y = element_text(margin = margin(r = 2)),
+    axis.text.x = element_text(hjust = 0.5),
+    legend.position = "bottom",
+    legend.direction = "vertical",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 16),
+    plot.margin = margin(5.5, 5.5, 5.5, 5.5)
+  ) +
+  scale_color_manual(values = c(
+    "#113386",
+    "#741A36",
+    "#7F9AD1",
+    "#C28796"
+  )) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.2), expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 5.5), breaks = 1:5, labels = expression(italic(u[1]), italic(u[2]), italic(u[3]), italic(u[4]), italic(u[5])), expand = expansion(mult = c(0, 0.1)))
 
-  ggsave(filename = file.path(here('Simulations', 'STUDY_1', "2 Time Points", "zViolator_Plots", "z2t_lta_lta_violator_plots", paste0("violator_plot_", i, "_", file_name, ".png"))),
-         plot = p, width = plot_width, height = plot_height)
+ggsave(filename = file.path(here("Simulations", "STUDY_1", "2 Time Points", "zViolator_Plots", "z2t_lta_lta_violator_plots", paste0("violator_plot_", i, "_", file_name, ".png"))),
+       plot = p, width = plot_width, height = plot_height)
 }
-
-# Apply the function to generate plots sequentially (without parallelization)
+# Generate plots
 invisible(lapply(1:sample_size, plot_violator))
-
 ```
 
-PLot Non-Violators and inspect for False NEGATIVES
+Plot Non-Violators and inspect for False NEGATIVES
 
 ```{r, eval=FALSE}
 #| label: "plot-non-violators"
@@ -487,10 +509,21 @@ PLot Non-Violators and inspect for False NEGATIVES
 #| message: false
 #| warning: false
 #| code-fold: false
-# Take a random sample of up to 250 non-violators
+
+
+# Load libraries
+library(ggplot2)
+library(dplyr)
+library(here)
+
+# Set plot width and height
+plot_width <- 8
+plot_height <- 6
+
+# Take a random sample of 1 non-violator
 set.seed(123)  # For reproducibility
 non_violators <- filter(final_data_with_actuals, Any_Violation == 0)
-sample_size_non_violators <- min(nrow(non_violators), 250)
+sample_size_non_violators <- 250
 sampled_non_violators <- non_violators[sample(nrow(non_violators), sample_size_non_violators), ]
 
 # Define a function for non-violator plots
@@ -510,38 +543,58 @@ plot_non_violator <- function(i) {
   )
   
   labels <- c(
-    paste0("EC1: (", round(row_data$Ec1u1, 3), ", ", round(row_data$Ec1u2, 3), ", ", round(row_data$Ec1u3, 3), ", ", round(row_data$Ec1u4, 3), ", ", round(row_data$Ec1u5, 3), ")"),
-    paste0("EC2: (", round(row_data$Ec2u1, 3), ", ", round(row_data$Ec2u2, 3), ", ", round(row_data$Ec2u3, 3), ", ", round(row_data$Ec2u4, 3), ", ", round(row_data$Ec2u5, 3), ")"),
-    paste0("AC1: (", round(row_data$Ac1u1, 3), ", ", round(row_data$Ac1u2, 3), ", ", round(row_data$Ac1u3, 3), ", ", round(row_data$Ac1u4, 3), ", ", round(row_data$Ac1u5, 3), ")"),
-    paste0("AC2: (", round(row_data$Ac2u1, 3), ", ", round(row_data$Ac2u2, 3), ", ", round(row_data$Ac2u3, 3), ", ", round(row_data$Ac2u4, 3), ", ", round(row_data$Ac2u5, 3), ")")
+    paste0("Population Probabilities Class 1: (", round(row_data$Ac1u1, 3), ", ", round(row_data$Ac1u2, 3), ", ", round(row_data$Ac1u3, 3), ", ", round(row_data$Ac1u4, 3), ", ", round(row_data$Ac1u5, 3), ")"),
+    paste0("Population Probabilities Class 2: (", round(row_data$Ac2u1, 3), ", ", round(row_data$Ac2u2, 3), ", ", round(row_data$Ac2u3, 3), ", ", round(row_data$Ac2u4, 3), ", ", round(row_data$Ac2u5, 3), ")"),
+    paste0("Estimated Probabilities Class 1: (", round(row_data$Ec1u1, 3), ", ", round(row_data$Ec1u2, 3), ", ", round(row_data$Ec1u3, 3), ", ", round(row_data$Ec1u4, 3), ", ", round(row_data$Ec1u5, 3), ")"),
+    paste0("Estimated Probabilities Class 2: (", round(row_data$Ec2u1, 3), ", ", round(row_data$Ec2u2, 3), ", ", round(row_data$Ec2u3, 3), ", ", round(row_data$Ec2u4, 3), ", ", round(row_data$Ec2u5, 3), ")")
   )
 
   plot_data <- data.frame(
     Items = rep(1:5, 4),
-    Probabilities = c(estimated_probabilities, actual_values),
-    Class = rep(labels, each = 5)
+    Probabilities = c(actual_values, estimated_probabilities),
+    Class = factor(rep(labels, each = 5), levels = labels)
   )
 
-  p <- ggplot(plot_data, aes(x = Items, y = Probabilities, color = Class, group = Class)) +
-    geom_line(size = 1.2) +
-    geom_point(size = 3) +
-    labs(title = paste0(file_name, " (Non-Violator)"), x = "Items", y = "Probabilities") +
-    theme_minimal(base_size = 16) +
-    theme(panel.background = element_rect(fill = "white"),
-          plot.background = element_rect(fill = "white"),
-          plot.title = element_text(size = 14, hjust = 0.5)) +
-    scale_color_manual(values = c(
-      "darkblue", "darkgreen",  # EC1 and EC2 (Estimated Probabilities)
-      "lightblue", "lightgreen"  # AC1 and AC2 (Actual Values)
-    ))
+# Create APA-style plot
+p <- ggplot(plot_data, aes(x = Items, y = Probabilities, color = Class, group = Class)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  labs(title = paste0(file_name, " (Non-Violator, Replication ", row_data$Replication, ")"), x = "Items", y = "Probabilities") +
+  theme_minimal(base_size = 18) +
+  theme(
+    text = element_text(family = "Avenir Next", color = "black"),
+    plot.title = element_text(size = 18, hjust = 0.5),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.grid.major.x = element_blank(),
+    panel.grid.major.y = element_line(color = "lightgrey"),
+    panel.grid.minor = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.ticks = element_line(color = "black"),
+    axis.ticks.length = unit(0.1, "cm"),
+    axis.text.y = element_text(margin = margin(r = 2)),
+    axis.text.x = element_text(hjust = 0.5),
+    legend.position = "bottom",
+    legend.direction = "vertical",
+    legend.title = element_blank(),
+    legend.text = element_text(size = 16),
+    plot.margin = margin(5.5, 5.5, 5.5, 5.5)
+  ) +
+  scale_color_manual(values = c(
+    "#113386",
+    "#741A36",
+    "#7F9AD1",
+    "#C28796"
+  )) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.2), expand = c(0, 0)) +
+  scale_x_continuous(limits = c(0, 5.5), breaks = 1:5, labels = expression(italic(u[1]), italic(u[2]), italic(u[3]), italic(u[4]), italic(u[5])), expand = expansion(mult = c(0, 0.1)))
 
-  ggsave(filename = file.path(here('Simulations', 'STUDY_1', "2 Time Points", "zViolator_Plots", "z2t_lta_lta_non_violator_plots", paste0("non_violator_plot_", i, "_", file_name, ".png"))),
-         plot = p, width = plot_width, height = plot_height)
+ggsave(filename = file.path(here('Simulations', 'STUDY_1', "2 Time Points", "zViolator_Plots", "z2t_lta_lta_non_violator_plots", paste0("non_violator_plot_", i, "_", file_name, ".png"))),
+       plot = p, width = plot_width, height = plot_height)
 }
 
 # Apply function to generate non-violator plots
 invisible(lapply(1:sample_size_non_violators, plot_non_violator))
-
 ```
 
 ------------------------------------------------------------------------
@@ -613,8 +666,6 @@ print(if (any(replication_summary$LL_Not_Replicated > 0, na.rm = TRUE)) {
 })
 all.equal(final_data_with_actuals$ll_csv, final_results$ll_out, tolerance = 1e-4)
 
-
-
 ```
 
 ### Merge Errors with Main Data File
@@ -643,7 +694,6 @@ final_data_with_actuals <- final_data_with_actuals %>%
       TRUE ~ 0
     )
   )
-
 ```
 
 Visualize differences between ll_out and ll_csv
@@ -680,18 +730,6 @@ ll_check_table <- ll_check %>%
 
 # Display the table
 ll_check_table
-```
-
-Create DF of LL differences from .out and .csv files for inspection at the replication level
-
-```{r}
-# Create a dataframe with only rows where ll_out and ll_csv differ
-ll_mismatch <- final_data_with_actuals %>%
-  mutate(diff = round(ll_out - ll_csv, 3)) %>%
-  filter(diff != 0) %>%
-  select(FileName, Replication, ll_out, ll_csv, diff)
-
-
 ```
 
 ### Scrape File Name Components
@@ -806,6 +844,9 @@ Adjusted_Replications_Needed = if_else(
   ) %>%
   arrange(N_numeric, Population) %>%
   mutate(N_numeric = trimws(as.numeric(N_numeric)))
+
+# Write CSV
+write.csv(violation_summary, here("Simulations", "STUDY_1", "2 Time Points", 'zdata', "violation_summary_l_l_2t.csv"), row.names = FALSE)
 ```
 
 ### Create APA Flextable of Label Switching, Errors, and Replications Needed for PART 2
@@ -1492,6 +1533,9 @@ Adjusted_Replications_Needed = if_else(
   ) %>%
   arrange(N_numeric, Population) %>%
   mutate(N_numeric = trimws(as.numeric(N_numeric)))
+
+# Write CSV
+write.csv(violation_summary2, here("Simulations", "STUDY_1", "2 Time Points", 'zdata', "violation_summary2_l_l_2t.csv"), row.names = FALSE)
 ```
 
 *Summarize & Visualize Label Switching Percentage Results*
@@ -1708,19 +1752,29 @@ violation_summary_final <- violation_summary %>%
   arrange(factor(N_numeric, levels = c(500, 1000, 2000, 4000)), Population) %>%
   mutate(N_numeric = trimws(as.numeric(N_numeric)))
 
+# Write CSV
+write.csv(violation_summary_final, here("Simulations", "STUDY_1", "2 Time Points", 'zdata', "violation_summary_final_l_l_2t.csv"), row.names = FALSE)
 ```
 
 Create flextable Function for Final Table
 
 ```{r}
+#| label: "creat-final-error-table"
+#| echo: true
+#| message: false
+#| warning: false
+
+violation_summary_final <- read.csv(
+  here("Simulations", "STUDY_1", "2 Time Points", "zdata", "violation_summary_final_l_l_2t.csv")
+)
+
 create_flextable <- function(data) {
   
   # Keep only the required columns
   data <- data %>%
-    select(
+  dplyr::select(
       N_numeric,  
       Population,  
-      #Total_Rows,
       Violation_Rate,
       LL_Failure_Rate,
       Error_Rate,
@@ -1739,7 +1793,6 @@ create_flextable <- function(data) {
     set_header_labels(
       N_numeric = "N",
       Population = "T11",  
-      #Total_Rows = "N Reps",
       Violation_Rate = "V %",
       LL_Failure_Rate = "ℒₗ %",
       Error_Rate = "\u03B5 %",
@@ -1750,113 +1803,84 @@ create_flextable <- function(data) {
       Final_Error_Rate = "\u03B5 %",
       Final_True_Violation_Rate = "\u03C4ᵥ %",  # ✅ NEW
       Successful_Replications = "Successful Reps"
-    )
+    ) %>%
+    compose(part = "header", j = "N_numeric", value = as_paragraph(as_i("N"))) %>%
+    compose(part = "header", j = "Population", value = as_paragraph(as_i("T"), as_sub("11"))) %>%
+    compose(part = "header", j = "Violation_Rate", value = as_paragraph(as_i("V"), "%")) %>%
+    compose(part = "header", j = "LL_Failure_Rate", value = as_paragraph(as_i("ℒ"), as_sub("r"), "%")) %>%
+    compose(part = "header", j = "Error_Rate", value = as_paragraph(as_i("\u03B5"), "%")) %>%
+    compose(part = "header", j = "True_Violation_Rate", value = as_paragraph(as_i("\u03C4"), as_sub("v"), "%")) %>%
+    compose(part = "header", j = "Final_Violation_Rate", value = as_paragraph(as_i("V"), "%")) %>%
+    compose(part = "header", j = "Final_LL_Failure_Rate", value = as_paragraph(as_i("ℒ"), as_sub("r"), "%")) %>%
+    compose(part = "header", j = "Final_Error_Rate", value = as_paragraph(as_i("\u03B5"), "%")) %>%
+    compose(part = "header", j = "Final_True_Violation_Rate", value = as_paragraph(as_i("\u03C4"), as_sub("v"), "%")) %>%
+    compose(part = "header", j = "Reps_Needed_for_Success", value = as_paragraph("Reps", "\n", "Needed")) %>%
+    compose(part = "header", j = "Successful_Replications", value = as_paragraph("Final", "\n", "Reps")) %>%
+    width(j = "N_numeric", width = .6) %>%
+    width(j = "Population", width = 0.6) %>%
+    width(j = "Violation_Rate", width = 0.6) %>%
+    width(j = "LL_Failure_Rate", width = 0.6) %>%
+    width(j = "Error_Rate", width = 0.4) %>%
+    width(j = "True_Violation_Rate", width = 0.6) %>%
+    width(j = "Reps_Needed_for_Success", width = .8) %>%
+    width(j = "Final_Violation_Rate", width = 0.6) %>%
+    width(j = "Final_LL_Failure_Rate", width = 0.6) %>%
+    width(j = "Final_Error_Rate", width = 0.4) %>%
+    width(j = "Final_True_Violation_Rate", width = 0.6) %>%
+    width(j = "Successful_Replications", width = .6)
 
-  # Apply special formatting to headers
-  ft <- compose(ft, part = "header", j = "N_numeric", value = as_paragraph(as_i("N")))
-  ft <- compose(ft, part = "header", j = "Population", value = as_paragraph(as_i("T"), as_sub("11")))
-  #ft <- compose(ft, part = "header", j = "Total_Rows", value = as_paragraph(as_i("N"), "\n", "Reps"))
-  ft <- compose(ft, part = "header", j = "Violation_Rate", value = as_paragraph(as_i("V"), "%"))
-  ft <- compose(ft, part = "header", j = "LL_Failure_Rate", value = as_paragraph(as_i("ℒ"), as_sub("r"), "%"))
-  ft <- compose(ft, part = "header", j = "Error_Rate", value = as_paragraph(as_i("\u03B5"), "%"))
-  ft <- compose(ft, part = "header", j = "True_Violation_Rate", value = as_paragraph(as_i("\u03C4"), as_sub("v"), "%"))  # ✅ NEW
-  ft <- compose(ft, part = "header", j = "Final_Violation_Rate", value = as_paragraph(as_i("V"), "%"))
-  ft <- compose(ft, part = "header", j = "Final_LL_Failure_Rate", value = as_paragraph(as_i("ℒ"), as_sub("r"), "%"))
-  ft <- compose(ft, part = "header", j = "Final_Error_Rate", value = as_paragraph(as_i("\u03B5"), "%"))
-  ft <- compose(ft, part = "header", j = "Final_True_Violation_Rate", value = as_paragraph(as_i("\u03C4"), as_sub("v"), "%"))  # ✅ NEW
-  ft <- compose(ft, part = "header", j = "Reps_Needed_for_Success", value = as_paragraph("Reps", "\n", "Needed"))
-  ft <- compose(ft, part = "header", j = "Successful_Replications", value = as_paragraph("Final", "\n", "Reps"))
+  # Merge N blocks and vertically center
+  ft <- merge_v(ft, j = "N_numeric") %>%
+    compose(
+      part = "body",
+      j = "N_numeric",
+      i = setdiff(1:nrow(data), seq(1, nrow(data), by = 6)),
+      value = as_paragraph("")
+    ) %>%
+    valign(j = "N_numeric", valign = "center", part = "body")
 
-    # Set column widths
-  ft <- width(ft, j = "N_numeric", width = .6)
-  ft <- width(ft, j = "Population", width = 0.6)  
-  #ft <- width(ft, j = "Total_Rows", width = 0.6) 
-  ft <- width(ft, j = "Violation_Rate", width = 0.6)
-  ft <- width(ft, j = "LL_Failure_Rate", width = 0.6)
-  ft <- width(ft, j = "Error_Rate", width = 0.4)
-  ft <- width(ft, j = "True_Violation_Rate", width = 0.6)  # ✅ NEW
-  ft <- width(ft, j = "Reps_Needed_for_Success", width = .8)
-  ft <- width(ft, j = "Final_Violation_Rate", width = 0.6)
-  ft <- width(ft, j = "Final_LL_Failure_Rate", width = 0.6)
-  ft <- width(ft, j = "Final_Error_Rate", width = 0.4)
-  ft <- width(ft, j = "Final_True_Violation_Rate", width = 0.6)  # ✅ NEW
-  ft <- width(ft, j = "Successful_Replications", width = .6)
+# Add top grouped header row
+ft <- add_header_row(
+  ft,
+  values = c(" ", "Initial 500 Replications", " ", "Adjusted Replications", " "),
+  colwidths = c(2, 4, 1, 4, 1)
+)
 
-  
-  
-  # **Correct vertical centering: Merge "N = _" across 6-row blocks**
-  ft <- merge_v(ft, j = "N_numeric")  
-
-  # **Ensure "N = ..." appears only ONCE in the center of the 6-row block**
-#ft <- compose(
- # ft,
-#  part = "body",
-#  j = "N_numeric",
-#  i = seq(1, nrow(data), by = 6),  # Every 6th row
-#  value = as_paragraph(
-#    as_i("N"),  
-#    " =\u2009",  # THIN SPACE (Unicode U+2009)
-#    format(N_numeric, big.mark = ",", scientific = FALSE)  # Updated
- # )
-#)
-
-  # **Fully remove duplicate N values in merged rows**
-  ft <- compose(
-    ft,
-    part = "body",
-    j = "N_numeric",
-    i = setdiff(1:nrow(data), seq(1, nrow(data), by = 6)),  
-    value = as_paragraph("")
-  )
-
-  # **Align vertically centered**
-  ft <- valign(ft, j = "N_numeric", valign = "center", part = "body")
-
-  # Center all text
-  ft <- align(ft, align = "center", part = "all")
-
-
-  # Apply percentage formatting
+  # Format numeric columns as %
   ft <- colformat_num(
     ft,
     j = c("Violation_Rate", "LL_Failure_Rate", "Error_Rate", "True_Violation_Rate",
-          "Final_Violation_Rate", "Final_LL_Failure_Rate", "Final_Error_Rate", "Final_True_Violation_Rate"),  
-    suffix = "%"  
+          "Final_Violation_Rate", "Final_LL_Failure_Rate", "Final_Error_Rate", "Final_True_Violation_Rate"),
+    suffix = "%"
   )
-  
-ft <- add_header_row(
-  ft,
-  values = c(" ", "Initial 500 Replications", "Adjusted Replications", " "),
-  colwidths = c(2, 4, 5, 1)
-)
 
-  # Define a transparent border
-  no_border <- fp_border(color = "transparent", width = 0)
+  # Color every 6-row block
+  total_rows <- nrow(data)
+  color_rows <- rep(FALSE, total_rows)
+  for (i in seq(1, total_rows, by = 12)) {
+    color_rows[i:(i+5)] <- TRUE
+  }
+  ft <- bg(ft, i = color_rows, bg = "#f0f0f0", part = "body")
 
-  # **Remove ONLY the bottom border under the first three columns (the blank subheader)**
-  ft <- hline(ft, i = 1, j = 1:2, border = no_border, part = "header")
-  ft <- hline(ft, i = 1, j = 12, border = no_border, part = "header")
+thin <- fp_border(color = "black", width = 1)
 
-  # Autofit table layout
-  ft <- set_table_properties(ft, layout = "fixed")
+ft <- ft %>%
+  border_remove() %>%
 
-  # Apply font settings
-  ft <- font(ft, fontname = "Avenir Next", part = "all")
+  # ✅ Reapply group-specific bottom borders manually
+  border(i = 1, j = 3:6, part = "header", border.bottom = thin) %>%   # Under "Initial 500 Replications"
+  border(i = 1, j = 8:11, part = "header", border.bottom = thin) %>%  # Under "Adjusted Replications"
 
-  # Apply font size settings
-ft <- fontsize(ft, size = 14, part = "all")  # Change 10 to your preferred size
+  # ✅ Add top + bottom of entire table (APA lines)
+  hline_top(border = thin, part = "all") %>%
+  hline_bottom(border = thin, part = "all") %>%
 
-  # Get total number of rows
-total_rows <- nrow(data)
+  # ✅ Clean font, layout, and alignment
+  font(fontname = "Avenir Next", part = "all") %>%
+  fontsize(size = 14, part = "all") %>%
+  align(align = "center", part = "all") %>%
+  set_table_properties(layout = "fixed")
 
-# Create a logical vector marking every 6 rows for coloring
-color_rows <- rep(FALSE, total_rows)  
-for (i in seq(1, total_rows, by = 12)) {  
-  color_rows[i:(i+5)] <- TRUE  # ✅ Color every 6-row block
-}
-
-# Apply background color
-ft <- bg(ft, i = color_rows, bg = "#f0f0f0", part = "body")
 
   return(ft)
 }
@@ -1870,18 +1894,228 @@ violation_summary_final_table
 Save FINAL table
 
 ```{r}
-
+#| label: "save-final-error-table"
+#| echo: false
+#| message: false
+#| warning: false
+#| 
 # Save the flextable as an SVG
 invisible(save_as_image(
   violation_summary_final_table,
   path = here("Simulations", "STUDY_1", "2 Time Points", "zErrors", "zl_l_e&v_FINAL.svg")
 ))
 
-# Save the flextable as a Word document
-#invisible(flextable::save_as_xlsx(
- # violation_summary_final_table,
-  #path = here("Simulations", "STUDY_1", "2 Time Points", "zErrors", "zl_l_e&v_FINAL.docx")
-#))
+
+```
+
+# RUN True Violations ANOVA
+
+```{r}
+#| label: "violator-anova"
+#| echo: true
+#| message: false
+#| warning: false
+#| fig.width: 6
+#| fig.height: 4
+
+# Load libraries
+library(ggplot2)
+library(emmeans)
+library(dplyr)
+library(here)
+library(car) # MODIFIED: Added for Type 3 SS
+library(effectsize) # MODIFIED: Moved earlier for clarity
+
+# Load data
+violation_summary_final <- read.csv(
+  here("Simulations", "STUDY_1", "2 Time Points", "zdata", "violation_summary_final_l_l_2t.csv")
+) %>%
+  filter(!is.na(Population), !is.na(N_numeric)) %>%
+  mutate(
+    Population = factor(Population,
+                        levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),
+                        labels = c(".200", ".300", ".400", ".600", ".700", ".800")),
+    N_numeric = factor(N_numeric)
+  )
+
+# Run ANOVA without interaction
+anova_main <- aov(Final_True_Violation_Rate ~ N_numeric + Population, data = violation_summary_final)
+anova_main_type3 <- Anova(anova_main, type = "III") # MODIFIED: Compute Type 3 SS
+print(anova_main_type3) # MODIFIED: Print Type 3 ANOVA
+
+# Get partial eta squared
+eta_squared(anova_main_type3, partial = TRUE) # MODIFIED: Use Type 3 output
+
+# Pairwise comparisons
+em <- emmeans(anova_main, pairwise ~ Population)
+pairwise_results <- summary(em$contrasts, infer = TRUE)
+
+# Plot
+violation_plot <- ggplot(violation_summary_final, aes(x = Population, y = Final_True_Violation_Rate, fill = N_numeric)) +
+  stat_summary(fun = mean, geom = "bar", position = position_dodge(0.8), width = 0.7) +
+  stat_summary(fun.data = mean_se, geom = "errorbar", position = position_dodge(0.8), width = 0.2) +
+  labs(
+    x = expression(italic(T)[11]),
+    y = "Final True Violation Rate (%)",
+    fill = expression(italic(N))
+  ) +
+  scale_y_continuous(limits = c(0, 100)) +
+  theme_minimal(base_size = 12) +
+  theme(
+    #axis.title = element_text(face = "bold"),
+    text = element_text(family = "Avenir Next"),
+    legend.position = "bottom",
+    #legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 10)
+  )
+
+print(violation_plot)
+```
+
+Save Violation Plot
+
+```{r}
+#| label: "save-violator-figure"
+#| echo: true
+#| message: false
+#| warning: false
+
+invisible(ggsave(
+  filename = here("Simulations", "STUDY_1", "2 Time Points", "zposthoc", "l_l_2t_violation_visuals", "l_l_2t_violation_plot.svg"),
+  plot = violation_plot,
+  width = 7,
+  height = 5,
+  units = "in",
+  dpi = 300
+))
+
+```
+
+### **Create Pairwise Comparisons Table**
+
+```{r}
+#| label: "pairwise-comparisons"
+#| echo: true
+#| message: false
+#| warning: false
+
+library(flextable)
+library(dplyr)
+library(stringr)
+library(officer)
+
+# Optional global default
+set_flextable_defaults(word_wrap = FALSE)
+
+#---------------------------
+# STEP 1: Process pairwise_results
+#---------------------------
+
+pairwise_df <- as.data.frame(pairwise_results)
+
+pairwise_df <- pairwise_df %>%
+  mutate(
+    Estimate   = round(as.numeric(estimate), 2),
+    SE         = round(as.numeric(SE), 2),
+    Lower_CL   = round(as.numeric(lower.CL), 2),
+    Upper_CL   = round(as.numeric(upper.CL), 2),
+    t_val      = round(as.numeric(t.ratio), 2),
+    p_val      = round(as.numeric(p.value), 3),
+    p          = ifelse(p_val < .001, "< .001", sub("^0", "", format(p_val, nsmall = 3))),
+    Effect     = paste0(
+      format(Estimate, nsmall = 2), " (",
+      format(Lower_CL, nsmall = 2), ", ",
+      format(Upper_CL, nsmall = 2), ")"
+    )
+  )
+
+pairwise_clean <- pairwise_df[, c("contrast", "Effect", "SE", "df", "t_val", "p")]
+colnames(pairwise_clean)[which(names(pairwise_clean) == "t_val")] <- "t"
+
+#---------------------------
+# STEP 2: Format contrast labels
+#---------------------------
+
+left_right <- str_match(pairwise_clean$contrast, "Population\\.(\\d{3}) - Population\\.(\\d{3})")
+
+ft <- flextable(pairwise_clean) |>
+  compose(
+    j = "contrast",
+    part = "body",
+    value = as_paragraph(
+      as_i("T"), as_sub("11"), " = .", left_right[, 2],
+      " – ",
+      as_i("T"), as_sub("11"), " = .", left_right[, 3]
+    )
+  ) |>
+  set_header_labels(
+    contrast = "Contrast",
+    Effect   = "Estimate (95% CI)",
+    SE       = "SE",
+    df       = "df",
+    t        = "t",
+    p        = "p"
+  ) |>
+  compose(part = "header", j = "SE", value = as_paragraph(as_i("SE"))) |>
+  compose(part = "header", j = "df", value = as_paragraph(as_i("df"))) |>
+  compose(part = "header", j = "t",  value = as_paragraph(as_i("t"))) |>
+  compose(part = "header", j = "p",  value = as_paragraph(as_i("p"))) |>
+  colformat_num(j = "SE", digits = 2, align = "decimal") |>
+  colformat_num(j = "t", digits = 2, align = "decimal") |>
+  align(j = c("contrast", "Effect", "df", "p"), align = "center", part = "all") |>
+  width(j = "contrast", width = 2.2) |>
+  width(j = "Effect", width = 2.5) |>
+  line_spacing(space = 0.9, part = "all") |>
+  padding(j = "contrast", padding.top = 1, padding.bottom = 1, part = "all")
+
+#---------------------------
+# STEP 3: Bold significant p-values
+#---------------------------
+
+sig_rows <- which(pairwise_df$p_val < 0.05)
+ft <- bold(ft, i = sig_rows, j = "p", bold = TRUE, part = "body")
+
+#---------------------------
+# STEP 4: APA styling
+#---------------------------
+
+theme_apa_flex <- function(ft_object) {
+  thin <- fp_border(color = "black", width = 1)
+
+  ft_object <- ft_object |>
+    border_remove() |>
+    font(fontname = "Avenir Next", part = "all") |>
+    fontsize(size = 12, part = "all") |>
+    align(align = "center", part = "all") |>
+    set_table_properties(layout = "fixed") |>
+    hline(i = 1, border = thin, part = "header") |>
+    hline_top(border = thin, part = "all") |>
+    hline_bottom(border = thin, part = "all")
+}
+
+ft <- theme_apa_flex(ft)
+
+#---------------------------
+# FINAL OUTPUT
+#---------------------------
+
+ft
+
+
+```
+
+Save Pairwise Table
+
+```{r}
+#| label: "save-comparisons-table"
+#| echo: false
+#| message: false
+#| warning: false
+invisible(save_as_image(
+  ft,  # your flextable object
+  path = here("Simulations", "STUDY_1", "2 Time Points", "zposthoc", "l_l_2t_violation_visuals", "l_l_2t_violation_pairwise.svg")
+))
+
 ```
 
 ------------------------------------------------------------------------
@@ -2037,9 +2271,222 @@ write.csv(boot_results, here("Simulations", "STUDY_1", "2 Time Points", "zbootst
 
 ```
 
+# RUN Parameter Bias ANOVA
+
+```{r}
+#| label: "parameter-bias-anova"
+#| echo: true
+#| message: false
+#| warning: false
+#| fig-width: 6
+#| fig-height: 4
+
+library(ggplot2)
+library(emmeans)
+library(dplyr)
+library(here)
+library(stringr)
+library(car)        # For aov() and Anova()
+library(effectsize) # For eta_squared()
+
+# Load the final MC aggregate data
+final_mc_values <- read.csv(here("Simulations", "STUDY_1", "2 Time Points", "zbootstrapping", "l_l_2t_mc_final_mc_values.csv")) %>%
+  filter(!is.na(Population), !is.na(N)) %>%
+  mutate(
+    Population = factor(Population,
+                        levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),
+                        labels = c(".200", ".300", ".400", ".600", ".700", ".800")),
+    N_numeric = as.numeric(str_remove(N, "N = ")),
+    N = factor(str_remove(N, "N = "), levels = c("500", "1000", "2000", "4000"))
+  )
+
+# Run ANOVA on final Parameter_Bias
+anova_bias <- aov(Parameter_Bias ~ N_numeric + Population, data = final_mc_values)
+anova_bias_type3 <- Anova(anova_bias, type = "III") # MODIFIED: Compute Type 3 SS
+print(anova_bias_type3) # MODIFIED: Print Type 3 ANOVA
+
+# Calculate effect sizes (partial eta-squared)
+print(eta_squared(anova_bias_type3, partial = TRUE)) # MODIFIED: Use Type 3 output for main effects only
+
+# Pairwise comparisons
+em_bias <- emmeans(anova_bias, pairwise ~ Population)
+pairwise_bias_results <- summary(em_bias$contrasts, infer = TRUE)
+
+bias_plot <- ggplot(final_mc_values, aes(x = Population, y = Parameter_Bias, fill = N)) +
+  stat_summary(fun = mean, geom = "bar", position = position_dodge(0.8), width = 0.7) +
+  labs(
+    x = expression(italic(T)[11]),
+    y = "Parameter Bias (%)",
+    fill = expression(italic(N))
+  ) +
+  scale_y_continuous(limits = c(-5, 5)) +  # 🔥 Tighter y-axis for better visibility
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.title = element_text(face = "plain"),
+    text = element_text(family = "Avenir Next"),
+    legend.position = "bottom",
+    legend.title = element_text(face = "plain"),
+    legend.text = element_text(size = 10)
+  )
+
+print(bias_plot)
+```
+
+Save Violation Plot
+
+```{r}
+#| label: "save-anova-bias-figure"
+#| echo: true
+#| message: false
+#| warning: false
+
+invisible(ggsave(
+  filename = here("Simulations", "STUDY_1", "2 Time Points", "zposthoc", "l_l_2t_bias_visuals", "l_l_2t_ANOVA_BIAS_plot.svg"),
+  plot = bias_plot,
+  width = 7,
+  height = 5,
+  units = "in",
+  dpi = 300
+))
+
+```
+
+### **Create Pairwise Comparisons Table**
+
+```{r}
+#| label: "anova-pairwise-comparisons"
+#| echo: true
+#| message: false
+#| warning: false
+
+library(flextable)
+library(dplyr)
+library(stringr)
+library(officer)
+
+# Optional global default
+set_flextable_defaults(word_wrap = FALSE)
+
+#---------------------------
+# STEP 1: Process pairwise_bias_results
+#---------------------------
+
+pairwise_df <- as.data.frame(pairwise_bias_results) %>%
+  dplyr::mutate(
+    Estimate   = round(as.numeric(estimate), 2),
+    SE         = round(as.numeric(SE), 2),
+    Lower_CL   = round(as.numeric(lower.CL), 2),
+    Upper_CL   = round(as.numeric(upper.CL), 2),
+    t_val      = round(as.numeric(t.ratio), 2),
+    p_val      = round(as.numeric(p.value), 3),
+    p          = ifelse(p_val < .001, "< .001", sub("^0", "", format(p_val, nsmall = 3))),
+    Effect     = paste0(
+      format(Estimate, nsmall = 2), " (",
+      format(Lower_CL, nsmall = 2), ", ",
+      format(Upper_CL, nsmall = 2), ")"
+    )
+  )
+
+#---------------------------
+# STEP 2: Format contrast labels in data frame
+#---------------------------
+
+# Extract left and right values
+left_right <- str_match(pairwise_df$contrast, "Population\\.(\\d{3}) - Population\\.(\\d{3})")
+
+# Create plain text contrast labels for mutate
+pairwise_df <- pairwise_df %>%
+  dplyr::mutate(
+    contrast_formatted = paste0("T₁₁ = .", left_right[, 2], " - T₁₁ = .", left_right[, 3])
+  )
+
+#---------------------------
+# STEP 3: Select columns for table
+#---------------------------
+
+pairwise_clean <- pairwise_df %>%
+  dplyr::select(contrast_formatted, Effect, SE, df, t_val, p) %>%
+  dplyr::rename(
+    Contrast = contrast_formatted,
+    t = t_val
+  )
+
+#---------------------------
+# STEP 4: Create minimal flextable
+#---------------------------
+
+ft <- flextable(pairwise_clean) %>%
+  set_header_labels(
+    Contrast = "Contrast",
+    Effect   = "Estimate (95% CI)",
+    SE       = "SE",
+    df       = "df",
+    t        = "t",
+    p        = "p"
+  ) %>%
+  # Italicize T in Contrast column
+  compose(
+    j = "Contrast",
+    value = as_paragraph(
+      as_i("T"), "₁₁ = .", left_right[, 2], " – ",
+      as_i("T"), "₁₁ = .", left_right[, 3]
+    )
+  ) %>%
+  colformat_double(j = c("SE", "t"), digits = 2) %>%
+  align(j = c("Contrast", "Effect", "df", "p"), align = "center", part = "all") %>%
+  width(j = "Contrast", width = 2.2) %>%
+  width(j = "Effect", width = 2.5) %>%
+  line_spacing(space = 0.9, part = "all") %>%
+  padding(j = "Contrast", padding.top = 1, padding.bottom = 1, part = "all")
+
+#---------------------------
+# STEP 5: Bold significant p-values
+#---------------------------
+
+sig_rows <- which(pairwise_df$p_val < 0.05)
+ft <- bold(ft, i = sig_rows, j = "p", bold = TRUE, part = "body")
+
+#---------------------------
+# STEP 6: APA styling
+#---------------------------
+
+theme_apa_flex <- function(ft_object) {
+  thin <- fp_border(color = "black", width = 1)
+  ft_object %>%
+    border_remove() %>%
+    font(fontname = "Avenir Next", part = "all") %>%
+    fontsize(size = 12, part = "all") %>%
+    align(align = "center", part = "all") %>%
+    set_table_properties(layout = "fixed") %>%
+    hline(i = 1, border = thin, part = "header") %>%
+    hline_top(border = thin, part = "all") %>%
+    hline_bottom(border = thin, part = "all")
+}
+
+ft_bias <- theme_apa_flex(ft)
+
+#---------------------------
+# FINAL OUTPUT
+#---------------------------
+
+ft_bias
+```
+
+```{r}
+#| label: "save-comparisons-table"
+#| echo: false
+#| message: false
+#| warning: false
+invisible(save_as_image(
+  ft_bias,  # your flextable object
+  path = here("Simulations", "STUDY_1", "2 Time Points", "zposthoc", "l_l_2t_bias_visuals", "l_l_2t_pairwise_bias_population.svg")
+))
+
+```
+
 ------------------------------------------------------------------------
 
-## Prepare Data for Visualization
+# Prepare Data for Visualization
 
 ### Subset Data for Bias Plots
 
@@ -2221,31 +2668,41 @@ ggsave(here('Simulations', 'STUDY_1', "2 Time Points", "zFigures", "x2t_lta_lta_
 #| message: false
 #| warning: false
 
-# Step 1: Separate the movers and stayers and ensure sorting by N and Population for each transition
+# Step 1: Separate the movers and stayers and ensure sorting by numeric N and Population
 movers <- all_data %>%
   filter(Transitions == "Mover") %>%
-  arrange(as.numeric(gsub("N = ", "", N)), Population)  # Sort movers by numeric N and Population
+  arrange(as.numeric(str_remove(N, "N = ")), Population)
 
 stayers <- all_data %>%
   filter(Transitions == "Stayer") %>%
-  arrange(as.numeric(gsub("N = ", "", N)), Population)  # Sort stayers by numeric N and Population
+  arrange(as.numeric(str_remove(N, "N = ")), Population)
 
-# Step 2: Assign N_Label only once for each N within Movers and Stayers
+# Step 2: Create N_Label using stripped value of N
 movers <- movers %>%
   group_by(N) %>%
-  mutate(N_Label = ifelse(row_number() == 2, as.character(N), "")) %>%
+  mutate(N_Label = ifelse(row_number() == 2, glue("*N* = {str_remove(N, 'N = ')}"), "")) %>%
   ungroup()
 
 stayers <- stayers %>%
   group_by(N) %>%
-  mutate(N_Label = ifelse(row_number() == 2, as.character(N), "")) %>%
+  mutate(N_Label = ifelse(row_number() == 2, glue("*N* = {str_remove(N, 'N = ')}"), "")) %>%
   ungroup()
+
 
 # Step 3: Combine movers and stayers back into one dataset, keeping them separate by transitions
 all_data_sorted <- bind_rows(movers, stayers)
 
+# Step 3.5: Relabel Population as factor with character labels for display
+all_data_sorted <- all_data_sorted %>%
+  mutate(Population = factor(
+    Population,
+    levels = c(0.2, 0.3, 0.4, 0.6, 0.7, 0.8),
+    labels = c(".200", ".300", ".400", ".600", ".700", ".800")
+  ))
+
 # Step 4: Select necessary columns for the final display
-test_map <- select(all_data_sorted, N_Label, Population, average, Coverage, Power, Parameter_Bias, SE_Bias)
+test_map <- dplyr::select(all_data_sorted, N_Label, Population, average, Coverage, Power, Parameter_Bias, SE_Bias)
+
 ```
 
 ### Prepare Function for Heat Map Creation
@@ -2256,58 +2713,79 @@ test_map <- select(all_data_sorted, N_Label, Population, average, Coverage, Powe
 #| message: false
 #| warning: false
 
-
 # Function to create gt table based on subset data
 create_gt_table <- function(subset, transition_probability) {
   # Create the gt object and set initial formatting
   gt_table <- subset %>%
     gt() %>%
-    opt_table_font(stack = "geometric-humanist") %>% 
-    tab_header(
-      title = paste("LTA Generated & LTA Analyzed with Transition Probability of", transition_probability)
-    ) %>%
+    opt_table_font(font = "Avenir Next") %>%
     cols_label(
       N_Label = "Sample Size",
-      Population = "Transition",
-      average = "Estimated<br>Probability",
+      Population = md("*T*<sub>11</sub>"),
+      average = md("Estimated<br>*T*<sub>11</sub>"),
       Coverage = "Coverage",
       Power = "Power",
       Parameter_Bias = "Parameter <br>Bias",
-      SE_Bias = "Standard Error<br>Bias",
+      SE_Bias = "SE<br>Bias",
       .fn = md
     ) %>%
+    fmt_markdown(columns = "N_Label") %>%   ### ← THIS LINE RIGHT HERE
     tab_spanner(
       label = "Bias",
       columns = c("Parameter_Bias", "SE_Bias")
     ) %>%
     tab_row_group(
-      label = "Stayer Probabilities",  # Label for the first subgroup
-      rows = c(13:24)  # Rows corresponding to the first subgroup
+      label = md("*Stationary Probabilities*"),
+      rows = c(13:24)
     ) %>%
     tab_row_group(
-      label = "Mover Probabilities",  # Label for the second subgroup
-      rows = c(1:12)  # Rows corresponding to the second subgroup
+      label = md("*Non-Stationary Probabilities*"),
+      rows = c(1:12)
     ) %>%
     tab_style(
-      style = cell_text(
-        font = "bold italic"  # Apply bold and italic styling
+      style = cell_text(style = "italic" # Apply bold and italic styling
       ),
       locations = cells_row_groups()  # Apply style to row subheaders
     ) %>%
     fmt_number(columns = c("Parameter_Bias", "SE_Bias"), decimals = 2) %>%  
     fmt_number(columns = 4, decimals = 3) %>%
-tab_options(
-  row.striping.include_table_body = FALSE,  # Disables row striping
-  table_body.hlines.color = "white",  
-  table.border.top.color = "black",
-  table.border.bottom.color = "black",
-  table_body.border.bottom.color = "black",
-  heading.border.bottom.color = "black",
-  column_labels.border.top.color = "black",
-  column_labels.border.bottom.color = "black",
-  row_group.border.bottom.color = "black",
-  row_group.border.top.color = "black"
+text_transform(
+  locations = cells_body(columns = c("average", "Coverage", "Power")),
+  fn = function(x) sub("^0\\.", ".", x)
 ) %>%
+    tab_options(
+      row.striping.include_table_body      = FALSE,
+      table.width                           = pct(75),  # keep this for horizontal width control
+      data_row.padding                      = px(2),   # Tighter vertical padding
+      heading.padding                       = px(0),
+      column_labels.padding                 = px(2),
+      row_group.padding                     = px(2),
+      table_body.hlines.color               = "white",
+
+      # ── FIX THE TWO STRAY GREY LINES ───────────────────
+      table_body.border.top.color           = "black",
+      table_body.border.top.width           = px(1),
+      table_body.border.bottom.color        = "black",
+      table_body.border.bottom.width        = px(1),
+
+      table.border.top.color                = "black",
+      table.border.top.width                = px(1),
+      table.border.bottom.color             = "black",
+      table.border.bottom.width             = px(1),
+
+      heading.border.bottom.color           = "black",
+      heading.border.bottom.width           = px(1),
+
+      column_labels.border.top.color        = "black",
+      column_labels.border.top.width        = px(1),
+      column_labels.border.bottom.color     = "black",
+      column_labels.border.bottom.width     = px(1),
+
+      row_group.border.bottom.color         = "black",
+      row_group.border.bottom.width         = px(1),
+      row_group.border.top.color            = "black",
+      row_group.border.top.width            = px(1)
+    ) %>%
     cols_align(
       align = c("center"),
       columns = everything()
@@ -2345,11 +2823,11 @@ tab_options(
       )
   }
 
-  if (any(subset$Coverage < 0.93 | subset$Coverage > 0.979, na.rm = TRUE)) {
+  if (any(subset$Coverage < 0.91 | subset$Coverage > 0.979, na.rm = TRUE)) {
     gt_table <- gt_table %>%
       data_color(
         columns = "Coverage",
-        rows = subset$Coverage < 0.93 | subset$Coverage > 0.979,
+        rows = subset$Coverage < 0.91 | subset$Coverage > 0.979,
         method = "numeric",
         palette = c("#024F2D", "white"),  # Green for coverage issues
         domain = c(0, 1)
@@ -2378,9 +2856,6 @@ tab_options(
   return(gt_table)
 }
 
-
-
-
 ```
 
 ### Render Heat map
@@ -2395,9 +2870,7 @@ gt_table <- create_gt_table(test_map, "Mover & Stayers")
 
 gt_table
 # Further operations on gt_table
-gt_table |> tab_options(table.width = pct(75)) |> gtsave(here("Simulations", "STUDY_1", "2 Time Points", "zHEATMAPS", "z2t_heatmaps", "2T_L_L.png")
+gt_table |> tab_options(table.width = pct(75)) |> gtsave(here("Simulations", "STUDY_1", "2 Time Points", "zHEATMAPS", "z2t_l_l_heatmaps", "2T_L_L.png")
 )
-
-
 
 ```

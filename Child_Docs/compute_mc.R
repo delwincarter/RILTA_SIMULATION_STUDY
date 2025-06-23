@@ -30,7 +30,7 @@ mc_values <- cleaned_data %>%
 
 # Step 2: **Merge Back `Transitions` Without Affecting Calculations**
 mc_values <- cleaned_data %>%
-  select(FileName, Population, N, Transitions) %>%  # Keep necessary columns
+  dplyr::dplyr::select(FileName, Population, N, Transitions) %>%  # Keep necessary columns
   distinct() %>%  # Remove duplicates
   right_join(mc_values, by = c("Population", "N"))  # Merge without altering calculations
 

@@ -2,14 +2,15 @@ library(parallel)
 library(tidyverse)
 library(stringr)
 
-# ===================================================== #
-#  ✅ SECTION 1: Extract Errors, Log-Likelihood, and Replication
-# ===================================================== #
+# SECTION 1: Extract Errors, Log-Likelihood, and Replication
 extract_all_info <- function(filepath) {
   lines <- readLines(filepath)
-  error_keywords <- c("NON-POSITIVE DEFINITE", "SADDLE")
+  error_keywords <- c(
+    "NON-POSITIVE DEFINITE",  
+    "SADDLE",                 
+    "NONIDENTIFICATION"   
+  )
   
-  # Initialize current replication info
   current_rep <- NA
   current_ll <- NA
   current_LL_Replicated <- "No"
@@ -18,15 +19,11 @@ extract_all_info <- function(filepath) {
   
   results <- list()
   
-  # Process the file line-by-line
   for (i in seq_along(lines)) {
     line <- lines[i]
     
-    # Check for a replication header
     if (str_detect(line, "^REPLICATION\\s+\\d+:")) {
       rep_num <- as.integer(str_extract(line, "\\d+"))
-      
-      # If we've already started a replication and encounter a new one, save the previous record
       if (!is.na(current_rep) && rep_num != current_rep) {
         results[[length(results) + 1]] <- tibble(
           FileName = basename(filepath),
@@ -36,7 +33,6 @@ extract_all_info <- function(filepath) {
           Message = current_message,
           ErrorFlag = current_error_flag
         )
-        # Reset values for the new replication
         current_ll <- NA
         current_LL_Replicated <- "No"
         current_error_flag <- 0
@@ -45,7 +41,6 @@ extract_all_info <- function(filepath) {
       current_rep <- rep_num
     }
     
-    # Look for the log-likelihood marker and process the following lines
     if (str_detect(line, "Final stage loglikelihood values")) {
       start_ll <- i + 1
       end_ll <- min(length(lines), i + 10)
@@ -57,7 +52,6 @@ extract_all_info <- function(filepath) {
       }
     }
     
-    # Check for error keywords
     if (str_detect(line, paste(error_keywords, collapse = "|"))) {
       current_error_flag <- 1
       if (current_message == "None") {
@@ -66,7 +60,6 @@ extract_all_info <- function(filepath) {
     }
   }
   
-  # Save the final replication record if it exists
   if (!is.na(current_rep)) {
     results[[length(results) + 1]] <- tibble(
       FileName = basename(filepath),
@@ -81,9 +74,7 @@ extract_all_info <- function(filepath) {
   bind_rows(results)
 }
 
-# ===================================================== #
-#  ✅ SECTION 2: Parallel Processing
-# ===================================================== #
+# SECTION 2: Parallel Processing
 file_list <- list.files(output_folder, pattern = "\\.out$", full.names = TRUE)
 
 num_cores <- detectCores() - 1
@@ -95,9 +86,7 @@ final_results <- bind_rows(parLapply(cl, file_list, extract_all_info))
 
 stopCluster(cl)
 
-# ===================================================== #
-#  ✅ SECTION 3: Compute Replication Summary
-# ===================================================== #
+# SECTION 3: Compute Replication Summary
 replication_summary <- final_results %>%
   group_by(FileName) %>%
   summarise(
@@ -108,9 +97,7 @@ replication_summary <- final_results %>%
     .groups = "drop"
   )
 
-# ===================================================== #
-#  ✅ SECTION 4: Standardize Log-Likelihood Decimal Precision
-# ===================================================== #
+# SECTION 4: Standardize Log-Likelihood Decimal Precision
 final_results <- final_results %>%
   mutate(ll_out = round(ll_out, 3))
 
@@ -118,19 +105,42 @@ final_data_with_actuals <- final_data_with_actuals %>%
   mutate(ll_csv = as.numeric(ll_csv)) %>%
   mutate(ll_csv = round(ll_csv, 3))
 
-# ===================================================== #
-#  ✅ SECTION 5: Normalize FileName (Ensure Consistency)
-# ===================================================== #
+# SECTION 5: Normalize FileName (Ensure Consistency)
 final_results <- final_results %>%
   mutate(
-    FileName = str_replace(FileName, "\\.out$", ""),  # Remove .out extension
-    FileName = tolower(FileName),  # Standardize filename
-    FileName = str_trim(FileName),  # Trim whitespace
-    Replication = as.character(Replication)  # Convert to character for merging
+    FileName = str_replace(FileName, "\\.out$", ""),
+    FileName = tolower(FileName),
+    FileName = str_trim(FileName),
+    Replication = as.character(Replication)
   )
 
 final_data_with_actuals <- final_data_with_actuals %>%
-  mutate(FileName = str_replace(FileName, "\\.out$", ""),
-         FileName = tolower(FileName),
-         FileName = str_trim(FileName))
+  mutate(
+    FileName = str_replace(FileName, "\\.out$", ""),
+    FileName = tolower(FileName),
+    FileName = str_trim(FileName)
+  )
 
+
+# SECTION 6: Remap FileName for M1-M12 Models
+final_results <- final_results %>%
+  mutate(
+    OriginalModel = sub(".*(m[0-9]+)_.*", "\\1", FileName, ignore.case = TRUE),
+    FileName = case_when(
+      grepl("m[1-3]_", FileName, ignore.case = TRUE) ~ FileName,
+      grepl("m[4-6]_", FileName, ignore.case = TRUE) ~ sub("m[4-6]_", "m1_", FileName, ignore.case = TRUE),
+      grepl("m[7-9]_", FileName, ignore.case = TRUE) ~ sub("m[7-9]_", "m2_", FileName, ignore.case = TRUE),
+      grepl("m(10|11|12)_", FileName, ignore.case = TRUE) ~ sub("m(10|11|12)_", "m3_", FileName, ignore.case = TRUE),
+      TRUE ~ FileName
+    )
+  )
+# SECTION 7: Update Replication Summary with Remapped FileName
+replication_summary <- final_results %>%
+  group_by(FileName) %>%
+  summarise(
+    Total = n(),
+    Replicated_Yes = sum(LL_Replicated == "Yes", na.rm = TRUE),
+    Replicated_No = sum(LL_Replicated == "No", na.rm = TRUE),
+    Error_Count = sum(ErrorFlag, na.rm = TRUE),
+    .groups = "drop"
+  )

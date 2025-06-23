@@ -1,4 +1,5 @@
 library(parallel)
+library(dplyr)
 
 # Step 1: Initialize and define data structures and constants
 M1Ac1u <- c(0.73, 0.73, 0.73, 0.73, 0.73)
@@ -44,7 +45,6 @@ process_row_parallel <- function(i, data) {
   return(combined_row)
 }
 
-
 # Step 8: Convert logits to probabilities for columns 3 to 17 (Ec1u1 to Ec3u5)
 logit_columns <- final_combined_data[, 3:17]  # Adjust to columns 3 to 17
 probabilities <- apply(logit_columns, 2, function(x) round(1 / (1 + exp(-as.numeric(x))), 2))
@@ -76,23 +76,15 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 # Step 15: Ensure that TRANS11 and SE_11 columns are numeric and rounded to 3 decimal places
 trans_se_columns <- c("TRANS11", "SE_11", "ll_csv")
-
 final_data_with_actuals[trans_se_columns] <- lapply(final_data_with_actuals[trans_se_columns], function(x) as.numeric(x))
 
-
 # Step 16: Initialize columns for comparisons and flags 
-
-# Columns for basic comparisons across models
 final_data_with_actuals$X1v3_item1 <- NA
 final_data_with_actuals$X2v3_item2 <- NA
 final_data_with_actuals$X1v2_item3 <- NA
-
-# Additional columns for model-specific comparisons
 final_data_with_actuals$X1v3_item1_model3 <- NA
 final_data_with_actuals$X2v3_item3_model3 <- NA
 final_data_with_actuals$X1v2_item4_model3 <- NA
-
-# Columns for Model 2 specific comparisons
 final_data_with_actuals$X2v3_item1_model2 <- NA
 final_data_with_actuals$X3v2_item2_model2 <- NA
 final_data_with_actuals$X3v1_item3_model2 <- NA
@@ -118,13 +110,11 @@ process_row <- function(i, data) {
     temp$X1v3_item1 <- data$Ec1u1[i] - data$Ec3u1[i]
     temp$X2v3_item2 <- data$Ec2u2[i] - data$Ec3u2[i]
     temp$X1v2_item3 <- data$Ec1u3[i] - data$Ec2u3[i]
-    
   } else if (model == "M2") {
     # Model 2 calculations
     temp$X2v3_item1_model2 <- data$Ec2u1[i] - data$Ec3u1[i]
     temp$X3v2_item2_model2 <- data$Ec3u2[i] - data$Ec2u2[i]
     temp$X3v1_item3_model2 <- data$Ec3u3[i] - data$Ec1u3[i]
-    
   } else if (model == "M3") {
     # Model 3 calculations
     temp$X1v3_item1_model3 <- data$Ec1u1[i] - data$Ec3u1[i]
@@ -146,37 +136,42 @@ for (i in 1:nrow(final_data_with_actuals)) {
   final_data_with_actuals[i, names(parallel_results[[i]])] <- parallel_results[[i]]
 }
 
-# Step 25: Flagging process based on negative values (violators)
+# Step 25: Flagging process based on negative values (violators) with tolerance
+tolerance <- -0.07  # Set tolerance for small negative values
+
 # Model 1 flagging
 final_data_with_actuals$Flag_M1 <- ifelse(
-  final_data_with_actuals$X1v3_item1 < 0 |
-    final_data_with_actuals$X2v3_item2 < 0 |
-    final_data_with_actuals$X1v2_item3 < 0, 
+  final_data_with_actuals$X1v3_item1 < tolerance |
+    final_data_with_actuals$X2v3_item2 < tolerance |
+    final_data_with_actuals$X1v2_item3 < tolerance, 
   1, 0
 )
 
 # Model 2 flagging
 final_data_with_actuals$Flag_M2 <- ifelse(
-  final_data_with_actuals$X2v3_item1_model2 < 0 |
-    final_data_with_actuals$X3v2_item2_model2 < 0 |
-    final_data_with_actuals$X3v1_item3_model2 < 0,
+  final_data_with_actuals$X2v3_item1_model2 < tolerance |
+    final_data_with_actuals$X3v2_item2_model2 < tolerance |
+    final_data_with_actuals$X3v1_item3_model2 < tolerance,
   1, 0
 )
-# Model 3 flaggin
+
+# Model 3 flagging
 final_data_with_actuals$Flag_M3 <- ifelse(
-  final_data_with_actuals$X1v3_item1_model3 < 0 |
-    final_data_with_actuals$X2v3_item3_model3 < 0 |
-    final_data_with_actuals$X1v2_item4_model3 < 0, 
+  final_data_with_actuals$X1v3_item1_model3 < tolerance |
+    final_data_with_actuals$X2v3_item3_model3 < tolerance |
+    final_data_with_actuals$X1v2_item4_model3 < tolerance, 
   1, 0
 )
 
 # Step 26: Final flagging for any violation across models
 final_data_with_actuals$Any_Violation <- ifelse(
-  final_data_with_actuals$Flag_M1 == 1 | final_data_with_actuals$Flag_M2 == 1 | final_data_with_actuals$Flag_M3 == 1, 
+  final_data_with_actuals$Flag_M1 == 1 | 
+    final_data_with_actuals$Flag_M2 == 1 | 
+    final_data_with_actuals$Flag_M3 == 1, 
   1, 0
 )
 
-# step 27: Ensure that all numeric columns are rounded and suppress scientific notation
+# Step 27: Ensure that all numeric columns are rounded and suppress scientific notation
 options(scipen = 999)
 final_data_with_actuals <- final_data_with_actuals %>%
   mutate(across(where(is.numeric) & !all_of(trans_se_columns), ~ round(.x, 3)))

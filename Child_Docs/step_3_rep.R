@@ -25,7 +25,7 @@ probabilities <- apply(logit_columns, 2, function(x) round(1 / (1 + exp(-as.nume
 
 # Combine probabilities with the FileName, Rep, TRANS11, SE_11, and ll_csv columns
 final_combined_data_with_trans_se <- final_combined_data %>%
-  dplyr::select(FileName, Replication, TRANS11, SE_11, ll_csv) %>%  # ✅ Include ll_csv
+  select(FileName, Replication, TRANS11, SE_11, ll_csv) %>%
   bind_cols(as.data.frame(probabilities))
 
 # Step 6: Add actual values to the data in parallel
@@ -82,10 +82,11 @@ processed_chunks <- clusterApply(cl, data_chunks, compute_diffs)
 final_data_with_actuals <- do.call(rbind, processed_chunks)
 stopCluster(cl)
 
-# Flagging logic for violations
+# Flagging logic for violations with tolerance
+tolerance <- -0.07  # Set tolerance for small negative values
 final_data_with_actuals <- final_data_with_actuals %>%
   mutate(
-    Flag_M1 = if_else(rowSums(dplyr::select(., starts_with("X1v2_item")) < 0) >= 1, 1, 0),
+    Flag_M1 = if_else(rowSums(select(., starts_with("X1v2_item")) < tolerance) >= 1, 1, 0),
     Any_Violation = if_else(Flag_M1 == 1, 1, 0)
   )
 
@@ -97,7 +98,7 @@ final_data_with_actuals <- final_data_with_actuals %>%
 
 violators <- filter(final_data_with_actuals, Any_Violation == 1)
 
-# ✅ Ensure `ll_csv` is part of the final output
+# Ensure `ll_csv` is part of the final output
 return(list(
   final_data_with_actuals = final_data_with_actuals,
   violators = violators
